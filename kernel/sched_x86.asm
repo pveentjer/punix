@@ -3,22 +3,13 @@ BITS 32
 
 section .text
 
-global task_start
 global task_context_switch
 global task_prepare_new
 
 %define OFF_EIP  4
 %define OFF_ESP  8
 %define OFF_EBP 12
-
-; void task_start(struct task_struct *t);
-; Jump to a task for the very first time (from scheduler init)
-task_start:
-    mov eax, [esp + 4]        ; eax = t
-    mov esp, [eax + OFF_ESP]  ; switch to task's stack
-    mov ebp, [eax + OFF_EBP]  ; set up frame pointer
-    mov edx, [eax + OFF_EIP]  ; get entry point
-    jmp edx                   ; jump to task entry
+             ; jump to task entry
 
 
 ; void task_prepare_new(struct task_struct *t);

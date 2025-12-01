@@ -55,28 +55,33 @@ void sched_init(void)
     run_queue_init(&run_queue);
 }
 
-/* Caller sets: pid, eip, esp, ebp, eflags, next=NULL */
 void sched_add_task(struct task_struct *task)
 {
-    task->started = 0;
+    // Prepare the new task's stack so it looks like it was context-switched
+    task_prepare_new(task);
     run_queue_push(&run_queue, task);
+}
 
-    screen_print("add task, rq.len:");
-    screen_put_uint64(run_queue.len);
-    screen_put_char('\n');
+void panic()
+{
+    screen_println("Kernel Panic!!!");
+    
+    for (;;)
+    {
+        __asm__ volatile("hlt");
+    }
 }
 
 void sched_start(void)
 {
+    struct task_struct dummy;
     current = run_queue_poll(&run_queue);
     if (!current)
     {
-        for (;;)
-            __asm__ volatile("hlt");
+        panic();
     }
 
-    current->started = 1;
-    task_start(current);     // never returns
+    task_context_switch(&dummy, current);
 }
 
 void yield(void)
@@ -93,22 +98,5 @@ void yield(void)
     current = run_queue_poll(&run_queue);
     struct task_struct *next = current;
 
-    if (!next->started)
-    {
-        screen_println("yield; other new task");
-
-        next->started = 1;
-        
-        // Prepare the new task's stack so it looks like it was context-switched
-        task_prepare_new(next);
-        
-        // Now do a normal context switch
-        task_context_switch(prev, next);
-    }
-    else
-    {
-        screen_println("yield; other old task.");
-
-        task_context_switch(prev, next); // resume saved context
-    }
+    task_context_switch(prev, next);
 }

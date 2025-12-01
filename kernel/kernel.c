@@ -37,7 +37,7 @@ void task_entry2(void)
     {
         for (int k = 0; k < 5; k++)
         {
-            screen_print("Task2 run: ");
+            screen_print("---Task2 run: ");
             screen_put_uint64(i++);
             screen_put_char('\n');
 
