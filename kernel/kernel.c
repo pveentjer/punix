@@ -1,14 +1,6 @@
 #include <stdint.h>
 #include "screen.h"
-
-struct task_struct
-{
-    uint32_t pid;
-    uint32_t eip;
-    uint32_t esp;
-    uint32_t ebp;
-    uint32_t eflags;
-};
+#include "sched.h"
 
 
 /* A dummy task entry point */
