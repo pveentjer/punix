@@ -69,12 +69,12 @@ $(BUILD_DIR)/screen.o: $(KERNEL_DIR)/screen.c | $(BUILD_DIR)
 $(BUILD_DIR)/sched.o: $(KERNEL_DIR)/sched.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/switch_to.o: $(KERNEL_DIR)/switch_to.asm | $(BUILD_DIR)
+$(BUILD_DIR)/sched_x86.o: $(KERNEL_DIR)/sched_x86.asm | $(BUILD_DIR)
 	$(NASM) -f elf32 $< -o $@
 
-$(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/switch_to.o linker.ld | $(BUILD_DIR)
+$(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/sched_x86.o linker.ld | $(BUILD_DIR)
 	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf \
-	    $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/switch_to.o
+	    $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/sched.o $(BUILD_DIR)/sched_x86.o
 	$(OBJCOPY) -O binary $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.bin
 
 # --- Disk image ---
