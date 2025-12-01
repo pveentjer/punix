@@ -1,58 +1,61 @@
+; sched_x86.asm
 BITS 32
 
 section .text
 
 global task_start
-global task_context_store
-global task_context_load
+global task_context_switch
+
+; struct task_struct layout (offsets):
+;  0  pid
+;  4  eip
+;  8  esp
+; 12  ebp
+; 16  eflags
+; ... next, started not used here
 
 %define OFF_EIP  4
 %define OFF_ESP  8
-%define OFF_EBP  12
+%define OFF_EBP 12
 
-; ------------------------------------------------------------
 ; void task_start(struct task_struct *t);
-; First time a task runs: use t->esp as stack and jump to t->eip
-; ------------------------------------------------------------
+; First time a task runs.
 task_start:
-    mov eax, [esp + 4]          ; eax = t
-
-    mov edx, [eax + OFF_EIP]    ; edx = t->eip
-    mov esp, [eax + OFF_ESP]    ; esp = t->esp
-    mov ebp, [eax + OFF_EBP]    ; ebp = t->ebp (0 is fine first time)
-
-    jmp edx                     ; never returns
+    mov eax, [esp + 4]        ; eax = t
+    mov edx, [eax + OFF_EIP]  ; edx = t->eip
+    mov esp, [eax + OFF_ESP]  ; esp = t->esp
+    mov ebp, [eax + OFF_EBP]  ; ebp = t->ebp
+    jmp edx                   ; never returns
 
 
-; ------------------------------------------------------------
-; void task_context_store(struct task_struct *t);
-; Save ESP/EBP and return address into t
-; ------------------------------------------------------------
-task_context_store:
-    push ebp
-    mov  ebp, esp
+; int task_context_switch(struct task_struct *current,
+;                         struct task_struct *next);
+task_context_switch:
+    ; save current context on its stack
+    pushad
+    pushfd
 
-    mov  eax, [ebp + 8]         ; eax = t
+    ; stack layout now:
+    ; esp+0  EFLAGS
+    ; esp+4  EDI
+    ; esp+8  ESI
+    ; esp+12 EBP
+    ; esp+16 saved ESP
+    ; esp+20 EBX
+    ; esp+24 EDX
+    ; esp+28 ECX
+    ; esp+32 EAX
+    ; esp+36 RETADDR (back into yield)
+    ; esp+40 current
+    ; esp+44 next
 
-    ; Save current stack/frame
-    mov  [eax + OFF_ESP], esp
-    mov  [eax + OFF_EBP], ebp
+    mov eax, [esp + 40]       ; eax = current
+    mov [eax + OFF_ESP], esp  ; current->esp = esp
 
-    ; Save return address (where we'll resume in C code)
-    mov  edx, [ebp + 4]         ; get return address from stack
-    mov  [eax + OFF_EIP], edx
+    ; load next context
+    mov eax, [esp + 44]       ; eax = next
+    mov esp, [eax + OFF_ESP]  ; switch to its stack
 
-    pop  ebp
-    ret
-
-
-; ------------------------------------------------------------
-; void task_context_load(struct task_struct *t);
-; Restore ESP/EBP and jump to saved EIP. Never returns.
-; ------------------------------------------------------------
-task_context_load:
-    mov eax, [esp + 4]          ; eax = t
-
-    mov esp, [eax + OFF_ESP]
-    mov ebp, [eax + OFF_EBP]
-    jmp dword [eax + OFF_EIP]   ; jump to saved return address
+    popfd
+    popad
+    ret                       ; back into next's yield caller

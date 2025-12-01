@@ -2,9 +2,8 @@
 #include "screen.h"
 #include "sched.h"
 
-struct run_queue run_queue;
+
 struct task_struct task1, task2;
-struct task_struct *current;
 
 static void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
@@ -12,21 +11,6 @@ static void delay(uint32_t count) {
     }
 }
 
-static void yield(void)
-{
-    screen_println("Context switch");
-
-    if (run_queue.len == 0)
-    {
-        return;
-    }
-
-    task_context_store(current);
-    run_queue_push(&run_queue, current);
-    current = run_queue_poll(&run_queue);
-    task_context_load(current);
-    task_start(current);
-}
 
 void task_entry1(void)
 {
@@ -77,7 +61,7 @@ void kmain(void)
     screen_clear();
     print_bootmsg();
 
-    run_queue_init(&run_queue);
+    sched_init();
 
     task1.pid = 0;
     task1.eip = (uint32_t) task_entry1;
@@ -93,12 +77,8 @@ void kmain(void)
     task2.eflags = 0x202;
     task2.next = NULL;
 
-    run_queue_push(&run_queue, &task1);
-    run_queue_push(&run_queue, &task2);
+    sched_add_task(&task1);
+    sched_add_task(&task2);
 
-    screen_println("run queue length");
-    screen_put_uint64(run_queue.len);
-
-    current = run_queue_poll(&run_queue);
-    task_start(&task1);
+    sched_start();
 }

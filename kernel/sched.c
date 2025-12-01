@@ -1,50 +1,109 @@
+// sched.c
 #include "sched.h"
+#include "screen.h"
 
-void run_queue_init(struct run_queue *run_queue)
+struct run_queue run_queue;
+struct task_struct *current;
+
+/* ---------------- Run queue ---------------- */
+
+void run_queue_init(struct run_queue *rq)
 {
-    run_queue->len = 0;
-    run_queue->first = NULL;
-    run_queue->last = NULL;
+    rq->len = 0;
+    rq->first = NULL;
+    rq->last = NULL;
 }
 
-void run_queue_push(struct run_queue *run_queue, struct task_struct *task)
+void run_queue_push(struct run_queue *rq, struct task_struct *task)
 {
     task->next = NULL;
-    if (run_queue->len == 0)
+    if (rq->len == 0)
     {
-        run_queue->first = task;
-        run_queue->last = task;
-        run_queue->len = 1;
+        rq->first = rq->last = task;
     }
     else
     {
-        run_queue->last->next = task;
-        run_queue->last = task;
-        run_queue->len++;
+        rq->last->next = task;
+        rq->last = task;
     }
+    rq->len++;
 }
 
-struct task_struct *run_queue_poll(struct run_queue *run_queue)
+struct task_struct *run_queue_poll(struct run_queue *rq)
 {
-    size_t len = run_queue->len;
-    if (len == 0)
+    if (rq->len == 0)
     {
         return NULL;
     }
-    else if (len == 1)
+
+    struct task_struct *t = rq->first;
+    rq->first = t->next;
+    rq->len--;
+    if (rq->len == 0)
     {
-        struct task_struct *task = run_queue->first;
-        run_queue->first = NULL;
-        run_queue->last = NULL;
-        run_queue->len = 0;
-        return task;
+        rq->last = NULL;
+    }
+    t->next = NULL;
+    return t;
+}
+
+/* ---------------- Scheduler ---------------- */
+
+void sched_init(void)
+{
+    current = NULL;
+    run_queue_init(&run_queue);
+}
+
+/* Caller sets: pid, eip, esp, ebp, eflags, next=NULL */
+void sched_add_task(struct task_struct *task)
+{
+    task->started = 0;
+    run_queue_push(&run_queue, task);
+
+    screen_print("add task, rq.len:");
+    screen_put_uint64(run_queue.len);
+    screen_put_char('\n');
+}
+
+void sched_start(void)
+{
+    current = run_queue_poll(&run_queue);
+    if (!current)
+    {
+        for (;;)
+            __asm__ volatile("hlt");
+    }
+
+    current->started = 1;
+    task_start(current);     // never returns
+}
+
+void yield(void)
+{
+    if (run_queue.len == 0)
+    {
+        screen_println("yield; no other task.");
+        return;
+    }
+
+    struct task_struct *prev = current;
+    run_queue_push(&run_queue, prev);
+
+    current = run_queue_poll(&run_queue);
+    struct task_struct *next = current;
+
+    if (!next->started)
+    {
+        screen_println("yield; other new task");
+
+        next->started = 1;
+        task_start(next);   // first run, never returns here
     }
     else
     {
-        struct task_struct *task = run_queue->first;
-        run_queue->first = task->next;
-        run_queue->len--;
-        task->next=NULL;
-        return task;
+        screen_println("yield; other old task.");
+
+        task_context_switch(prev, next); // resume saved context
     }
 }
