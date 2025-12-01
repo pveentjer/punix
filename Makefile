@@ -1,5 +1,5 @@
 # ------------------------------------------------------------
-# Munix 0.001 build system
+# Munix 0.001 - 32-bit protected mode build
 # ------------------------------------------------------------
 
 CC      := gcc
@@ -8,12 +8,12 @@ OBJCOPY := objcopy
 NASM    := nasm
 QEMU    := qemu-system-i386
 
-CFLAGS  := -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
+CFLAGS  := -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra -Ikernel
 LDFLAGS := -m elf_i386
 
-KERNEL_DIR	:= kernel
-BUILD_DIR 	:= build
-BOOT_DIR  	:= boot
+BUILD_DIR  := build
+BOOT_DIR   := boot
+KERNEL_DIR := kernel
 
 REQUIRED_TOOLS := $(CC) $(LD) $(OBJCOPY) $(NASM) $(QEMU)
 
@@ -49,23 +49,32 @@ check-tools:
 # ------------------------------------------------------------
 # Build rules
 # ------------------------------------------------------------
-
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
+# --- Boot sector and loader ---
 $(BUILD_DIR)/bootsector.bin: $(BOOT_DIR)/bootsector.asm | $(BUILD_DIR)
 	$(NASM) -f bin $< -o $@
 
 $(BUILD_DIR)/loader.bin: $(BOOT_DIR)/loader.asm | $(BUILD_DIR)
 	$(NASM) -f bin $< -o $@
 
-$(BUILD_DIR)/kernel.o: ${KERNEL_DIR}/kernel.c | $(BUILD_DIR)
+# --- Kernel sources ---
+$(BUILD_DIR)/kernel.o: $(KERNEL_DIR)/kernel.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel.o linker.ld | $(BUILD_DIR)
-	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.o
+$(BUILD_DIR)/screen.o: $(KERNEL_DIR)/screen.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/switch_to.o: $(KERNEL_DIR)/switch_to.asm | $(BUILD_DIR)
+	$(NASM) -f elf32 $< -o $@
+
+$(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/switch_to.o linker.ld | $(BUILD_DIR)
+	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf \
+	    $(BUILD_DIR)/kernel.o $(BUILD_DIR)/screen.o $(BUILD_DIR)/switch_to.o
 	$(OBJCOPY) -O binary $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.bin
 
+# --- Disk image ---
 $(BUILD_DIR)/disk.img: $(BUILD_DIR)/bootsector.bin $(BUILD_DIR)/loader.bin $(BUILD_DIR)/kernel.bin
 	dd if=/dev/zero of=$@ bs=512 count=2880 2>/dev/null
 	dd if=$(BUILD_DIR)/bootsector.bin of=$@ conv=notrunc 2>/dev/null
@@ -76,7 +85,6 @@ $(BUILD_DIR)/disk.img: $(BUILD_DIR)/bootsector.bin $(BUILD_DIR)/loader.bin $(BUI
 # ------------------------------------------------------------
 # Utility targets
 # ------------------------------------------------------------
-
 run: $(BUILD_DIR)/disk.img
 	$(QEMU) -drive format=raw,file=$(BUILD_DIR)/disk.img
 

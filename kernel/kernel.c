@@ -1,29 +1,47 @@
-#define VIDEO_MEMORY 0xB8000
-#define WHITE_ON_BLACK 0x07
-#define SCREEN_SIZE 80 * 25
+#include <stdint.h>
+#include "screen.h"
 
-static void clear_screen(void)
+struct task_struct
 {
-    volatile unsigned char *video = (volatile unsigned char *)VIDEO_MEMORY;
-    for (int i = 0; i < SCREEN_SIZE * 2; i += 2) {
-        video[i] = ' ';             // space
-        video[i + 1] = WHITE_ON_BLACK;
+    uint32_t pid;
+    uint32_t eip;
+    uint32_t esp;
+    uint32_t ebp;
+    uint32_t eflags;
+};
+
+
+/* A dummy task entry point */
+void task_entry(void)
+{
+    for (;;)
+    {
+        screen_println("Task run");
     }
 }
 
-static void print(const char *s)
+static void print_bootmsg(void)
 {
-    volatile char *video = (volatile char*)VIDEO_MEMORY;
-    while (*s) {
-        *video++ = *s++;
-        *video++ = WHITE_ON_BLACK;
-    }
+    screen_println("Munix 0.001");
 }
 
+/* Assembly routine that performs the jump */
+extern void switch_to(struct task_struct *t);
+
+/* Kernel entry point */
 void kmain(void)
 {
-    clear_screen();
-    print("Munix 0.001");
-    for (;;) ;
-}
+    screen_clear();
+    print_bootmsg();
 
+    /* Inline initialization of the task struct */
+    struct task_struct task = {
+            .pid    = 0,
+            .eip    = (uint32_t) task_entry,  /* entry point function */
+            .esp    = 0x90000,               /* stack top */
+            .ebp    = 0x90000,               /* base pointer */
+            .eflags = 0x202                  /* interrupt flag set */
+    };
+
+    switch_to(&task);
+}
