@@ -25,11 +25,8 @@ task_start:
 
 
 ; ------------------------------------------------------------
-; int task_context_store(struct task_struct *t);
-;
-; Save ESP/EBP + a resume EIP into t, and return:
-;   0 when we are *leaving* this task (on yield/schedule-out)
-;   1 when we are *resuming* this task (after context_load)
+; void task_context_store(struct task_struct *t);
+; Save ESP/EBP and return address into t
 ; ------------------------------------------------------------
 task_context_store:
     push ebp
@@ -41,16 +38,10 @@ task_context_store:
     mov  [eax + OFF_ESP], esp
     mov  [eax + OFF_EBP], ebp
 
-    ; Save the address we want to resume at
-    mov  dword [eax + OFF_EIP], .resume
+    ; Save return address (where we'll resume in C code)
+    mov  edx, [ebp + 4]         ; get return address from stack
+    mov  [eax + OFF_EIP], edx
 
-    xor  eax, eax               ; return 0 the first time
-    jmp  .end
-
-.resume:
-    mov  eax, 1                 ; when resumed, we return 1
-
-.end:
     pop  ebp
     ret
 
@@ -64,4 +55,4 @@ task_context_load:
 
     mov esp, [eax + OFF_ESP]
     mov ebp, [eax + OFF_EBP]
-    jmp dword [eax + OFF_EIP]   ; jump to resume point
+    jmp dword [eax + OFF_EIP]   ; jump to saved return address

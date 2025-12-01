@@ -6,6 +6,12 @@ struct run_queue run_queue;
 struct task_struct task1, task2;
 struct task_struct *current;
 
+static void delay(uint32_t count) {
+    for (volatile uint32_t i = 0; i < count; i++) {
+        __asm__ volatile ("nop");
+    }
+}
+
 static void yield(void)
 {
     screen_println("Context switch");
@@ -22,7 +28,6 @@ static void yield(void)
     task_start(current);
 }
 
-/* A dummy task entry point */
 void task_entry1(void)
 {
     uint64_t i = 0;
@@ -33,6 +38,8 @@ void task_entry1(void)
             screen_print("Task1 run: ");
             screen_put_uint64(i++);
             screen_put_char('\n');
+
+            delay(100000000);
         }
 
         yield();
@@ -49,6 +56,8 @@ void task_entry2(void)
             screen_print("Task2 run: ");
             screen_put_uint64(i++);
             screen_put_char('\n');
+
+            delay(100000000);
         }
 
         yield();
