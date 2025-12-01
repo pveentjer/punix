@@ -41,14 +41,14 @@ check-tools:
 
 all: check-tools disk.img
 
-bootsector.bin: bootsector.asm
+bootsector.bin: boot/bootsector.asm
 	$(NASM) -f bin $< -o $@
 
-loader.bin: loader.asm
+loader.bin: boot/loader.asm
 	$(NASM) -f bin $< -o $@
 
-kernel.bin: kernel.c linker.ld
-	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+kernel.bin: kernel/kernel.c linker.ld
+	$(CC) $(CFLAGS) -c kernel/kernel.c -o kernel.o
 	$(LD) $(LDFLAGS) -T linker.ld -o kernel.elf kernel.o
 	$(OBJCOPY) -O binary kernel.elf kernel.bin
 
