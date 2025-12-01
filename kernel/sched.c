@@ -98,7 +98,12 @@ void yield(void)
         screen_println("yield; other new task");
 
         next->started = 1;
-        task_start(next);   // first run, never returns here
+        
+        // Prepare the new task's stack so it looks like it was context-switched
+        task_prepare_new(next);
+        
+        // Now do a normal context switch
+        task_context_switch(prev, next);
     }
     else
     {

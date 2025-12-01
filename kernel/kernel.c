@@ -17,13 +17,13 @@ void task_entry1(void)
     uint64_t i = 0;
     for (;;)
     {
-        for (int k = 0; k < 10; k++)
+        for (int k = 0; k < 5; k++)
         {
             screen_print("Task1 run: ");
             screen_put_uint64(i++);
             screen_put_char('\n');
 
-            delay(100000000);
+            delay(200000000);
         }
 
         yield();
@@ -35,13 +35,13 @@ void task_entry2(void)
     uint64_t i = 0;
     for (;;)
     {
-        for (int k = 0; k < 10; k++)
+        for (int k = 0; k < 5; k++)
         {
             screen_print("Task2 run: ");
             screen_put_uint64(i++);
             screen_put_char('\n');
 
-            delay(100000000);
+            delay(200000000);
         }
 
         yield();

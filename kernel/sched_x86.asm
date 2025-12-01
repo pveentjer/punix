@@ -5,57 +5,98 @@ section .text
 
 global task_start
 global task_context_switch
-
-; struct task_struct layout (offsets):
-;  0  pid
-;  4  eip
-;  8  esp
-; 12  ebp
-; 16  eflags
-; ... next, started not used here
+global task_prepare_new
 
 %define OFF_EIP  4
 %define OFF_ESP  8
 %define OFF_EBP 12
 
 ; void task_start(struct task_struct *t);
-; First time a task runs.
+; Jump to a task for the very first time (from scheduler init)
 task_start:
     mov eax, [esp + 4]        ; eax = t
-    mov edx, [eax + OFF_EIP]  ; edx = t->eip
-    mov esp, [eax + OFF_ESP]  ; esp = t->esp
-    mov ebp, [eax + OFF_EBP]  ; ebp = t->ebp
-    jmp edx                   ; never returns
+    mov esp, [eax + OFF_ESP]  ; switch to task's stack
+    mov ebp, [eax + OFF_EBP]  ; set up frame pointer
+    mov edx, [eax + OFF_EIP]  ; get entry point
+    jmp edx                   ; jump to task entry
 
 
-; int task_context_switch(struct task_struct *current,
-;                         struct task_struct *next);
+; void task_prepare_new(struct task_struct *t);
+; Prepare a new task's stack to look like it was context-switched
+; so we can use task_context_switch to start it
+task_prepare_new:
+    mov eax, [esp + 4]        ; eax = t
+    mov ecx, [eax + OFF_ESP]  ; ecx = t->esp (top of its fresh stack)
+    
+    ; Build a fake context switch frame on the task's stack
+    ; We'll push (from top to bottom):
+    ; - return address (task entry point)
+    ; - saved EBX (0)
+    ; - saved ESI (0)
+    ; - saved EDI (0)
+    ; - saved EBP (initial EBP)
+    ; - saved EFLAGS (0x202)
+    
+    mov edx, [eax + OFF_EIP]  ; task entry point
+    sub ecx, 4
+    mov [ecx], edx            ; return address = entry point
+    
+    sub ecx, 4
+    mov dword [ecx], 0        ; EBX = 0
+    
+    sub ecx, 4
+    mov dword [ecx], 0        ; ESI = 0
+    
+    sub ecx, 4
+    mov dword [ecx], 0        ; EDI = 0
+    
+    mov edx, [eax + OFF_EBP]  ; initial EBP
+    sub ecx, 4
+    mov [ecx], edx            ; saved EBP
+    
+    sub ecx, 4
+    mov dword [ecx], 0x202    ; EFLAGS with interrupts enabled
+    
+    ; Save the new ESP back
+    mov [eax + OFF_ESP], ecx
+    ret
+
+
+; int task_context_switch(struct task_struct *prev, struct task_struct *next);
+; Switch from prev to next task
 task_context_switch:
-    ; save current context on its stack
-    pushad
+    ; Save callee-saved registers and flags
     pushfd
-
-    ; stack layout now:
-    ; esp+0  EFLAGS
-    ; esp+4  EDI
-    ; esp+8  ESI
-    ; esp+12 EBP
-    ; esp+16 saved ESP
-    ; esp+20 EBX
-    ; esp+24 EDX
-    ; esp+28 ECX
-    ; esp+32 EAX
-    ; esp+36 RETADDR (back into yield)
-    ; esp+40 current
-    ; esp+44 next
-
-    mov eax, [esp + 40]       ; eax = current
-    mov [eax + OFF_ESP], esp  ; current->esp = esp
-
-    ; load next context
-    mov eax, [esp + 44]       ; eax = next
-    mov esp, [eax + OFF_ESP]  ; switch to its stack
-
+    push ebp
+    push edi
+    push esi
+    push ebx
+    
+    ; Stack layout now:
+    ; esp+0:  EBX
+    ; esp+4:  ESI
+    ; esp+8:  EDI
+    ; esp+12: EBP
+    ; esp+16: EFLAGS
+    ; esp+20: return address
+    ; esp+24: prev pointer
+    ; esp+28: next pointer
+    
+    mov eax, [esp + 24]       ; eax = prev
+    mov edx, [esp + 28]       ; edx = next
+    
+    ; Save current ESP into prev task
+    mov [eax + OFF_ESP], esp
+    
+    ; Switch to next task's stack
+    mov esp, [edx + OFF_ESP]
+    
+    ; Restore next task's registers (pops in reverse order)
+    pop ebx
+    pop esi
+    pop edi
+    pop ebp
     popfd
-    popad
-    ret                       ; back into next's yield caller
+    
+    xor eax, eax              ; return 0
+    ret                       ; return to next task
