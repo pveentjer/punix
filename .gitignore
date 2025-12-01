@@ -1,5 +1,4 @@
 *.bin
 *.elf
-*.o
-*.img
+build/
 .idea/

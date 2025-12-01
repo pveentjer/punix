@@ -8,14 +8,25 @@ OBJCOPY := objcopy
 NASM    := nasm
 QEMU    := qemu-system-i386
 
-CFLAGS  := -ffreestanding -nostdlib -m32 -O2
+CFLAGS  := -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
 LDFLAGS := -m elf_i386
+
+KERNEL_DIR	:= kernel
+BUILD_DIR 	:= build
+BOOT_DIR  	:= boot
+
+REQUIRED_TOOLS := $(CC) $(LD) $(OBJCOPY) $(NASM) $(QEMU)
+
+.PHONY: all check-tools clean run help
+
+# ------------------------------------------------------------
+# Default target
+# ------------------------------------------------------------
+all: check-tools $(BUILD_DIR)/disk.img
 
 # ------------------------------------------------------------
 # Tool verification
 # ------------------------------------------------------------
-REQUIRED_TOOLS := $(CC) $(LD) $(OBJCOPY) $(NASM) $(QEMU)
-
 check-tools:
 	@missing=""; \
 	for t in $(REQUIRED_TOOLS); do \
@@ -39,31 +50,41 @@ check-tools:
 # Build rules
 # ------------------------------------------------------------
 
-all: check-tools disk.img
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-bootsector.bin: boot/bootsector.asm
+$(BUILD_DIR)/bootsector.bin: $(BOOT_DIR)/bootsector.asm | $(BUILD_DIR)
 	$(NASM) -f bin $< -o $@
 
-loader.bin: boot/loader.asm
+$(BUILD_DIR)/loader.bin: $(BOOT_DIR)/loader.asm | $(BUILD_DIR)
 	$(NASM) -f bin $< -o $@
 
-kernel.bin: kernel/kernel.c linker.ld
-	$(CC) $(CFLAGS) -c kernel/kernel.c -o kernel.o
-	$(LD) $(LDFLAGS) -T linker.ld -o kernel.elf kernel.o
-	$(OBJCOPY) -O binary kernel.elf kernel.bin
+$(BUILD_DIR)/kernel.o: ${KERNEL_DIR}/kernel.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-disk.img: bootsector.bin loader.bin kernel.bin
-	dd if=/dev/zero of=disk.img bs=512 count=2880 2>/dev/null
-	dd if=bootsector.bin of=disk.img conv=notrunc 2>/dev/null
-	dd if=loader.bin of=disk.img bs=512 seek=1 conv=notrunc 2>/dev/null
-	dd if=kernel.bin of=disk.img bs=512 seek=3 conv=notrunc 2>/dev/null
-	@echo "disk.img successfully built."
+$(BUILD_DIR)/kernel.bin: $(BUILD_DIR)/kernel.o linker.ld | $(BUILD_DIR)
+	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.o
+	$(OBJCOPY) -O binary $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.bin
 
-run: disk.img
-	$(QEMU) -drive format=raw,file=disk.img
+$(BUILD_DIR)/disk.img: $(BUILD_DIR)/bootsector.bin $(BUILD_DIR)/loader.bin $(BUILD_DIR)/kernel.bin
+	dd if=/dev/zero of=$@ bs=512 count=2880 2>/dev/null
+	dd if=$(BUILD_DIR)/bootsector.bin of=$@ conv=notrunc 2>/dev/null
+	dd if=$(BUILD_DIR)/loader.bin     of=$@ bs=512 seek=1 conv=notrunc 2>/dev/null
+	dd if=$(BUILD_DIR)/kernel.bin     of=$@ bs=512 seek=3 conv=notrunc 2>/dev/null
+	@echo "disk.img successfully built in $(BUILD_DIR)/"
+
+# ------------------------------------------------------------
+# Utility targets
+# ------------------------------------------------------------
+
+run: $(BUILD_DIR)/disk.img
+	$(QEMU) -drive format=raw,file=$(BUILD_DIR)/disk.img
 
 clean:
-	rm -f *.bin *.elf *.o disk.img
+	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-tools clean run
-
+help:
+	@echo "Available make targets:"
+	@grep -E '^[a-zA-Z0-9_.-]+:([^=]|$$)' Makefile | \
+	    grep -v '^_' | \
+	    awk -F':' '{print "  " $$1}'
