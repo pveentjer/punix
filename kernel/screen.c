@@ -1,11 +1,16 @@
 #include "screen.h"
 
-static inline uint16_t vga_entry(char c, uint8_t attr)
+static inline uint16_t
+
+vga_entry(char c, uint8_t attr)
 {
-    return (uint16_t)c | ((uint16_t)attr << 8);
+    return (uint16_t)
+    c | ((uint16_t)
+    attr << 8);
 }
 
-static volatile uint16_t *const VIDEO = (volatile uint16_t *)VGA_TEXT_MODE_BUFFER;
+static volatile uint16_t *const VIDEO =
+(volatile uint16_t *)VGA_TEXT_MODE_BUFFER;
 static int cursor_row = 0;
 static int cursor_col = 0;
 
@@ -43,7 +48,30 @@ void screen_clear(void)
     cursor_col = 0;
 }
 
-void screen_putc(char c)
+void screen_put_uint64(uint64_t value)
+{
+    char tmp[21];
+    int pos = 0;
+
+    if (value == 0)
+    {
+        screen_put_char('0');
+        return;
+    }
+
+    while (value > 0)
+    {
+        tmp[pos++] = '0' + (value % 10);
+        value /= 10;
+    }
+
+    for (int i = pos - 1; i >= 0; i--)
+    {
+        screen_put_char(tmp[i]);
+    }
+}
+
+void screen_put_char(char c)
 {
     if (c == '\n')
     {
@@ -73,12 +101,12 @@ void screen_print(const char *s)
 {
     while (*s)
     {
-        screen_putc(*s++);
+        screen_put_char(*s++);
     }
 }
 
 void screen_println(const char *s)
 {
     screen_print(s);
-    screen_putc('\n');
+    screen_put_char('\n');
 }

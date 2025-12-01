@@ -10,7 +10,8 @@
 #define VGA_ATTR_WHITE_ON_BLACK 0x07
 
 void screen_clear(void);
-void screen_putc(char c);
+void screen_put_char(char c);
+void screen_put_uint64(uint64_t n);
 void screen_print(const char *s);
 void screen_println(const char *s);
 

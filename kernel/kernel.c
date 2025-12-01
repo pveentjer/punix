@@ -14,9 +14,12 @@ struct task_struct
 /* A dummy task entry point */
 void task_entry(void)
 {
+    uint64_t i = 0;
     for (;;)
     {
-        screen_println("Task run");
+        screen_print("Task run: ");
+        screen_put_uint64(i++);
+        screen_put_char('\n');
     }
 }
 
