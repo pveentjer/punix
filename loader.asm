@@ -1,34 +1,43 @@
-; loader.asm - Stage 2: print "Munix 0.001" and halt
-; Assemble: nasm -f bin loader.asm -o loader.bin
-
-    bits 16
-    org 0x7E00                 ; where stage 1 loaded us
+; loader.asm
+bits 16
+org 0x7E00
 
 start:
-    ; Set DS/ES to our code segment
     mov ax, cs
     mov ds, ax
     mov es, ax
 
+    mov [boot_drive], dl
+
+    mov ax, 0x1000
+    mov es, ax
+    mov bx, 0x0000
+    mov ah, 0x02
+    mov al, 2              ; load 2 sectors for kernel
+    mov ch, 0
+    mov cl, 4              ; sector 4 (LBA index 3 zero-based)
+    mov dh, 0
+    mov dl, [boot_drive]
+    int 0x13
+    jc disk_error
+
+    jmp 0x1000:0x0000
+
+disk_error:
     mov si, msg
-
-.print_loop:
-    lodsb                      ; AL = [DS:SI], SI++
-    or  al, al
-    jz  .done
-
-    mov ah, 0x0E               ; BIOS teletype output
-    mov bh, 0x00
-    mov bl, 0x07               ; light gray on black
+    mov ah, 0x0E
+.errloop:
+    lodsb
+    or al, al
+    jz .halt
     int 0x10
-
-    jmp .print_loop
-
-.done:
+    jmp .errloop
+.halt:
     cli
-.hang:
-    hlt
+.hang: hlt
     jmp .hang
 
-msg db "Munix 0.001", 0
+msg db "Loader read error!",0
+boot_drive db 0
+times 1024-($-$$) db 0     ; pad loader to 2 sectors (1024 bytes)
 
