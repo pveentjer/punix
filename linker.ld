@@ -1,4 +1,4 @@
-ENTRY(main)
+ENTRY(kmain)
 
 SECTIONS
 {

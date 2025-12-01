@@ -20,7 +20,7 @@ static void print(const char *s)
     }
 }
 
-void main(void)
+void kmain(void)
 {
     clear_screen();
     print("Munix 0.001");
