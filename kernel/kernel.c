@@ -29,13 +29,13 @@ void kmain(void)
     screen_clear();
     print_bootmsg();
 
-    /* Inline initialization of the task struct */
     struct task_struct task = {
             .pid    = 0,
             .eip    = (uint32_t) task_entry,  /* entry point function */
             .esp    = 0x90000,               /* stack top */
             .ebp    = 0x90000,               /* base pointer */
-            .eflags = 0x202                  /* interrupt flag set */
+            .eflags = 0x202,                 /* interrupt flag set */
+            .next = NULL
     };
 
     switch_to(&task);
