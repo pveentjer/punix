@@ -2,8 +2,19 @@
 #include "sched.h"
 #include "screen.h"
 
-struct run_queue run_queue;
-struct task_struct *current;
+
+struct struct_sched {
+    struct run_queue run_queue;
+    struct task_struct *current;
+} sched;
+
+
+
+/* asm functions */
+void task_prepare_new(struct task_struct *t);
+
+int  task_context_switch(struct task_struct *current, struct task_struct *next);
+
 
 /* ---------------- Run queue ---------------- */
 
@@ -51,15 +62,15 @@ struct task_struct *run_queue_poll(struct run_queue *rq)
 
 void sched_init(void)
 {
-    current = NULL;
-    run_queue_init(&run_queue);
+    sched.current = NULL;
+    run_queue_init(&sched.run_queue);
 }
 
 void sched_add_task(struct task_struct *task)
 {
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
-    run_queue_push(&run_queue, task);
+    run_queue_push(&sched.run_queue, task);
 }
 
 void panic()
@@ -75,28 +86,28 @@ void panic()
 void sched_start(void)
 {
     struct task_struct dummy;
-    current = run_queue_poll(&run_queue);
-    if (!current)
+    sched.current = run_queue_poll(&sched.run_queue);
+    if (!sched.current)
     {
         panic();
     }
 
-    task_context_switch(&dummy, current);
+    task_context_switch(&dummy, sched.current);
 }
 
 void yield(void)
 {
-    if (run_queue.len == 0)
+    if (sched.run_queue.len == 0)
     {
         screen_println("yield; no other task.");
         return;
     }
 
-    struct task_struct *prev = current;
-    run_queue_push(&run_queue, prev);
+    struct task_struct *prev = sched.current;
+    run_queue_push(&sched.run_queue, prev);
 
-    current = run_queue_poll(&run_queue);
-    struct task_struct *next = current;
+    sched.current = run_queue_poll(&sched.run_queue);
+    struct task_struct *next = sched.current;
 
     task_context_switch(prev, next);
 }
