@@ -11,14 +11,15 @@ start:
     mov sp, 0x7C00
     mov [boot_drive], dl
 
-    ; load kernel (2 sectors) to 0x1000:0x0000 = 0x10000 physical
+    ; load kernel to 0x1000:0x0000 = 0x10000 physical
     mov ax, 0x1000
     mov es, ax
     mov bx, 0x0000
+
     mov ah, 0x02
-    mov al, 4           ; load 4 sectors (kernel size ~2KB)
+    mov al, 64           ; load 64 sectors (32 KiB) – adjust as needed
     mov ch, 0
-    mov cl, 4
+    mov cl, 4            ; kernel starts at sector 4
     mov dh, 0
     mov dl, [boot_drive]
     int 0x13
@@ -48,7 +49,9 @@ init_pm:
     mov ss, ax
     mov esp, 0x90000         ; simple stack
 
-    call 0x10000             ; jump to kernel (physical addr of kernel start)
+    ; ABSOLUTE jump to kernel entry at 0x10000
+    mov eax, 0x10000
+    jmp eax                  ; or call eax if you ever want to return
 
 .hang:
     cli
@@ -76,4 +79,3 @@ DATA_SEG equ 0x10
 
 boot_drive db 0
 times 1024-($-$$) db 0
-

@@ -2,16 +2,56 @@
 #include "screen.h"
 #include "sched.h"
 
+struct run_queue run_queue;
+struct task_struct task1, task2;
+struct task_struct *current;
+
+static void yield(void)
+{
+    screen_println("Context switch");
+
+    if (run_queue.len == 0)
+    {
+        return;
+    }
+
+    task_context_store(current);
+    run_queue_push(&run_queue, current);
+    current = run_queue_poll(&run_queue);
+    task_context_load(current);
+    task_start(current);
+}
 
 /* A dummy task entry point */
-void task_entry(void)
+void task_entry1(void)
 {
     uint64_t i = 0;
     for (;;)
     {
-        screen_print("Task run: ");
-        screen_put_uint64(i++);
-        screen_put_char('\n');
+        for (int k = 0; k < 10; k++)
+        {
+            screen_print("Task1 run: ");
+            screen_put_uint64(i++);
+            screen_put_char('\n');
+        }
+
+        yield();
+    }
+}
+
+void task_entry2(void)
+{
+    uint64_t i = 0;
+    for (;;)
+    {
+        for (int k = 0; k < 10; k++)
+        {
+            screen_print("Task2 run: ");
+            screen_put_uint64(i++);
+            screen_put_char('\n');
+        }
+
+        yield();
     }
 }
 
@@ -20,23 +60,36 @@ static void print_bootmsg(void)
     screen_println("Munix 0.001");
 }
 
-/* Assembly routine that performs the jump */
-extern void switch_to(struct task_struct *t);
 
 /* Kernel entry point */
+__attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     screen_clear();
     print_bootmsg();
 
-    struct task_struct task = {
-            .pid    = 0,
-            .eip    = (uint32_t) task_entry,  /* entry point function */
-            .esp    = 0x90000,               /* stack top */
-            .ebp    = 0x90000,               /* base pointer */
-            .eflags = 0x202,                 /* interrupt flag set */
-            .next = NULL
-    };
+    run_queue_init(&run_queue);
 
-    switch_to(&task);
+    task1.pid = 0;
+    task1.eip = (uint32_t) task_entry1;
+    task1.esp = 0x90000;
+    task1.ebp = 0x90000;
+    task1.eflags = 0x202;
+    task1.next = NULL;
+
+    task2.pid = 1;
+    task2.eip = (uint32_t) task_entry2;
+    task2.esp = 0x80000;
+    task2.ebp = 0x80000;
+    task2.eflags = 0x202;
+    task2.next = NULL;
+
+    run_queue_push(&run_queue, &task1);
+    run_queue_push(&run_queue, &task2);
+
+    screen_println("run queue length");
+    screen_put_uint64(run_queue.len);
+
+    current = run_queue_poll(&run_queue);
+    task_start(&task1);
 }

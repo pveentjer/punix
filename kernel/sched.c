@@ -9,6 +9,7 @@ void run_queue_init(struct run_queue *run_queue)
 
 void run_queue_push(struct run_queue *run_queue, struct task_struct *task)
 {
+    task->next = NULL;
     if (run_queue->len == 0)
     {
         run_queue->first = task;

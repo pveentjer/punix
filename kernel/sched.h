@@ -22,10 +22,16 @@ struct run_queue
     size_t len;
 };
 
+int  task_context_store(struct task_struct *t);
+
+void task_context_load(struct task_struct *t);
+
+void task_start(struct task_struct *t);
+
 void run_queue_init(struct run_queue *run_queue);
 
-void run_queue_push(struct run_queue *run_queue, struct task_struct* task);
+void run_queue_push(struct run_queue *run_queue, struct task_struct *task);
 
-struct task_struct* run_queue_poll(struct run_queue* run_queue);
+struct task_struct *run_queue_poll(struct run_queue *run_queue);
 
 #endif // SCHED_H

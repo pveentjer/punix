@@ -93,6 +93,7 @@ run: $(BUILD_DIR)/disk.img
 
 clean:
 	rm -rf $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)
 
 help:
 	@echo "Available make targets:"
