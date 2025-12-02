@@ -68,9 +68,19 @@ void sched_init(void)
 
 uint32_t next_pid = 0;
 
+#define STACK_SIZE 4096
+
+uint32_t next_stack = 0;
+
 void sched_add_task(struct task_struct *task)
 {
     task->pid = next_pid++;
+
+    uint32_t sp = next_stack += STACK_SIZE;
+    task->esp = sp;
+    task->ebp = sp;
+    task->next = NULL;
+
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
     run_queue_push(&sched.run_queue, task);
