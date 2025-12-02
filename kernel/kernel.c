@@ -11,7 +11,7 @@ static void delay(uint32_t count) {
 }
 
 
-void task_entry1(void)
+void process1(void)
 {
     uint64_t i = 0;
     for (;;)
@@ -29,7 +29,7 @@ void task_entry1(void)
     }
 }
 
-void task_entry2(void)
+void process2(void)
 {
     uint64_t i = 0;
     for (;;)
@@ -63,14 +63,8 @@ void kmain(void)
 
     sched_init();
 
-    task1.eip = (uint32_t) task_entry1;
-    task1.next = NULL;
-
-    task2.eip = (uint32_t) task_entry2;
-    task2.next = NULL;
-
-    sched_add_task(&task1);
-    sched_add_task(&task2);
+    sched_add_task(process1);
+    sched_add_task(process2);
 
     sched_start();
 }

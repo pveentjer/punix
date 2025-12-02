@@ -70,13 +70,22 @@ uint32_t next_pid = 0;
 
 #define STACK_SIZE 4096
 
-uint32_t next_stack = 0;
+uint32_t next_stack = 16*1024;
 
-void sched_add_task(struct task_struct *task)
+#define MAX_TASK 1024
+
+struct task_struct task_struct_slab[MAX_TASK];
+
+size_t task_struct_slab_next = 0;
+
+void sched_add_task(void (*func)(void))
 {
+    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
+
     task->pid = next_pid++;
 
     uint32_t sp = next_stack += STACK_SIZE;
+    task->eip = (uint32_t)func;
     task->esp = sp;
     task->ebp = sp;
     task->next = NULL;

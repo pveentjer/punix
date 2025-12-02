@@ -23,7 +23,7 @@ struct run_queue
 
 
 void sched_init(void);
-void sched_add_task(struct task_struct *task);
+void sched_add_task(void (*func)(void));
 void sched_start(void);
 void yield(void);
 
