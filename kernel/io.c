@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "screen.h"
+#include "vga.h"
 #include "sched.h"
 #include "syscalls.h"
 
@@ -45,7 +45,6 @@ ssize_t read(int fd, void *buf, size_t count)
         case FD_STDIN:
             // No keyboard/TTY implemented yet: pretend EOF
             return 0;
-
         case FD_STDOUT:
         case FD_STDERR:
         default:

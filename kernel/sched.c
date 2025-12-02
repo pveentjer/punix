@@ -1,6 +1,6 @@
 // sched.c
 #include "sched.h"
-#include "screen.h"
+#include "vga.h"
 
 
 struct struct_sched {

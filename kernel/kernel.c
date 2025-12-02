@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "screen.h"
+#include "vga.h"
 #include "sched.h"
 
 struct task_struct task1, task2;
