@@ -63,13 +63,11 @@ void kmain(void)
 
     sched_init();
 
-    task1.pid = 0;
     task1.eip = (uint32_t) task_entry1;
     task1.esp = 0x90000;
     task1.ebp = 0x90000;
     task1.next = NULL;
 
-    task2.pid = 1;
     task2.eip = (uint32_t) task_entry2;
     task2.esp = 0x80000;
     task2.ebp = 0x80000;

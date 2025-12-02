@@ -66,8 +66,11 @@ void sched_init(void)
     run_queue_init(&sched.run_queue);
 }
 
+uint32_t next_pid = 0;
+
 void sched_add_task(struct task_struct *task)
 {
+    task->pid = next_pid++;
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
     run_queue_push(&sched.run_queue, task);
