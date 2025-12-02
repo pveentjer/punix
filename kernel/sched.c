@@ -3,6 +3,17 @@
 #include "vga.h"
 
 
+#include "process.h"
+
+struct struct_sched {
+    struct run_queue run_queue;
+    struct task_struct *current;
+} sched;
+
+/* process table provided by linker.ld */
+extern const struct process_desc __proctable_start[];
+extern const struct process_desc __proctable_end[];
+
 struct struct_sched {
     struct run_queue run_queue;
     struct task_struct *current;
@@ -88,28 +99,62 @@ struct task_struct task_struct_slab[MAX_TASK];
 
 size_t task_struct_slab_next = 0;
 
-void sched_add_task(void (*func)(void))
+static int kstrcmp(const char *a, const char *b)
 {
+    while (*a && (*a == *b)) {
+        a++;
+        b++;
+    }
+    return (unsigned char)*a - (unsigned char)*b;
+}
+
+static const struct process_desc *find_process(const char *name)
+{
+    const struct process_desc *p = __proctable_start;
+    while (p < __proctable_end) {
+        if (kstrcmp(p->name, name) == 0) {
+            return p;
+        }
+        p++;
+    }
+    return 0;
+}
+
+
+void sched_add_task(const char *name)
+{
+    if (task_struct_slab_next >= MAX_TASK) {
+        panic("sched_add_task: too many tasks");
+    }
+
+    const struct process_desc *desc = find_process(name);
+    if (!desc) {
+        screen_print("sched_add_task: unknown process '");
+        screen_print(name);
+        screen_println("'");
+        return; // or panic(...) if you prefer hard fail
+    }
+
     struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
 
     task->pid = next_pid++;
 
-    uint32_t sp = next_stack += STACK_SIZE;
-    task->eip = (uint32_t)func;
+    /* Allocate stack */
+    uint32_t sp = next_stack;
+    next_stack += STACK_SIZE;
+
+    task->eip = (uint32_t)desc->entry;  // <-- use the registered entry point
     task->esp = sp;
     task->ebp = sp;
     task->next = NULL;
-    if (sched.current == NULL)
-    {
+
+    if (sched.current == NULL) {
         // the root process points to itself.
         task->parent = task;
-    }
-    else
-    {
+    } else {
         task->parent = sched.current;
     }
 
-    
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
     run_queue_push(&sched.run_queue, task);

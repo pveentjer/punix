@@ -24,4 +24,6 @@ size_t strlen(const char *s);
 
 int printf(const char *fmt, ...);
 
+void delay(uint32_t count);
+
 #endif // SYSCALLS_H

@@ -2,10 +2,14 @@
 #include "vga.h"
 #include "sched.h"
 #include "syscalls.h"
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+
 
 struct task_struct task1, task2;
 
-static void delay(uint32_t count) {
+void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
         __asm__ volatile ("nop");
     }
@@ -21,16 +25,8 @@ size_t strlen(const char *s)
     return len;
 }
 
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
-#include "syscalls.h"  // for write()
 
 #define STDOUT 1
-
-#include "syscalls.h"
-#include <stdarg.h>
-
 #define PRINTF_BUF_SIZE 512
 
 static void buf_putc(char *buf, size_t *len, char c)
@@ -144,59 +140,17 @@ int printf(const char *fmt, ...)
 }
 
 
-
-
-void process1(void)
-{
-    uint64_t i = 0;
-    for (;;)
-    {
-        for (int k = 0; k < 5; k++)
-        {
-            printf("--Process1 run: %u\n", i++);
-            delay(200000000);
-        }
-
-        yield();
-    }
-}
-
-void process2(void)
-{
-    uint64_t i = 0;
-    for (;;)
-    {
-        for (int k = 0; k < 5; k++)
-        {
-            printf("----Process2 run: %u\n", i++);
-            delay(200000000);
-        }
-
-        yield();
-    }
-}
-
-void process0(void){
-    sched_add_task(process1);
-    
-    sched_add_task(process2);
-
-    exit(0);
-}
-
-
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
-    screen_println("Munix 0.001");
-
-
     screen_clear();
+
+    screen_println("Munix 0.001");
 
     sched_init();
 
-    sched_add_task(process0);
+    sched_add_task("process0");
 
     sched_start();
 }
