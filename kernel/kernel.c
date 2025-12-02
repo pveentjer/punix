@@ -5,7 +5,7 @@
 #include "sched.h"
 #include "syscalls.h"
 #include "interrupt.h"
-
+#include "keyboard.h"
 
 void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
@@ -156,6 +156,8 @@ void kmain(void)
     if(!interrupts_enabled){
         screen_println("Interrupts not enabled.");
     }
+
+    keyboard_init();
 
     sched_init();
 

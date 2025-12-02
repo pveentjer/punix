@@ -1,7 +1,7 @@
 // sched.c
 #include "sched.h"
 #include "vga.h"
-
+#include "interrupt.h"
 
 #include "process.h"
 
@@ -211,6 +211,11 @@ void sched_start(void)
 
 void yield(void)
 {
+    if(!interrupts_are_enabled())
+    {
+        screen_println("yield; interrupts not enabled.");    
+    }
+
     if (sched.run_queue.len == 0)
     {
         screen_println("yield; no other task.");
