@@ -99,8 +99,17 @@ void sched_add_task(void (*func)(void))
     task->esp = sp;
     task->ebp = sp;
     task->next = NULL;
-    task->parent = sched.current;
+    if (sched.current == NULL)
+    {
+        // the root process points to itself.
+        task->parent = task;
+    }
+    else
+    {
+        task->parent = sched.current;
+    }
 
+    
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
     run_queue_push(&sched.run_queue, task);
