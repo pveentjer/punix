@@ -1,13 +1,11 @@
 #include <stdint.h>
+#include <stdarg.h>
+#include <stddef.h>
 #include "vga.h"
 #include "sched.h"
 #include "syscalls.h"
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "interrupt.h"
 
-
-struct task_struct task1, task2;
 
 void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
@@ -147,6 +145,17 @@ void kmain(void)
     screen_clear();
 
     screen_println("Munix 0.001");
+
+    screen_println("Initializing Interupt Descriptor Table");
+    idt_init();
+
+    screen_println("Enabling interrupts");
+    interrupts_enable();
+
+    bool interrupts_enabled = interrupts_are_enabled();
+    if(!interrupts_enabled){
+        screen_println("Interrupts not enabled.");
+    }
 
     sched_init();
 

@@ -66,6 +66,9 @@ $(BUILD_DIR)/kernel.o: $(KERNEL_DIR)/kernel.c | $(BUILD_DIR)
 $(BUILD_DIR)/io.o: $(KERNEL_DIR)/io.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@	
 
+$(BUILD_DIR)/interrupt.o: $(KERNEL_DIR)/interrupt.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@	
+
 $(BUILD_DIR)/vga.o: $(KERNEL_DIR)/vga.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -91,6 +94,7 @@ $(BUILD_DIR)/kernel.bin: \
 	$(BUILD_DIR)/vga.o \
 	$(BUILD_DIR)/sched.o \
 	$(BUILD_DIR)/io.o \
+	$(BUILD_DIR)/interrupt.o \
 	$(BUILD_DIR)/process0.o \
 	$(BUILD_DIR)/process1.o \
 	$(BUILD_DIR)/process2.o \
@@ -101,6 +105,7 @@ $(BUILD_DIR)/kernel.bin: \
 	    $(BUILD_DIR)/vga.o \
 	    $(BUILD_DIR)/sched.o \
 	    $(BUILD_DIR)/io.o \
+	    $(BUILD_DIR)/interrupt.o \
 	    $(BUILD_DIR)/process0.o \
 		$(BUILD_DIR)/process1.o \
 		$(BUILD_DIR)/process2.o \
