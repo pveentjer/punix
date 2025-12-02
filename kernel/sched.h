@@ -12,6 +12,7 @@ struct task_struct
     uint32_t ebp;
     uint32_t eflags;
     struct task_struct *next;
+    struct task_struct *parent;
 };
 
 struct run_queue

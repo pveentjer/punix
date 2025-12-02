@@ -99,6 +99,7 @@ void sched_add_task(void (*func)(void))
     task->esp = sp;
     task->ebp = sp;
     task->next = NULL;
+    task->parent = sched.current;
 
     // Prepare the new task's stack so it looks like it was context-switched
     task_prepare_new(task);
@@ -140,7 +141,6 @@ void exit(int status)
         task_context_switch(current, next);
     }
 }
-
 
 
 void sched_start(void)
