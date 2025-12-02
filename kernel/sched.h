@@ -4,9 +4,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef int pid_t;
+
 struct task_struct
 {
-    uint32_t pid;
+    pid_t pid;
     uint32_t eip;        // entry function
     uint32_t esp;
     uint32_t ebp;

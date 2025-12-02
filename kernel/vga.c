@@ -78,6 +78,32 @@ void screen_put_char(char c)
         cursor_col = 0;
         cursor_row++;
     }
+    else if (c == '\r')
+    {
+        // carriage return: go to start of line
+        cursor_col = 0;
+    }
+    else if (c == '\b')
+    {
+        // backspace: move left and erase
+        if (cursor_col > 0)
+        {
+            cursor_col--;
+        }
+        else if (cursor_row > 0)
+        {
+            cursor_row--;
+            cursor_col = VGA_COLS - 1;
+        }
+        else
+        {
+            // top-left already, nothing to erase
+            return;
+        }
+
+        VIDEO[cursor_row * VGA_COLS + cursor_col] =
+            vga_entry(' ', VGA_ATTR_WHITE_ON_BLACK);
+    }
     else
     {
         VIDEO[cursor_row * VGA_COLS + cursor_col] =
@@ -96,6 +122,7 @@ void screen_put_char(char c)
         scroll();
     }
 }
+
 
 void screen_print(const char *s)
 {

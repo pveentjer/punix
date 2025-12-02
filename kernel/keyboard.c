@@ -1,6 +1,8 @@
 #include "keyboard.h"
 #include "vga.h"
 #include "interrupt.h"
+#include <stddef.h>
+#include <stdbool.h>
 
 #define KEYBOARD_DATA_PORT 0x60
 #define PIC1_COMMAND       0x20
@@ -17,6 +19,51 @@ static inline uint8_t inb(uint16_t port) {
 static inline void outb(uint16_t port, uint8_t val) {
     asm volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
+
+/* ------------------------------------------------------------------
+ * Simple ring buffer for keyboard characters
+ * ------------------------------------------------------------------ */
+
+#define KBD_BUF_SIZE 128
+
+static char kbd_buf[KBD_BUF_SIZE];
+static volatile size_t kbd_head = 0;  // write index
+static volatile size_t kbd_tail = 0;  // read index
+
+static void kbd_buffer_put(char c)
+{
+    size_t next_head = (kbd_head + 1) % KBD_BUF_SIZE;
+
+    // If buffer is full, drop the character (simple behavior for now)
+    if (next_head == kbd_tail) {
+        return;
+    }
+
+    kbd_buf[kbd_head] = c;
+    kbd_head = next_head;
+}
+
+bool keyboard_has_char(void)
+{
+    return kbd_head != kbd_tail;
+}
+
+char keyboard_get_char(void)
+{
+    // Simple blocking/spin wait until a character is available.
+    // For now this is fine; later you can integrate with your scheduler.
+    while (!keyboard_has_char()) {
+        // spin
+    }
+
+    char c = kbd_buf[kbd_tail];
+    kbd_tail = (kbd_tail + 1) % KBD_BUF_SIZE;
+    return c;
+}
+
+/* ------------------------------------------------------------------
+ * Scancode tables
+ * ------------------------------------------------------------------ */
 
 static const char scancode_lower[] = {
     0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
@@ -45,7 +92,8 @@ void keyboard_interrupt_handler(void) {
     else if (!(scancode & 0x80) && scancode < sizeof(scancode_lower)) {
         char c = shift_pressed ? scancode_upper[scancode] : scancode_lower[scancode];
         if (c != 0) {
-            screen_put_char(c);
+            // Instead of printing, buffer the character
+            kbd_buffer_put(c);
         }
     }
     

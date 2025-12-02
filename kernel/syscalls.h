@@ -7,6 +7,8 @@
 // Minimal ssize_t for your freestanding kernel
 typedef long ssize_t;
 
+typedef int pid_t;
+
 // POSIX-style fd numbers
 #define FD_STDIN   0
 #define FD_STDOUT  1
@@ -15,6 +17,8 @@ typedef long ssize_t;
 ssize_t write(int fd, const void *buf, size_t count);
 
 ssize_t read(int fd, void *buf, size_t count);
+
+pid_t getpid(void);
 
 void yield(void);
 

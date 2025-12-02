@@ -209,16 +209,21 @@ void sched_start(void)
     task_context_switch(&dummy, sched.current);
 }
 
+pid_t getpid(void)
+{
+    return sched.current->pid;
+}
+
 void yield(void)
 {
-    if(!interrupts_are_enabled())
-    {
-        screen_println("yield; interrupts not enabled.");    
-    }
+    // if(!interrupts_are_enabled())
+    // {
+    //     screen_println("yield; interrupts not enabled.");    
+    // }
 
     if (sched.run_queue.len == 0)
     {
-        screen_println("yield; no other task.");
+        // screen_println("yield; no other task.");
         return;
     }
 

@@ -2,6 +2,7 @@
 #include "vga.h"
 #include "sched.h"
 #include "syscalls.h"
+#include "keyboard.h"
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
@@ -37,19 +38,26 @@ ssize_t write(int fd, const void *buf, size_t count)
 
 ssize_t read(int fd, void *buf, size_t count)
 {
-    (void)buf;
-    (void)count;
-
-    switch (fd)
+    if (fd != FD_STDIN)
     {
-        case FD_STDIN:
-            // No keyboard/TTY implemented yet: pretend EOF
-            return 0;
-        case FD_STDOUT:
-        case FD_STDERR:
-        default:
-            // Reading from these is not supported
-            return -1;
+        return -1;
     }
+
+    if (!buf || count == 0)
+    {
+        return 0;
+    }
+
+    char *cbuf = (char *)buf;
+    size_t read_cnt = 0;
+
+    // Non-blocking: read whatever is available, return immediately if none
+    while (read_cnt < count && keyboard_has_char())
+    {
+        cbuf[read_cnt++] = keyboard_get_char();
+    }
+
+    return (ssize_t)read_cnt;
 }
+
 
