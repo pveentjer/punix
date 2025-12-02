@@ -89,5 +89,9 @@ task_context_switch:
     pop ebp
     popfd
     
+    ; --- Force IF=1 safely ---
+    sti                       ; set Interrupt Flag directly
+    ; -------------------------
+
     xor eax, eax              ; return 0
     ret                       ; return to next task

@@ -146,17 +146,13 @@ void kmain(void)
 
     screen_println("Munix 0.001");
 
-    screen_println("Initializing Interupt Descriptor Table");
+    screen_println("Initializing Interupt Descriptor Table.");
     idt_init();
 
-    screen_println("Enabling interrupts");
+    screen_println("Enabling interrupts.");
     interrupts_enable();
 
-    bool interrupts_enabled = interrupts_are_enabled();
-    if(!interrupts_enabled){
-        screen_println("Interrupts not enabled.");
-    }
-
+    screen_println("Initializing keyboard.");
     keyboard_init();
 
     sched_init();
