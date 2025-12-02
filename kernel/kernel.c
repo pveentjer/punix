@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "vga.h"
 #include "sched.h"
+#include "syscalls.h"
 
 struct task_struct task1, task2;
 
@@ -47,6 +48,13 @@ void process2(void)
     }
 }
 
+void process0(void){
+    sched_add_task(process1);
+    sched_add_task(process2);
+
+    exit(0);
+}
+
 static void print_bootmsg(void)
 {
     screen_println("Munix 0.001");
@@ -63,8 +71,7 @@ void kmain(void)
 
     sched_init();
 
-    sched_add_task(process1);
-    sched_add_task(process2);
+    sched_add_task(process0);
 
     sched_start();
 }

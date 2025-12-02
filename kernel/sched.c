@@ -9,6 +9,16 @@ struct struct_sched {
 } sched;
 
 
+void panic(char* msg)
+{
+    screen_println("Kernel Panic!!!");
+    screen_println(msg);
+    
+    for (;;)
+    {
+        __asm__ volatile("hlt");
+    }
+}
 
 /* asm functions */
 void task_prepare_new(struct task_struct *t);
@@ -95,15 +105,43 @@ void sched_add_task(void (*func)(void))
     run_queue_push(&sched.run_queue, task);
 }
 
-void panic()
+void exit(int status)
 {
-    screen_println("Kernel Panic!!!");
-    
-    for (;;)
+    struct task_struct *current = sched.current;
+    if(current == NULL)
     {
-        __asm__ volatile("hlt");
+        panic("exit failed because there is no current task.\n");
+    }
+
+    screen_print("Exit: ");
+    screen_put_uint64(current->pid);
+    screen_put_char('\n');
+
+    screen_print("run_queue_len: ");
+    screen_put_uint64(sched.run_queue.len);
+    screen_put_char('\n');
+
+
+    struct task_struct *next = run_queue_poll(&sched.run_queue);
+
+    if (next == NULL)
+    {
+        sched.current = NULL;
+
+        screen_println("Halted!");
+        for (;;)
+        {
+            __asm__ volatile("hlt");
+        }
+    }
+    else
+    {
+        sched.current = next;
+        task_context_switch(current, next);
     }
 }
+
+
 
 void sched_start(void)
 {
@@ -111,7 +149,7 @@ void sched_start(void)
     sched.current = run_queue_poll(&sched.run_queue);
     if (!sched.current)
     {
-        panic();
+        panic("sched_start can't start with an empt run_queue\n");
     }
 
     task_context_switch(&dummy, sched.current);
