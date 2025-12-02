@@ -18,4 +18,4 @@ void process2(void)
     }
 }
 
-REGISTER_PROCESS(process2,"process2");
+REGISTER_PROCESS(process2,"bin/process2");

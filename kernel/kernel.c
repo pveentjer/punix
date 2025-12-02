@@ -150,7 +150,7 @@ void kmain(void)
 
     sched_init();
 
-    sched_add_task("process0");
+    sched_add_task("bin/process0");
 
     sched_start();
 }

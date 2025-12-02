@@ -121,16 +121,16 @@ static const struct process_desc *find_process(const char *name)
 }
 
 
-void sched_add_task(const char *name)
+void sched_add_task(const char *filename)
 {
     if (task_struct_slab_next >= MAX_TASK) {
         panic("sched_add_task: too many tasks");
     }
 
-    const struct process_desc *desc = find_process(name);
+    const struct process_desc *desc = find_process(filename);
     if (!desc) {
         screen_print("sched_add_task: unknown process '");
-        screen_print(name);
+        screen_print(filename);
         screen_println("'");
         return; // or panic(...) if you prefer hard fail
     }
