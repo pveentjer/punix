@@ -20,4 +20,8 @@ void yield(void);
 
 void exit(int status);
 
+size_t strlen(const char *s);
+
+int printf(const char *fmt, ...);
+
 #endif // SYSCALLS_H
