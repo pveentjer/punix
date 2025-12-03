@@ -13,7 +13,7 @@ __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     screen_clear();
-    screen_println("Munix 0.001");
+    screen_println("PUnix 0.001");
     
     screen_println("Initializing Interrupt Descriptor Table.");
     idt_init();

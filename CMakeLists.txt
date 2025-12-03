@@ -74,6 +74,7 @@ set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
         ${APP_SOURCES}
+        kernel/core/libc.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
