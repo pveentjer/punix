@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../include/kernel/syscalls.h"
+#include "../include/kernel/libc.h"
 #include "../include/kernel/process.h"
 
 #define MAX_INDENT 80

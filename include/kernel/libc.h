@@ -26,6 +26,8 @@ void exit(int status);
 
 size_t strlen(const char *s);
 
+char *strcpy(char *dest, const char *src);
+
 int atoi(const char *str);
 
 int printf(const char *fmt, ...);

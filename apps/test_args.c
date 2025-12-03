@@ -1,4 +1,4 @@
-#include "../include/kernel/syscalls.h"
+#include "../include/kernel/libc.h"
 #include "../include/kernel/process.h"
 
 int test_args(int argc, char **argv)

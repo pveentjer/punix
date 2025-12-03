@@ -1,4 +1,4 @@
-#include "../include/kernel/syscalls.h"
+#include "../include/kernel/libc.h"
 #include "../include/kernel/process.h"
 #include "../include/kernel/sched.h"
 

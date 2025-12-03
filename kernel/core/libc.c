@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "../../include/kernel/syscalls.h"
+#include "../../include/kernel/libc.h"
 
 void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
@@ -9,6 +9,15 @@ void delay(uint32_t count) {
     }
 }
 
+char *strcpy(char *dest, const char *src)
+{
+    char *d = dest;
+
+    while ((*d++ = *src++))
+        ;   // copy each character including the terminating '\0'
+
+    return dest;
+}
 
 size_t strlen(const char *s)
 {

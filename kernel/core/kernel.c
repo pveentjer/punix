@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include "../../include/kernel/vga.h"
 #include "../../include/kernel/sched.h"
-#include "../../include/kernel/syscalls.h"
+#include "../../include/kernel/libc.h"
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/keyboard.h"
 
