@@ -27,12 +27,15 @@ struct run_queue
 
 void sched_init(void);
 void sched_add_task(const char *filename);
+
+__attribute__((noreturn)) 
 void sched_start(void);
+
 void yield(void);
 
 /* asm functions */
 void task_start(struct task_struct *t);
-void task_prepare_new(struct task_struct *t);
+
 int  task_context_switch(struct task_struct *current, struct task_struct *next);
 
 #endif // SCHED_H

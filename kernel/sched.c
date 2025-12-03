@@ -31,9 +31,6 @@ void panic(char* msg)
     }
 }
 
-/* asm functions */
-void task_prepare_new(struct task_struct *t);
-
 int  task_context_switch(struct task_struct *current, struct task_struct *next);
 
 
@@ -89,19 +86,20 @@ void sched_init(void)
 
 uint32_t next_pid = 0;
 
-#define STACK_SIZE 4096
+#define TASK_STACK_SIZE 4096
 
 uint32_t next_stack = 16*1024;
 
-#define MAX_TASK 1024
+#define MAX_TASK_CNT 1024
 
-struct task_struct task_struct_slab[MAX_TASK];
+struct task_struct task_struct_slab[MAX_TASK_CNT];
 
 size_t task_struct_slab_next = 0;
 
 static int kstrcmp(const char *a, const char *b)
 {
-    while (*a && (*a == *b)) {
+    while (*a && (*a == *b)) 
+    {
         a++;
         b++;
     }
@@ -111,8 +109,10 @@ static int kstrcmp(const char *a, const char *b)
 static const struct process_desc *find_process(const char *name)
 {
     const struct process_desc *p = __proctable_start;
-    while (p < __proctable_end) {
-        if (kstrcmp(p->name, name) == 0) {
+    while (p < __proctable_end) 
+    {
+        if (kstrcmp(p->name, name) == 0) 
+        {
             return p;
         }
         p++;
@@ -120,50 +120,10 @@ static const struct process_desc *find_process(const char *name)
     return 0;
 }
 
-
-void sched_add_task(const char *filename)
-{
-    if (task_struct_slab_next >= MAX_TASK) {
-        panic("sched_add_task: too many tasks");
-    }
-
-    const struct process_desc *desc = find_process(filename);
-    if (!desc) {
-        screen_print("sched_add_task: unknown process '");
-        screen_print(filename);
-        screen_println("'");
-        return; // or panic(...) if you prefer hard fail
-    }
-
-    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
-
-    task->pid = next_pid++;
-
-    /* Allocate stack */
-    uint32_t sp = next_stack;
-    next_stack += STACK_SIZE;
-
-    task->eip = (uint32_t)desc->entry;  // <-- use the registered entry point
-    task->esp = sp;
-    task->ebp = sp;
-    task->next = NULL;
-
-    if (sched.current == NULL) {
-        // the root process points to itself.
-        task->parent = task;
-    } else {
-        task->parent = sched.current;
-    }
-
-    // Prepare the new task's stack so it looks like it was context-switched
-    task_prepare_new(task);
-    run_queue_push(&sched.run_queue, task);
-}
-
 void exit(int status)
 {
     struct task_struct *current = sched.current;
-    if(current == NULL)
+    if (current == NULL)
     {
         panic("exit failed because there is no current task.\n");
     }
@@ -196,6 +156,67 @@ void exit(int status)
     }
 }
 
+void task_trampoline(int (*entry)(void)) 
+{
+    int status = entry();
+    
+    // We'll never retur 
+    exit(status);
+}
+
+void sched_add_task(const char *filename)
+{
+    if (task_struct_slab_next >= MAX_TASK_CNT) {
+        panic("sched_add_task: too many tasks");
+    }
+
+    const struct process_desc *desc = find_process(filename);
+    if (!desc) {
+        screen_print("sched_add_task: unknown process '");
+        screen_print(filename);
+        screen_println("'");
+        return;
+    }
+
+    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
+    task->pid = next_pid++;
+
+    // Allocate stack
+    uint32_t stack_top = next_stack;
+    next_stack += TASK_STACK_SIZE;
+
+    // We'll build the stack from top downward
+    uint32_t *sp = (uint32_t *)stack_top;
+
+    /*
+     * Stack layout expected by task_context_switch:
+     *
+     *  [0] EBX
+     *  [1] ESI
+     *  [2] EDI
+     *  [3] EBP
+     *  [4] EFLAGS
+     *  [5] RETADDR  -> task_trampoline
+     *  [6] (fake return address for trampoline)
+     *  [7] (argument to trampoline = desc->entry)
+     */
+
+    *(--sp) = (uint32_t)desc->entry;        // [7]
+    *(--sp) = 0;                            // [6] fake return addr
+    *(--sp) = (uint32_t)task_trampoline;    // [5] return addr for context switch ret
+    *(--sp) = 0x202;                        // [4] EFLAGS (IF=1)
+    *(--sp) = 0;                            // [3] EBP
+    *(--sp) = 0;                            // [2] EDI
+    *(--sp) = 0;                            // [1] ESI
+    *(--sp) = 0;                            // [0] EBX
+
+    task->esp = (uint32_t)sp;
+    task->eip = (uint32_t)task_trampoline;  // unused by context_switch but useful for debugging
+    task->eflags = 0x202;
+    task->parent = sched.current ? sched.current : task;
+
+    run_queue_push(&sched.run_queue, task);
+}
 
 void sched_start(void)
 {
@@ -203,7 +224,7 @@ void sched_start(void)
     sched.current = run_queue_poll(&sched.run_queue);
     if (!sched.current)
     {
-        panic("sched_start can't start with an empt run_queue\n");
+        panic("sched_start can't start with an empty run_queue\n");
     }
 
     task_context_switch(&dummy, sched.current);
@@ -216,6 +237,7 @@ pid_t getpid(void)
 
 void yield(void)
 {
+ 
     // if(!interrupts_are_enabled())
     // {
     //     screen_println("yield; interrupts not enabled.");    

@@ -12,47 +12,6 @@ global task_prepare_new
              ; jump to task entry
 
 
-; void task_prepare_new(struct task_struct *t);
-; Prepare a new task's stack to look like it was context-switched
-; so we can use task_context_switch to start it
-task_prepare_new:
-    mov eax, [esp + 4]        ; eax = t
-    mov ecx, [eax + OFF_ESP]  ; ecx = t->esp (top of its fresh stack)
-    
-    ; Build a fake context switch frame on the task's stack
-    ; We'll push (from top to bottom):
-    ; - return address (task entry point)
-    ; - saved EBX (0)
-    ; - saved ESI (0)
-    ; - saved EDI (0)
-    ; - saved EBP (initial EBP)
-    ; - saved EFLAGS (0x202)
-    
-    mov edx, [eax + OFF_EIP]  ; task entry point
-    sub ecx, 4
-    mov [ecx], edx            ; return address = entry point
-    
-    sub ecx, 4
-    mov dword [ecx], 0        ; EBX = 0
-    
-    sub ecx, 4
-    mov dword [ecx], 0        ; ESI = 0
-    
-    sub ecx, 4
-    mov dword [ecx], 0        ; EDI = 0
-    
-    mov edx, [eax + OFF_EBP]  ; initial EBP
-    sub ecx, 4
-    mov [ecx], edx            ; saved EBP
-    
-    sub ecx, 4
-    mov dword [ecx], 0x202    ; EFLAGS with interrupts enabled
-    
-    ; Save the new ESP back
-    mov [eax + OFF_ESP], ecx
-    ret
-
-
 ; int task_context_switch(struct task_struct *prev, struct task_struct *next);
 ; Switch from prev to next task
 task_context_switch:

@@ -130,7 +130,8 @@ int printf(const char *fmt, ...)
 
     va_end(args);
 
-    if (len > 0) {
+    if (len > 0) 
+    {
         write(FD_STDOUT, buf, len);
     }
 
@@ -146,7 +147,7 @@ void kmain(void)
 
     screen_println("Munix 0.001");
 
-    screen_println("Initializing Interupt Descriptor Table.");
+    screen_println("Initializing Interrupt Descriptor Table.");
     idt_init();
 
     screen_println("Enabling interrupts.");
@@ -155,9 +156,8 @@ void kmain(void)
     screen_println("Initializing keyboard.");
     keyboard_init();
 
+    screen_println("Starting scheduler.");
     sched_init();
-
     sched_add_task("bin/process0");
-
     sched_start();
 }
