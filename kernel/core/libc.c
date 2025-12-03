@@ -1,11 +1,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "../../include/kernel/vga.h"
-#include "../../include/kernel/sched.h"
 #include "../../include/kernel/syscalls.h"
-#include "../../include/kernel/interrupt.h"
-#include "../../include/kernel/keyboard.h"
 
 void delay(uint32_t count) {
     for (volatile uint32_t i = 0; i < count; i++) {
