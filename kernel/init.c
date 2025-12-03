@@ -72,4 +72,4 @@ int process0(int argc, char **argv)
     
     return 0;
 }
-REGISTER_PROCESS(process0, "bin/process0");
+REGISTER_PROCESS(process0, "/sbin/init");

@@ -81,7 +81,7 @@ $(BUILD_DIR)/sched.o: $(KERNEL_DIR)/sched.c | $(BUILD_DIR)
 $(BUILD_DIR)/sched_x86.o: $(KERNEL_DIR)/sched_x86.asm | $(BUILD_DIR)
 	$(NASM) -f elf32 $< -o $@
 
-$(BUILD_DIR)/process0.o: $(KERNEL_DIR)/process0.c | $(BUILD_DIR)
+$(BUILD_DIR)/init.o: $(KERNEL_DIR)/init.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/loop.o: $(KERNEL_DIR)/loop.c | $(BUILD_DIR)
@@ -99,7 +99,7 @@ $(BUILD_DIR)/kernel.bin: \
 	$(BUILD_DIR)/io.o \
 	$(BUILD_DIR)/interrupt.o \
 	$(BUILD_DIR)/keyboard.o \
-	$(BUILD_DIR)/process0.o \
+	$(BUILD_DIR)/init.o \
 	$(BUILD_DIR)/loop.o \
 	$(BUILD_DIR)/test_args.o \
 	$(BUILD_DIR)/sched_x86.o \
@@ -111,7 +111,7 @@ $(BUILD_DIR)/kernel.bin: \
 	    $(BUILD_DIR)/io.o \
 	    $(BUILD_DIR)/interrupt.o \
 	    $(BUILD_DIR)/keyboard.o \
-	    $(BUILD_DIR)/process0.o \
+	    $(BUILD_DIR)/init.o \
 		$(BUILD_DIR)/loop.o \
 		$(BUILD_DIR)/test_args.o \
 	    $(BUILD_DIR)/sched_x86.o

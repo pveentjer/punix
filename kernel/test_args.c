@@ -10,4 +10,4 @@ int test_args(int argc, char **argv)
     return 0;
 }
 
-REGISTER_PROCESS(test_args, "bin/test_args");
+REGISTER_PROCESS(test_args, "/bin/test_args");

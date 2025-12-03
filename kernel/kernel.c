@@ -185,8 +185,8 @@ void kmain(void)
     screen_println("Starting scheduler.");
     sched_init();
     
-    char *argv[] = {"bin/process0", NULL};
-    sched_add_task("bin/process0", 1, argv);
+    char *argv[] = {"/sbin/init", NULL};
+    sched_add_task("/sbin/init", 1, argv);
     
     sched_start();
 }
