@@ -90,7 +90,8 @@ $(BUILD_DIR)/loop.o: $(KERNEL_DIR)/loop.c | $(BUILD_DIR)
 $(BUILD_DIR)/test_args.o: $(KERNEL_DIR)/test_args.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-
+$(BUILD_DIR)/ps.o: $(KERNEL_DIR)/ps.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/kernel.bin: \
 	$(BUILD_DIR)/kernel.o \
@@ -102,6 +103,7 @@ $(BUILD_DIR)/kernel.bin: \
 	$(BUILD_DIR)/init.o \
 	$(BUILD_DIR)/loop.o \
 	$(BUILD_DIR)/test_args.o \
+	$(BUILD_DIR)/ps.o \
 	$(BUILD_DIR)/sched_x86.o \
 	linker.ld | $(BUILD_DIR)
 	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf \
@@ -114,6 +116,7 @@ $(BUILD_DIR)/kernel.bin: \
 	    $(BUILD_DIR)/init.o \
 		$(BUILD_DIR)/loop.o \
 		$(BUILD_DIR)/test_args.o \
+		$(BUILD_DIR)/ps.o \
 	    $(BUILD_DIR)/sched_x86.o
 	$(OBJCOPY) -O binary $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.bin
 

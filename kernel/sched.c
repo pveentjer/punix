@@ -130,15 +130,6 @@ void exit(int status)
         panic("exit failed because there is no current task.\n");
     }
 
-    screen_print("Exit: ");
-    screen_put_uint64(current->pid);
-    screen_put_char('\n');
-
-    screen_print("run_queue_len: ");
-    screen_put_uint64(sched.run_queue.len);
-    screen_put_char('\n');
-
-
     struct task_struct *next = run_queue_poll(&sched.run_queue);
 
     if (next == NULL)
@@ -164,6 +155,43 @@ void task_trampoline(int (*entry)(int, char**), int argc, char **argv)
     exit(status);
 }
 
+int sched_get_tasks(struct task_info *tasks, int max)
+{
+    int count = 0;
+
+    if (sched.current && count < max)
+    {
+        tasks[count].pid = sched.current->pid;
+        for (int i = 0; i < MAX_NAME_LENGTH; i++)
+        {
+            tasks[count].name[i] = sched.current->name[i];
+            if (sched.current->name[i] == '\0')
+            {
+                break;
+            }
+        }
+        count++;
+    }
+
+    struct task_struct *t = sched.run_queue.first;
+    while (t && count < max)
+    {
+        tasks[count].pid = t->pid;
+        for (int i = 0; i < MAX_NAME_LENGTH; i++)
+        {
+            tasks[count].name[i] = t->name[i];
+            if (t->name[i] == '\0')
+            {
+                break;
+            }
+        }
+        count++;
+        t = t->next;
+    }
+
+    return count;
+}
+
 void sched_add_task(const char *filename, int argc, char **argv)
 {
     if (task_struct_slab_next >= MAX_TASK_CNT) {
@@ -180,6 +208,12 @@ void sched_add_task(const char *filename, int argc, char **argv)
 
     struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
     task->pid = next_pid++;
+
+    for (int i = 0; i < MAX_NAME_LENGTH; i++)
+    {
+        task->name[i] = filename[i];
+        if (filename[i] == '\0') break;
+    }
 
     uint32_t stack_top = next_stack;
     next_stack += TASK_STACK_SIZE;
