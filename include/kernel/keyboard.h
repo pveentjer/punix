@@ -1,8 +1,8 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
+#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdbool.h"
 
 /* Initialize the keyboard driver and enable IRQ1 */
 void keyboard_init(void);

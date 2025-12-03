@@ -1,4 +1,4 @@
-#include "vga.h"
+#include "../../include/kernel/vga.h"
 
 static inline uint16_t
 

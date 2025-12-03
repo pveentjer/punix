@@ -1,21 +1,15 @@
 // sched.c
-#include "sched.h"
-#include "vga.h"
-#include "interrupt.h"
+#include "../../include/kernel/sched.h"
+#include "../../include/kernel/vga.h"
+#include "../../include/kernel/interrupt.h"
 
-#include "process.h"
-
-struct struct_sched 
-{
-    struct run_queue run_queue;
-    struct task_struct *current;
-} sched;
+#include "../../include/kernel/process.h"
 
 /* process table provided by linker.ld */
 extern const struct process_desc __proctable_start[];
 extern const struct process_desc __proctable_end[];
 
-struct struct_sched 
+struct struct_sched
 {
     struct run_queue run_queue;
     struct task_struct *current;

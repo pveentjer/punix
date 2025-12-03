@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include "syscalls.h"
-#include "process.h"
-#include "interrupt.h"
-#include "sched.h"
+#include "../include/kernel/syscalls.h"
+#include "../include/kernel/process.h"
+#include "../include/kernel/interrupt.h"
+#include "../include/kernel/sched.h"
 
 int process0(int argc, char **argv)
 {

@@ -1,8 +1,8 @@
 #ifndef SCHED_H
 #define SCHED_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
+#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stddef.h"
 
 typedef int pid_t;
 

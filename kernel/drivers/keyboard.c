@@ -1,6 +1,6 @@
-#include "keyboard.h"
-#include "vga.h"
-#include "interrupt.h"
+#include "../../include/kernel/keyboard.h"
+#include "../../include/kernel/vga.h"
+#include "../../include/kernel/interrupt.h"
 #include <stddef.h>
 #include <stdbool.h>
 

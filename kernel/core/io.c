@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include "vga.h"
-#include "sched.h"
-#include "syscalls.h"
-#include "keyboard.h"
+#include "../../include/kernel/vga.h"
+#include "../../include/kernel/sched.h"
+#include "../../include/kernel/syscalls.h"
+#include "../../include/kernel/keyboard.h"
 
 ssize_t write(int fd, const void *buf, size_t count)
 {

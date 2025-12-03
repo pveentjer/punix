@@ -2,3 +2,4 @@
 *.elf
 build/
 .idea/
+cmake-build-debug/

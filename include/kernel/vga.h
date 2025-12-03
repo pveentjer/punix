@@ -2,7 +2,7 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
-#include <stdint.h>
+#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
 
 #define VGA_TEXT_MODE_BUFFER 0xB8000
 #define VGA_COLS             80

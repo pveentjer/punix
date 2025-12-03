@@ -1,6 +1,6 @@
-#include "syscalls.h"
-#include "process.h"
-#include "sched.h"
+#include "../include/kernel/syscalls.h"
+#include "../include/kernel/process.h"
+#include "../include/kernel/sched.h"
 
 int ps(int argc, char **argv)
 {
