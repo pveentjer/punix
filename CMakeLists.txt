@@ -75,6 +75,8 @@ set(KERNEL_SOURCES
         ${KERNEL_DRIVER_SOURCES}
         ${APP_SOURCES}
         kernel/core/libc.c
+        include/kernel/kutils.h
+        kernel/core/ktils.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
