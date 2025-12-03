@@ -55,6 +55,7 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/sched.c
         ${KERNEL_DIR}/core/interrupt.c
         ${KERNEL_DIR}/core/io.c
+        ${KERNEL_DIR}/core/libc.c
 )
 
 set(KERNEL_DRIVER_SOURCES
