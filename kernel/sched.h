@@ -26,7 +26,7 @@ struct run_queue
 
 
 void sched_init(void);
-void sched_add_task(const char *filename);
+void sched_add_task(const char *filename, int argc, char **argv);
 
 __attribute__((noreturn)) 
 void sched_start(void);

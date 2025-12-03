@@ -84,10 +84,10 @@ $(BUILD_DIR)/sched_x86.o: $(KERNEL_DIR)/sched_x86.asm | $(BUILD_DIR)
 $(BUILD_DIR)/process0.o: $(KERNEL_DIR)/process0.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/process1.o: $(KERNEL_DIR)/process1.c | $(BUILD_DIR)
+$(BUILD_DIR)/loop.o: $(KERNEL_DIR)/loop.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/process2.o: $(KERNEL_DIR)/process2.c | $(BUILD_DIR)
+$(BUILD_DIR)/test_args.o: $(KERNEL_DIR)/test_args.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
@@ -100,8 +100,8 @@ $(BUILD_DIR)/kernel.bin: \
 	$(BUILD_DIR)/interrupt.o \
 	$(BUILD_DIR)/keyboard.o \
 	$(BUILD_DIR)/process0.o \
-	$(BUILD_DIR)/process1.o \
-	$(BUILD_DIR)/process2.o \
+	$(BUILD_DIR)/loop.o \
+	$(BUILD_DIR)/test_args.o \
 	$(BUILD_DIR)/sched_x86.o \
 	linker.ld | $(BUILD_DIR)
 	$(LD) $(LDFLAGS) -T linker.ld -o $(BUILD_DIR)/kernel.elf \
@@ -112,8 +112,8 @@ $(BUILD_DIR)/kernel.bin: \
 	    $(BUILD_DIR)/interrupt.o \
 	    $(BUILD_DIR)/keyboard.o \
 	    $(BUILD_DIR)/process0.o \
-		$(BUILD_DIR)/process1.o \
-		$(BUILD_DIR)/process2.o \
+		$(BUILD_DIR)/loop.o \
+		$(BUILD_DIR)/test_args.o \
 	    $(BUILD_DIR)/sched_x86.o
 	$(OBJCOPY) -O binary $(BUILD_DIR)/kernel.elf $(BUILD_DIR)/kernel.bin
 

@@ -5,7 +5,8 @@
 
 #include "process.h"
 
-struct struct_sched {
+struct struct_sched 
+{
     struct run_queue run_queue;
     struct task_struct *current;
 } sched;
@@ -14,7 +15,8 @@ struct struct_sched {
 extern const struct process_desc __proctable_start[];
 extern const struct process_desc __proctable_end[];
 
-struct struct_sched {
+struct struct_sched 
+{
     struct run_queue run_queue;
     struct task_struct *current;
 } sched;
@@ -156,15 +158,13 @@ void exit(int status)
     }
 }
 
-void task_trampoline(int (*entry)(void)) 
+void task_trampoline(int (*entry)(int, char**), int argc, char **argv) 
 {
-    int status = entry();
-    
-    // We'll never retur 
+    int status = entry(argc, argv);
     exit(status);
 }
 
-void sched_add_task(const char *filename)
+void sched_add_task(const char *filename, int argc, char **argv)
 {
     if (task_struct_slab_next >= MAX_TASK_CNT) {
         panic("sched_add_task: too many tasks");
@@ -181,37 +181,53 @@ void sched_add_task(const char *filename)
     struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
     task->pid = next_pid++;
 
-    // Allocate stack
     uint32_t stack_top = next_stack;
     next_stack += TASK_STACK_SIZE;
 
-    // We'll build the stack from top downward
-    uint32_t *sp = (uint32_t *)stack_top;
+    char *sp = (char *)stack_top;
 
-    /*
-     * Stack layout expected by task_context_switch:
-     *
-     *  [0] EBX
-     *  [1] ESI
-     *  [2] EDI
-     *  [3] EBP
-     *  [4] EFLAGS
-     *  [5] RETADDR  -> task_trampoline
-     *  [6] (fake return address for trampoline)
-     *  [7] (argument to trampoline = desc->entry)
-     */
+    // Copy strings onto stack, remember start position
+    char *strings_start = sp;
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = 0;
+        while (argv[i][len]) len++;
+        len++;
+        
+        sp -= len;
+        for (size_t j = 0; j < len; j++) {
+            sp[j] = argv[i][j];
+        }
+    }
 
-    *(--sp) = (uint32_t)desc->entry;        // [7]
-    *(--sp) = 0;                            // [6] fake return addr
-    *(--sp) = (uint32_t)task_trampoline;    // [5] return addr for context switch ret
-    *(--sp) = 0x202;                        // [4] EFLAGS (IF=1)
-    *(--sp) = 0;                            // [3] EBP
-    *(--sp) = 0;                            // [2] EDI
-    *(--sp) = 0;                            // [1] ESI
-    *(--sp) = 0;                            // [0] EBX
+    // Align
+    sp = (char *)((uint32_t)sp & ~3);
+    uint32_t *sp32 = (uint32_t *)sp;
 
-    task->esp = (uint32_t)sp;
-    task->eip = (uint32_t)task_trampoline;  // unused by context_switch but useful for debugging
+    // Build argv array - walk through strings again
+    *(--sp32) = 0;
+    char *str_ptr = (char *)stack_top;
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = 0;
+        while (argv[i][len]) len++;
+        len++;
+        str_ptr -= len;
+        *(--sp32) = (uint32_t)str_ptr;
+    }
+    char **new_argv = (char **)sp32;
+
+    *(--sp32) = (uint32_t)new_argv;
+    *(--sp32) = (uint32_t)argc;
+    *(--sp32) = (uint32_t)desc->entry;
+    *(--sp32) = 0;
+    *(--sp32) = (uint32_t)task_trampoline;
+    *(--sp32) = 0x202;
+    *(--sp32) = 0;
+    *(--sp32) = 0;
+    *(--sp32) = 0;
+    *(--sp32) = 0;
+
+    task->esp = (uint32_t)sp32;
+    task->eip = (uint32_t)task_trampoline;
     task->eflags = 0x202;
     task->parent = sched.current ? sched.current : task;
 

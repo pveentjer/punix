@@ -26,6 +26,8 @@ void exit(int status);
 
 size_t strlen(const char *s);
 
+int atoi(const char *str);
+
 int printf(const char *fmt, ...);
 
 void delay(uint32_t count);

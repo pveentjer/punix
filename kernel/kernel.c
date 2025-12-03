@@ -138,26 +138,55 @@ int printf(const char *fmt, ...)
     return (int)len;
 }
 
+int atoi(const char *str)
+{
+    int result = 0;
+    int sign = 1;
+    
+    // Skip whitespace
+    while (*str == ' ' || *str == '\t' || *str == '\n') {
+        str++;
+    }
+    
+    // Handle sign
+    if (*str == '-') {
+        sign = -1;
+        str++;
+    } else if (*str == '+') {
+        str++;
+    }
+    
+    // Convert digits
+    while (*str >= '0' && *str <= '9') {
+        result = result * 10 + (*str - '0');
+        str++;
+    }
+    
+    return sign * result;
+}
+
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     screen_clear();
-
     screen_println("Munix 0.001");
-
+    
     screen_println("Initializing Interrupt Descriptor Table.");
     idt_init();
-
+    
     screen_println("Enabling interrupts.");
     interrupts_enable();
-
+    
     screen_println("Initializing keyboard.");
     keyboard_init();
-
+    
     screen_println("Starting scheduler.");
     sched_init();
-    sched_add_task("bin/process0");
+    
+    char *argv[] = {"bin/process0", NULL};
+    sched_add_task("bin/process0", 1, argv);
+    
     sched_start();
 }

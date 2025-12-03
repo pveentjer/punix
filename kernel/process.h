@@ -1,7 +1,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-typedef void (*process_entry_t)(void);
+typedef int (*process_entry_t)(int argc, char **argv);
 
 struct process_desc {
     const char       *name;   // e.g. "process1"
