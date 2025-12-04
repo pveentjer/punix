@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     for (uint32_t i = 0; i < iterations; i++) {
         printf("%sProcess-%d run: %u\n", indent_str, pid, i);
         delay(200000000);
-        yield();
+        sched_yield();
     }
 
     return 0;

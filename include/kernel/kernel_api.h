@@ -7,13 +7,23 @@
 typedef long ssize_t;
 typedef int pid_t;
 
-struct kernel_api {
+struct kernel_api
+{
     ssize_t (*write)(int fd, const char *buf, size_t count);
+
     ssize_t (*read)(int fd, void *buf, size_t count);
-    pid_t   (*getpid)(void);
-    void    (*yield)(void);
-    void    (*exit)(int status);
-    void    (*sched_add_task)(const char *filename, int argc, char **argv);
+
+    pid_t (*getpid)(void);
+
+    void (*yield)(void);
+
+    void (*exit)(int status);
+
+    pid_t (*fork)(void);
+
+    int (*execve)(const char *pathname, char *const argv[], char *const envp[]);
+
+    void (*sched_add_task)(const char *filename, int argc, char **argv);
 };
 
 /* Fixed address of pointer slot written by the linker header */
@@ -21,19 +31,20 @@ struct kernel_api {
 
 /* --- VGA Debug Helpers ---------------------------------------------------- */
 
-static inline volatile uint16_t *VGA = (volatile uint16_t *)0xB8000;
+static inline volatile uint16_t *VGA = (volatile uint16_t *) 0xB8000;
 
 static inline void vga_put_at(int row, int col, char c, uint8_t attr)
 {
     if (row < 0 || row >= 25 || col < 0 || col >= 80)
         return;
-    VGA[row * 80 + col] = ((uint16_t)attr << 8) | (uint8_t)c;
+    VGA[row * 80 + col] = ((uint16_t) attr << 8) | (uint8_t) c;
 }
 
 static inline void vga_puts_at_col(int row, int col, const char *s, uint8_t attr)
 {
     int c = col;
-    for (int i = 0; s[i] && c < 80; i++, c++) {
+    for (int i = 0; s[i] && c < 80; i++, c++)
+    {
         vga_put_at(row, c, s[i], attr);
     }
 }
@@ -62,19 +73,21 @@ static inline void vga_put_label_hex_right(int row, const char *label, uint32_t 
     int idx = 0;
 
     /* copy label */
-    while (label[idx] && idx < (int)(sizeof(buf) - 1)) {
+    while (label[idx] && idx < (int) (sizeof(buf) - 1))
+    {
         buf[idx] = label[idx];
         idx++;
     }
 
-    if (idx < (int)(sizeof(buf) - 1)) buf[idx++] = ' ';
-    if (idx < (int)(sizeof(buf) - 1)) buf[idx++] = ':';
-    if (idx < (int)(sizeof(buf) - 1)) buf[idx++] = ' ';
+    if (idx < (int) (sizeof(buf) - 1)) buf[idx++] = ' ';
+    if (idx < (int) (sizeof(buf) - 1)) buf[idx++] = ':';
+    if (idx < (int) (sizeof(buf) - 1)) buf[idx++] = ' ';
 
-    if (idx < (int)(sizeof(buf) - 1)) buf[idx++] = '0';
-    if (idx < (int)(sizeof(buf) - 1)) buf[idx++] = 'x';
+    if (idx < (int) (sizeof(buf) - 1)) buf[idx++] = '0';
+    if (idx < (int) (sizeof(buf) - 1)) buf[idx++] = 'x';
 
-    for (int i = 0; i < 8 && idx < (int)(sizeof(buf) - 1); i++) {
+    for (int i = 0; i < 8 && idx < (int) (sizeof(buf) - 1); i++)
+    {
         int shift = (7 - i) * 4;
         buf[idx++] = HEX[(value >> shift) & 0xF];
     }
@@ -96,7 +109,7 @@ static inline struct kernel_api *kapi(void)
 //        vga_put_label_hex_right(19, "write",           (uint32_t)(uintptr_t)api->write,            0x07);
 //        vga_put_label_hex_right(20, "read",            (uint32_t)(uintptr_t)api->read,             0x07);
 //        vga_put_label_hex_right(21, "getpid",          (uint32_t)(uintptr_t)api->getpid,           0x07);
-//        vga_put_label_hex_right(22, "yield",           (uint32_t)(uintptr_t)api->yield,            0x07);
+//        vga_put_label_hex_right(22, "yield",           (uint32_t)(uintptr_t)api->sched_yield,            0x07);
 //        vga_put_label_hex_right(23, "exit",            (uint32_t)(uintptr_t)api->exit,             0x07);
 //        vga_put_label_hex_right(24, "sched_add_task",  (uint32_t)(uintptr_t)api->sched_add_task,   0x07);
 //
@@ -109,8 +122,6 @@ static inline struct kernel_api *kapi(void)
 
     return api;
 }
-
-
 
 
 #endif /* KERNEL_API_H */

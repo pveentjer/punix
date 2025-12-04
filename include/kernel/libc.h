@@ -22,7 +22,11 @@ pid_t getpid(void);
 
 void sched_add_task(const char *filename, int argc, char **argv);
 
-void yield(void);
+pid_t fork(void);
+
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+
+void sched_yield(void);
 
 void exit(int status);
 

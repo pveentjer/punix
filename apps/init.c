@@ -149,8 +149,8 @@ int main(int argc, char **argv)
             }
         }
 
-        /* cooperative scheduling: always yield once per iteration */
-        yield();
+        /* cooperative scheduling: always sched_yield once per iteration */
+        sched_yield();
     }
 
     return 0;

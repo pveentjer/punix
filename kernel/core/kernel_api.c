@@ -11,7 +11,7 @@
 
 static ssize_t k_write(int fd, const char *buf, size_t count)
 {
-    yield();
+    sched_yield();
 
     if (buf == 0 || count == 0)
         return 0;
@@ -34,7 +34,7 @@ static ssize_t k_write(int fd, const char *buf, size_t count)
 
 static ssize_t k_read(int fd, void *buf, size_t count)
 {
-    yield();
+    sched_yield();
 
     if (fd != FD_STDIN)
         return -1;
@@ -53,26 +53,36 @@ static ssize_t k_read(int fd, void *buf, size_t count)
 
 static pid_t k_getpid(void)
 {
-    yield();
+    sched_yield();
 
-    return getpid();
+    return sched_getpid();
 }
 
 static void k_yield(void)
 {
-    yield();
+    sched_yield();
 }
 
 static void k_exit(int status)
 {
-    exit(status);
+    sched_exit(status);
 }
 
 static void k_sched_add_task(const char *filename, int argc, char **argv)
 {
-    yield();
+    sched_yield();
 
     sched_add_task(filename, argc, argv);
+}
+
+static pid_t k_fork(void)
+{
+    sched_fork();
+}
+
+static int k_execve(const char *pathname, char *const argv[], char *const envp[])
+{
+    return sched_execve(pathname, argv, envp);
 }
 
 /* ------------------------------------------------------------
@@ -86,5 +96,7 @@ const struct kernel_api kernel_api_instance = {
         .getpid         = k_getpid,
         .yield          = k_yield,
         .exit           = k_exit,
+        .execve         = k_execve,
+        .fork           = k_fork,
         .sched_add_task = k_sched_add_task,
 };

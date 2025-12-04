@@ -210,7 +210,7 @@ pid_t getpid(void)
     return kapi()->getpid();
 }
 
-void yield(void)
+void sched_yield(void)
 {
     kapi()->yield();
 }
@@ -223,4 +223,14 @@ void exit(int status)
 void sched_add_task(const char *filename, int argc, char **argv)
 {
     kapi()->sched_add_task(filename, argc, argv);
+}
+
+pid_t fork(void)
+{
+    kapi()->fork();
+}
+
+int execve(const char *pathname, char *const argv[], char *const envp[])
+{
+    return kapi()->execve(pathname, argv, envp);
 }

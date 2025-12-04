@@ -73,7 +73,7 @@ struct task_struct task_struct_slab[MAX_TASK_CNT];
 size_t task_struct_slab_next = 0;
 
 
-void exit(int status)
+void sched_exit(int status)
 {
     struct task_struct *current = sched.current;
     if (current == NULL)
@@ -112,7 +112,7 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 //    screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
 
 
-    exit(status);
+    sched_exit(status);
 }
 
 
@@ -270,6 +270,16 @@ void sched_add_task(const char *filename, int argc, char **argv)
     run_queue_push(&sched.run_queue, task);
 }
 
+pid_t sched_fork(void)
+{
+
+}
+
+int sched_execve(const char *pathname, char *const argv[], char *const envp[])
+{
+    return 0;
+}
+
 void sched_start(void)
 {
     struct task_struct dummy;
@@ -282,27 +292,27 @@ void sched_start(void)
     task_context_switch(&dummy, sched.current);
 }
 
-pid_t getpid(void)
+pid_t sched_getpid(void)
 {
     return sched.current->pid;
 }
 
-void yield(void)
+void sched_yield(void)
 {
 
     // if(!interrupts_are_enabled())
     // {
-    //     screen_println("yield; interrupts not enabled.");    
+    //     screen_println("sched_yield; interrupts not enabled.");
     // }
 
     if (sched.run_queue.len == 0)
     {
-        // screen_println("yield; no other task.");
+        // screen_println("sched_yield; no other task.");
         return;
     }
 
 
-//    screen_println("yield to other task.");
+//    screen_println("sched_yield to other task.");
 
 
     struct task_struct *prev = sched.current;

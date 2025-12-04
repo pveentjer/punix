@@ -28,7 +28,8 @@ struct run_queue
 };
 
 
-struct task_info {
+struct task_info
+{
     pid_t pid;
     char name[64];
 };
@@ -36,20 +37,25 @@ struct task_info {
 int sched_get_tasks(struct task_info *tasks, int max);
 
 void sched_init(void);
+
 void sched_add_task(const char *filename, int argc, char **argv);
 
-__attribute__((noreturn)) 
+pid_t sched_fork(void);
+
+int sched_execve(const char *pathname, char *const argv[], char *const envp[]);
+
+__attribute__((noreturn))
 void sched_start(void);
 
-void yield(void);
+void sched_yield(void);
 
-pid_t getpid(void);
+pid_t sched_getpid(void);
 
-void exit(int status);
+void sched_exit(int status);
 
 /* asm functions */
 void task_start(struct task_struct *t);
 
-int  task_context_switch(struct task_struct *current, struct task_struct *next);
+int task_context_switch(struct task_struct *current, struct task_struct *next);
 
 #endif // SCHED_H
