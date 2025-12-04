@@ -14,20 +14,20 @@ __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     screen_clear();
-    screen_println("PUnix 0.001");
+    screen_printf("PUnix 0.001\n");
     
-    screen_println("Initializing Interrupt Descriptor Table.");
+    screen_printf("Initializing Interrupt Descriptor Table.\n");
     idt_init();
     
-    screen_println("Enabling interrupts.");
+    screen_printf("Enabling interrupts.\n");
     interrupts_enable();
     
-    screen_println("Initializing keyboard.");
+    screen_printf("Initializing keyboard.\n");
     keyboard_init();
 
 //    kernel_api_debug_print();
 
-    screen_println("Starting scheduler.");
+    screen_printf("Starting scheduler.\n");
     sched_init();
     
     char *argv[] = {"/sbin/init", NULL};

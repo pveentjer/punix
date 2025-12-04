@@ -14,10 +14,10 @@ extern unsigned char _binary_test_args_elf_start[];
 extern unsigned char _binary_test_args_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
-        { "/sbin/init",     _binary_init_elf_start,      _binary_init_elf_end },
-        { "/bin/loop",      _binary_loop_elf_start,      _binary_loop_elf_end },
-        { "/bin/ps",        _binary_ps_elf_start,        _binary_ps_elf_end },
-        { "/bin/test_args", _binary_test_args_elf_start, _binary_test_args_elf_end },
+        {"/sbin/init",     _binary_init_elf_start,      _binary_init_elf_end},
+        {"/bin/loop",      _binary_loop_elf_start,      _binary_loop_elf_end},
+        {"/bin/ps",        _binary_ps_elf_start,        _binary_ps_elf_end},
+        {"/bin/test_args", _binary_test_args_elf_start, _binary_test_args_elf_end},
 };
 
 const size_t embedded_app_count =
@@ -25,48 +25,64 @@ const size_t embedded_app_count =
 
 const struct embedded_app *find_app(const char *name)
 {
-    for (size_t i = 0; i < embedded_app_count; i++) {
+    for (size_t i = 0; i < embedded_app_count; i++)
+    {
         if (k_strcmp(embedded_apps[i].name, name) == 0)
             return &embedded_apps[i];
     }
-    return 0;
+    return NULL;
 }
 
-
-/**
- * Load an ELF binary image from memory and return its entry point.
- */
-uint32_t elf_load(const void *image, size_t size, uint32_t load_base)
+bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
 {
     (void)size;
-    (void)load_base;   // no base offset for now
 
     const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
 
-    // sanity check ELF header
     if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
-        eh->e_ident[2] != 'L'  || eh->e_ident[3] != 'F') {
-        panic("Invalid ELF magic");
+        eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
+    {
+        //panic("Invalid ELF magic");
+        screen_printf("Invalid ELF magic\n");
+        return false;
     }
 
     const Elf32_Phdr *ph =
             (const Elf32_Phdr *)((uintptr_t)image + eh->e_phoff);
 
-    for (int i = 0; i < eh->e_phnum; i++, ph++) {
+    uint32_t max_end = 0;
+    uint32_t total_copied = 0;
+
+    for (int i = 0; i < eh->e_phnum; i++, ph++)
+    {
         if (ph->p_type != PT_LOAD)
             continue;
 
-        void *dest        = (void *)(ph->p_vaddr);
-        const void *src   = (const void *)((uintptr_t)image + ph->p_offset);
+        uint32_t dest_addr = load_base + ph->p_vaddr;
+        void *dest = (void *)dest_addr;
+        const void *src = (const void *)((uintptr_t)image + ph->p_offset);
 
         k_memcpy(dest, src, ph->p_filesz);
+        total_copied += ph->p_filesz;
 
-        if (ph->p_memsz > ph->p_filesz) {
+        if (ph->p_memsz > ph->p_filesz)
+        {
             k_memset((uint8_t *)dest + ph->p_filesz, 0,
                      ph->p_memsz - ph->p_filesz);
         }
+
+        uint32_t seg_end = ph->p_vaddr + ph->p_memsz;
+        if (seg_end > max_end)
+            max_end = seg_end;
     }
 
-    return eh->e_entry;
-}
+    if (out)
+    {
+        out->base       = load_base;
+        out->entry      = load_base + eh->e_entry;
+        out->max_offset = max_end;
+        out->size       = total_copied;
+    }
 
+    return true;
+}

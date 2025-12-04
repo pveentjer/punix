@@ -34,7 +34,7 @@ int k_strcmp(const char *a, const char *b)
 
 void panic(char* msg)
 {
-    screen_println("Kernel Panic!!!");
+    screen_printf("Kernel Panic!!!\n");
     screen_println(msg);
 
     for (;;)

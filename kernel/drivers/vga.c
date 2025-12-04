@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include "../../include/kernel/vga.h"
 
 static inline uint16_t
@@ -124,6 +125,13 @@ void screen_put_char(char c)
 }
 
 
+void screen_put_hex8(uint8_t v)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    screen_put_char(HEX[v >> 4]);
+    screen_put_char(HEX[v & 0x0F]);
+}
+
 void screen_print(const char *s)
 {
     while (*s)
@@ -136,4 +144,158 @@ void screen_println(const char *s)
 {
     screen_print(s);
     screen_put_char('\n');
+}
+
+int screen_printf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int count = 0;
+
+    while (*fmt)
+    {
+        if (*fmt != '%')
+        {
+            screen_put_char(*fmt++);
+            count++;
+            continue;
+        }
+
+        fmt++;  // skip '%'
+        if (*fmt == '\0')
+            break;
+
+        switch (*fmt)
+        {
+            case '%':
+                screen_put_char('%');
+                count++;
+                break;
+
+            case 'c':
+            {
+                int c = va_arg(ap, int);
+                screen_put_char((char)c);
+                count++;
+                break;
+            }
+
+            case 's':
+            {
+                const char *s = va_arg(ap, const char *);
+                if (!s)
+                    s = "(null)";
+                while (*s)
+                {
+                    screen_put_char(*s++);
+                    count++;
+                }
+                break;
+            }
+
+            case 'd':
+            case 'i':
+            {
+                int v = va_arg(ap, int);
+                unsigned int uv;
+                if (v < 0)
+                {
+                    screen_put_char('-');
+                    count++;
+                    uv = (unsigned int)(-v);
+                }
+                else
+                {
+                    uv = (unsigned int)v;
+                }
+
+                char buf[16];
+                int pos = 0;
+                if (uv == 0)
+                {
+                    buf[pos++] = '0';
+                }
+                else
+                {
+                    while (uv > 0 && pos < (int)sizeof(buf))
+                    {
+                        buf[pos++] = '0' + (uv % 10);
+                        uv /= 10;
+                    }
+                }
+                while (pos--)
+                {
+                    screen_put_char(buf[pos]);
+                    count++;
+                }
+                break;
+            }
+
+            case 'u':
+            {
+                unsigned int uv = va_arg(ap, unsigned int);
+                char buf[16];
+                int pos = 0;
+                if (uv == 0)
+                {
+                    buf[pos++] = '0';
+                }
+                else
+                {
+                    while (uv > 0 && pos < (int)sizeof(buf))
+                    {
+                        buf[pos++] = '0' + (uv % 10);
+                        uv /= 10;
+                    }
+                }
+                while (pos--)
+                {
+                    screen_put_char(buf[pos]);
+                    count++;
+                }
+                break;
+            }
+
+            case 'x':
+            case 'X':
+            {
+                unsigned int v = va_arg(ap, unsigned int);
+                char buf[8];
+                int pos = 0;
+                static const char HEX[] = "0123456789ABCDEF";
+
+                if (v == 0)
+                {
+                    buf[pos++] = '0';
+                }
+                else
+                {
+                    while (v > 0 && pos < (int)sizeof(buf))
+                    {
+                        buf[pos++] = HEX[v & 0xF];
+                        v >>= 4;
+                    }
+                }
+
+                while (pos--)
+                {
+                    screen_put_char(buf[pos]);
+                    count++;
+                }
+                break;
+            }
+
+            default:
+                // unknown specifier, print it literally
+                screen_put_char('%');
+                screen_put_char(*fmt);
+                count += 2;
+                break;
+        }
+
+        fmt++;
+    }
+
+    va_end(ap);
+    return count;
 }

@@ -2,8 +2,9 @@
 bits 16
 org 0x7E00
 
-%define KERNEL_LOAD_TEMP   0x8000       ; 512 KB temp load area
+%define KERNEL_LOAD_TEMP   0x8000       ; 512 KB temp load area (0x00080000)
 %define KERNEL_TARGET      0x00100000   ; final 1 MiB kernel addr
+%define KERNEL_SECTORS     128          ; sectors to read (128 * 512 = 64 KiB)
 
 start:
     cli
@@ -15,14 +16,14 @@ start:
     mov [boot_drive], dl
 
     ; load kernel temporarily at 0x8000:0000 = 0x00080000 (512 KB)
-    mov ax, 0x8000
+    mov ax, KERNEL_LOAD_TEMP
     mov es, ax
     xor bx, bx
 
     mov ah, 0x02
-    mov al, 64           ; sectors to read
+    mov al, KERNEL_SECTORS   ; sectors to read
     mov ch, 0
-    mov cl, 4
+    mov cl, 4                ; kernel starts at sector 4
     mov dh, 0
     mov dl, [boot_drive]
     int 0x13
@@ -48,10 +49,10 @@ init_pm:
     mov ss, ax
     mov esp, 0x90000
 
-    ; copy kernel from 0x00080000 -> 0x00100000 (64 KiB example)
+    ; copy kernel from 0x00080000 -> 0x00100000
     mov esi, 0x00080000
     mov edi, KERNEL_TARGET
-    mov ecx, 64*512/4        ; 64 sectors × 512 B ÷ 4 B/word
+    mov ecx, (KERNEL_SECTORS * 512) / 4   ; sectors × 512 B ÷ 4 B/word
     rep movsd
 
     ; jump to kernel

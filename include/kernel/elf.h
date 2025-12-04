@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "kutils.h"   // for k_strcmp
+#include <stdbool.h>
+#include "kutils.h"
 
 /* ------------------------------------------------------------
  * Minimal 32-bit ELF types (freestanding)
@@ -41,11 +42,19 @@ typedef struct {
 
 #define PT_LOAD 1
 
+struct elf_info {
+    uint32_t entry;          // entry point (absolute address)
+    uint32_t base;           // process base address (load_base)
+    uint32_t max_offset;     // highest p_vaddr + p_memsz in ELF
+    uint32_t size;           // total bytes copied (optional)
+};
+
 /* ------------------------------------------------------------
  * ELF Loader
  * ------------------------------------------------------------ */
 
-uint32_t elf_load(const void *image, size_t size, uint32_t load_base);
+bool elf_load(const void *image, size_t size,
+              uint32_t load_base, struct elf_info *out);
 
 /* ------------------------------------------------------------
  * Embedded application table

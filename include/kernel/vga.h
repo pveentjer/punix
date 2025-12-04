@@ -2,7 +2,7 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
-#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
+#include <stdint.h>
 
 #define VGA_TEXT_MODE_BUFFER 0xB8000
 #define VGA_COLS             80
@@ -14,5 +14,8 @@ void screen_put_char(char c);
 void screen_put_uint64(uint64_t n);
 void screen_print(const char *s);
 void screen_println(const char *s);
+void screen_put_hex8(uint8_t v);
+int screen_printf(const char *fmt, ...);
+
 
 #endif // SCREEN_H

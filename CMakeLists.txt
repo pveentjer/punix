@@ -97,7 +97,7 @@ function(add_app name)
 
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
-            -Wl,-Ttext=0x00200000
+            -Wl,-Ttext=0x0
     )
 
     set_target_properties(${name}.elf PROPERTIES
