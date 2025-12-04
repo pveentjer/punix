@@ -2,18 +2,39 @@
 #include "../../include/kernel/vga.h"
 
 static inline uint16_t
-
 vga_entry(char c, uint8_t attr)
 {
-    return (uint16_t)
-    c | ((uint16_t)
-    attr << 8);
+    return (uint16_t)c | ((uint16_t)attr << 8);
 }
 
 static volatile uint16_t *const VIDEO =
-(volatile uint16_t *)VGA_TEXT_MODE_BUFFER;
+        (volatile uint16_t *)VGA_TEXT_MODE_BUFFER;
 static int cursor_row = 0;
 static int cursor_col = 0;
+
+/* ---------------- I/O helpers ---------------- */
+
+static inline void outb(uint16_t port, uint8_t value)
+{
+    __asm__ volatile ("outb %0, %1" :: "a"(value), "Nd"(port));
+}
+
+/* ---------------- Cursor update ---------------- */
+
+static void vga_update_cursor(void)
+{
+    uint16_t pos = (uint16_t)(cursor_row * VGA_COLS + cursor_col);
+
+    /* low byte */
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (uint8_t)(pos & 0xFF));
+
+    /* high byte */
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
+/* ---------------- Scrolling ---------------- */
 
 static void scroll(void)
 {
@@ -38,6 +59,8 @@ static void scroll(void)
     cursor_col = 0;
 }
 
+/* ---------------- Public API ---------------- */
+
 void screen_clear(void)
 {
     for (int i = 0; i < VGA_COLS * VGA_ROWS; i++)
@@ -47,6 +70,7 @@ void screen_clear(void)
 
     cursor_row = 0;
     cursor_col = 0;
+    vga_update_cursor();
 }
 
 void screen_put_uint64(uint64_t value)
@@ -99,11 +123,12 @@ void screen_put_char(char c)
         else
         {
             // top-left already, nothing to erase
+            vga_update_cursor();
             return;
         }
 
         VIDEO[cursor_row * VGA_COLS + cursor_col] =
-            vga_entry(' ', VGA_ATTR_WHITE_ON_BLACK);
+                vga_entry(' ', VGA_ATTR_WHITE_ON_BLACK);
     }
     else
     {
@@ -122,8 +147,9 @@ void screen_put_char(char c)
     {
         scroll();
     }
-}
 
+    vga_update_cursor();
+}
 
 void screen_put_hex8(uint8_t v)
 {
