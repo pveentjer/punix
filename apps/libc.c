@@ -195,7 +195,6 @@ int atoi(const char *str)
     return sign * result;
 }
 
-
 ssize_t write(int fd, const void *buf, size_t count)
 {
     return kapi()->write(fd, buf, count);

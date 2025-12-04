@@ -7,7 +7,7 @@
 #include "../../include/kernel/keyboard.h"
 
 
-
+extern void kernel_api_debug_print(void);
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -24,7 +24,9 @@ void kmain(void)
     
     screen_println("Initializing keyboard.");
     keyboard_init();
-    
+
+//    kernel_api_debug_print();
+
     screen_println("Starting scheduler.");
     sched_init();
     

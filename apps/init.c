@@ -28,28 +28,28 @@ static void vga_puts_at(int row, const char *s, uint8_t attr)
 
 int main(int argc, char **argv)
 {
-    DBG(20, "DBG: enter main");  // bottom of screen
+//    DBG(20, "DBG: enter main");  // bottom of screen
 
     if (argc != 1) {
-        DBG(21, "DBG: argc != 1");
+//        DBG(21, "DBG: argc != 1");
         printf("process2: only accept 0 argument, but received %d, exiting\n", argc);
         return 1;
     }
 
-    DBG(21, "DBG: argc == 1");
+//    DBG(21, "DBG: argc == 1");
 
     printf("process0: minimal CLI ready\n");
 
     char line[128];
     size_t len;
 
-    DBG(22, "DBG: enter main loop");
+//    DBG(22, "DBG: enter main loop");
 
     for (;;) {
         printf("> ");
         len = 0;
 
-        DBG(23, "DBG: waiting for input");
+//        DBG(23, "DBG: waiting for input");
 
         for (;;) {
             char c;
@@ -79,10 +79,10 @@ int main(int argc, char **argv)
             }
         }
 
-        DBG(23, "DBG: line complete      ");
+//        DBG(23, "DBG: line complete      ");
 
         if (len == 0) {
-            DBG(24, "DBG: empty line");
+//            DBG(24, "DBG: empty line");
             continue;
         }
 
@@ -101,13 +101,13 @@ int main(int argc, char **argv)
             if (*p) *p++ = '\0';          // null terminate
         }
 
-        DBG(24, "DBG: parsed command    ");
+//        DBG(24, "DBG: parsed command    ");
 
         if (cmd_argc > 0) {
-            DBG(25, "DBG: sched_add_task   ");
+//            DBG(25, "DBG: sched_add_task   ");
             printf("starting '%s'\n", cmd_argv[0]);
             sched_add_task(cmd_argv[0], cmd_argc, cmd_argv);
-            DBG(25, "DBG: after sched_add  ");
+//            DBG(25, "DBG: after sched_add  ");
         }
     }
 

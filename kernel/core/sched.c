@@ -69,7 +69,7 @@ uint32_t next_pid = 0;
 
 #define TASK_STACK_SIZE 4096
 
-uint32_t next_stack = 16*1024;
+uint32_t next_stack = 4 * 1020 * 1024;
 
 #define MAX_TASK_CNT 1024
 
@@ -186,6 +186,7 @@ void sched_add_task(const char *filename, int argc, char **argv)
         screen_println("sched_add_task: main_addr == 0, aborting");
         return;
     }
+
 
 //    return ;
 

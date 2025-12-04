@@ -2,38 +2,37 @@
 bits 16
 org 0x7E00
 
+%define KERNEL_LOAD_TEMP   0x8000       ; 512 KB temp load area
+%define KERNEL_TARGET      0x00100000   ; final 1 MiB kernel addr
+
 start:
     cli
-    mov ax, 0x0000
+    xor ax, ax
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
     mov [boot_drive], dl
 
-    ; load kernel to 0x1000:0x0000 = 0x10000 physical
-    mov ax, 0x1000
+    ; load kernel temporarily at 0x8000:0000 = 0x00080000 (512 KB)
+    mov ax, 0x8000
     mov es, ax
-    mov bx, 0x0000
+    xor bx, bx
 
     mov ah, 0x02
-    mov al, 64           ; load 64 sectors (32 KiB) – adjust as needed
+    mov al, 64           ; sectors to read
     mov ch, 0
-    mov cl, 4            ; kernel starts at sector 4
+    mov cl, 4
     mov dh, 0
     mov dl, [boot_drive]
     int 0x13
     jc disk_error
 
-    ; setup GDT
     lgdt [gdt_descriptor]
 
-    ; set PE bit (bit 0) in CR0
     mov eax, cr0
     or  eax, 1
     mov cr0, eax
-
-    ; far jump to flush pipeline and enter 32-bit mode
     jmp CODE_SEG:init_pm
 
 ; ------------------------------------------------------------
@@ -47,11 +46,16 @@ init_pm:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x90000         ; simple stack
+    mov esp, 0x90000
 
-    ; ABSOLUTE jump to kernel entry at 0x10000
-    mov eax, 0x10000
-    jmp eax                  ; or call eax if you ever want to return
+    ; copy kernel from 0x00080000 -> 0x00100000 (64 KiB example)
+    mov esi, 0x00080000
+    mov edi, KERNEL_TARGET
+    mov ecx, 64*512/4        ; 64 sectors × 512 B ÷ 4 B/word
+    rep movsd
+
+    ; jump to kernel
+    jmp KERNEL_TARGET
 
 .hang:
     cli
@@ -65,9 +69,9 @@ disk_error:
 
 ; ---------------- GDT ----------------
 gdt_start:
-    dq 0x0000000000000000       ; null descriptor
-    dq 0x00CF9A000000FFFF       ; code segment
-    dq 0x00CF92000000FFFF       ; data segment
+    dq 0x0000000000000000
+    dq 0x00CF9A000000FFFF
+    dq 0x00CF92000000FFFF
 gdt_end:
 
 gdt_descriptor:
