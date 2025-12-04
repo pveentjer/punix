@@ -1,6 +1,10 @@
 #ifndef KERNEL_API_H
 #define KERNEL_API_H
 
+// The Kernel API is the gateway between userspace and kernel space.
+// Currently there are no true system calls in the sense that they
+// switch from user mode to kernel mode.
+
 #include <stddef.h>
 #include <stdint.h>
 

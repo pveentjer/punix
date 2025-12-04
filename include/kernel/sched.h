@@ -43,6 +43,10 @@ void sched_start(void);
 
 void yield(void);
 
+pid_t getpid(void);
+
+void exit(int status);
+
 /* asm functions */
 void task_start(struct task_struct *t);
 

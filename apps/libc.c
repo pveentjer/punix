@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include "kernel/libc.h"
-#include "kernel/api.h"
+#include "kernel/kernel_api.h"
 
 
 void delay(uint32_t count)
@@ -213,7 +213,7 @@ pid_t getpid(void)
 
 void yield(void)
 {
-    return kapi()->yield();
+    kapi()->yield();
 }
 
 void exit(int status)
