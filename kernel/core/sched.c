@@ -12,7 +12,7 @@ struct struct_sched
 } sched;
 
 
-int  task_context_switch(struct task_struct *current, struct task_struct *next);
+int task_context_switch(struct task_struct *current, struct task_struct *next);
 
 
 /* ---------------- Run queue ---------------- */
@@ -30,8 +30,7 @@ void run_queue_push(struct run_queue *rq, struct task_struct *task)
     if (rq->len == 0)
     {
         rq->first = rq->last = task;
-    }
-    else
+    } else
     {
         rq->last->next = task;
         rq->last = task;
@@ -93,21 +92,24 @@ void exit(int status)
         {
             __asm__ volatile("hlt");
         }
-    }
-    else
+    } else
     {
         sched.current = next;
         task_context_switch(current, next);
     }
 }
 
-void task_trampoline(int (*entry)(int, char**), int argc, char **argv)
+void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
-    screen_printf("task_trampoline: enter\n");
+//    screen_printf("task_trampoline: enter\n");
 
     int status = entry(argc, argv);
+//    if (status!= 0)
+//    {
+//            screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
+//    }
 
-    screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
+//    screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
 
 
     exit(status);
@@ -150,30 +152,35 @@ int sched_get_tasks(struct task_info *tasks, int max)
 
     return count;
 }
+
 static uint32_t next_code_base = 0x00200000;  // first app at 2 MiB
 
 void sched_add_task(const char *filename, int argc, char **argv)
 {
-    if (task_struct_slab_next >= MAX_TASK_CNT) {
+//    screen_println("abcdef");
+
+    if (task_struct_slab_next >= MAX_TASK_CNT)
+    {
         panic("sched_add_task: too many tasks");
     }
 
     const struct embedded_app *app = find_app(filename);
-    if (!app) {
+    if (!app)
+    {
         screen_printf("sched_add_task: unknown app '%s'\n", filename);
         return;
     }
 
     const void *image = app->start;
-    size_t image_size = (size_t)(app->end - app->start);
+    size_t image_size = (size_t) (app->end - app->start);
 
-    uint8_t *p = (uint8_t *)image;
+    uint8_t *p = (uint8_t *) image;
 
-    screen_printf("magic bytes: ");
-    for (int i = 0; i < 8; i++) {
-        screen_printf("%02X ", p[i]);
-    }
-    screen_printf("\n");
+//    screen_printf("magic bytes: ");
+//    for (int i = 0; i < 8; i++) {
+//        screen_printf("%02X ", p[i]);
+//    }
+//    screen_printf("\n");
 
     uint32_t code_base = next_code_base;
     next_code_base += 0x00100000;
@@ -181,17 +188,19 @@ void sched_add_task(const char *filename, int argc, char **argv)
     struct elf_info elf_info;
 
     bool success = elf_load(image, image_size, code_base, &elf_info);
-    if (!success){
+    if (!success)
+    {
         screen_printf("Failed to load the binary\n");
         return;
     }
 
     uint32_t main_addr = elf_info.entry;
 
-    screen_printf("sched_add_task: main_addr = %u\n", main_addr);
+//    screen_printf("sched_add_task: main_addr = %u\n", main_addr);
 
 
-    if (main_addr == 0) {
+    if (main_addr == 0)
+    {
         screen_printf("sched_add_task: main_addr == 0, aborting\n");
         return;
     }
@@ -201,59 +210,62 @@ void sched_add_task(const char *filename, int argc, char **argv)
 
     uint32_t stack_top = align_up(code_base + elf_info.size + 0x1000, 16);
 
-    char *sp = (char *)stack_top;
+    char *sp = (char *) stack_top;
 
     // Copy strings onto stack, remember start position
     char *strings_start = sp;
-    for (int i = argc - 1; i >= 0; i--) {
+    for (int i = argc - 1; i >= 0; i--)
+    {
         size_t len = 0;
         while (argv[i][len]) len++;
         len++;
-        
+
         sp -= len;
-        for (size_t j = 0; j < len; j++) {
+        for (size_t j = 0; j < len; j++)
+        {
             sp[j] = argv[i][j];
         }
     }
 
     // Align
-    sp = (char *)((uint32_t)sp & ~3);
-    uint32_t *sp32 = (uint32_t *)sp;
+    sp = (char *) ((uint32_t) sp & ~3);
+    uint32_t *sp32 = (uint32_t *) sp;
 
     // Build argv array - walk through strings again
     *(--sp32) = 0;
-    char *str_ptr = (char *)stack_top;
-    for (int i = argc - 1; i >= 0; i--) {
+    char *str_ptr = (char *) stack_top;
+    for (int i = argc - 1; i >= 0; i--)
+    {
         size_t len = 0;
         while (argv[i][len]) len++;
         len++;
         str_ptr -= len;
-        *(--sp32) = (uint32_t)str_ptr;
+        *(--sp32) = (uint32_t) str_ptr;
     }
-    char **new_argv = (char **)sp32;
+    char **new_argv = (char **) sp32;
 
-    *(--sp32) = (uint32_t)new_argv;
-    *(--sp32) = (uint32_t)argc;
+    *(--sp32) = (uint32_t) new_argv;
+    *(--sp32) = (uint32_t) argc;
     *(--sp32) = main_addr;
     *(--sp32) = 0;
-    *(--sp32) = (uint32_t)task_trampoline;
+    *(--sp32) = (uint32_t) task_trampoline;
     *(--sp32) = 0x202;
     *(--sp32) = 0;
     *(--sp32) = 0;
     *(--sp32) = 0;
     *(--sp32) = 0;
 
-    task->esp = (uint32_t)sp32;
-    task->eip = (uint32_t)task_trampoline;
+    task->esp = (uint32_t) sp32;
+    task->eip = (uint32_t) task_trampoline;
     task->eflags = 0x202;
     task->parent = sched.current ? sched.current : task;
 
-    screen_printf("proc pid=%d base=0x%X entry=0x%X\n",
-                  task->pid, elf_info.base, elf_info.entry);
-    screen_printf("  max_offset=0x%X code_end=0x%X\n",
-                  elf_info.max_offset, elf_info.base + elf_info.max_offset);
-    screen_printf("  stack_top=0x%X esp=0x%X\n",
-                  stack_top, task->esp);
+//    screen_printf("proc pid=%d base=0x%X entry=0x%X\n",
+//                  task->pid, elf_info.base, elf_info.entry);
+//    screen_printf("  max_offset=0x%X code_end=0x%X\n",
+//                  elf_info.max_offset, elf_info.base + elf_info.max_offset);
+//    screen_printf("  stack_top=0x%X esp=0x%X\n",
+//                  stack_top, task->esp);
 
     run_queue_push(&sched.run_queue, task);
 }
@@ -290,9 +302,7 @@ void yield(void)
     }
 
 
-
 //    screen_println("yield to other task.");
-
 
 
     struct task_struct *prev = sched.current;

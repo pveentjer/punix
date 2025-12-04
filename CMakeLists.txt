@@ -91,13 +91,16 @@ function(add_app name)
             ${APPS_DIR}/libc.c
     )
 
+    # Compile as 32-bit, freestanding, *position-independent* code
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
+            -fPIE
     )
 
+    # Link as a PIE (no fixed -Ttext here)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
-            -Wl,-Ttext=0x0
+            -pie
     )
 
     set_target_properties(${name}.elf PROPERTIES
@@ -116,6 +119,7 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
+
 
 
 # ------------------------------------------------------------

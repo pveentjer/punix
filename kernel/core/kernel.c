@@ -25,8 +25,6 @@ void kmain(void)
     screen_printf("Initializing keyboard.\n");
     keyboard_init();
 
-//    kernel_api_debug_print();
-
     screen_printf("Starting scheduler.\n");
     sched_init();
     

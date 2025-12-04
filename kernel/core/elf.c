@@ -33,16 +33,20 @@ const struct embedded_app *find_app(const char *name)
     return NULL;
 }
 
+/* --------------------------------------------------------------------
+ * ELF loader with relocation fixups
+ * -------------------------------------------------------------------- */
+
 bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
 {
     (void)size;
 
     const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
 
+    // Basic ELF magic check
     if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
-        eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
+        eh->e_ident[2] != 'L'  || eh->e_ident[3] != 'F')
     {
-        //panic("Invalid ELF magic");
         screen_printf("Invalid ELF magic\n");
         return false;
     }
@@ -50,17 +54,18 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
     const Elf32_Phdr *ph =
             (const Elf32_Phdr *)((uintptr_t)image + eh->e_phoff);
 
-    uint32_t max_end = 0;
-    uint32_t total_copied = 0;
+    uint32_t max_end       = 0;
+    uint32_t total_copied  = 0;
 
+    // Copy all PT_LOAD segments to load_base + p_vaddr
     for (int i = 0; i < eh->e_phnum; i++, ph++)
     {
         if (ph->p_type != PT_LOAD)
             continue;
 
         uint32_t dest_addr = load_base + ph->p_vaddr;
-        void *dest = (void *)dest_addr;
-        const void *src = (const void *)((uintptr_t)image + ph->p_offset);
+        void    *dest      = (void *)dest_addr;
+        const void *src    = (const void *)((uintptr_t)image + ph->p_offset);
 
         k_memcpy(dest, src, ph->p_filesz);
         total_copied += ph->p_filesz;
@@ -80,9 +85,10 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
     {
         out->base       = load_base;
         out->entry      = load_base + eh->e_entry;
-        out->max_offset = max_end;
+        out->max_offset = max_end;       // still in "process space"
         out->size       = total_copied;
     }
 
     return true;
 }
+
