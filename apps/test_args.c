@@ -1,7 +1,6 @@
 #include "../include/kernel/libc.h"
-#include "../include/kernel/process.h"
 
-int test_args(int argc, char **argv)
+int main(int argc, char **argv)
 {
     printf("argc = %d\n", argc);
     for (int i = 0; i < argc; i++) {
@@ -9,5 +8,3 @@ int test_args(int argc, char **argv)
     }
     return 0;
 }
-
-REGISTER_PROCESS(test_args, "/bin/test_args");

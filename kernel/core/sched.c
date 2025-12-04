@@ -2,12 +2,8 @@
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/vga.h"
 #include "../../include/kernel/interrupt.h"
-
-#include "../../include/kernel/process.h"
-
-/* process table provided by linker.ld */
-extern const struct process_desc __proctable_start[];
-extern const struct process_desc __proctable_end[];
+#include "../../include/kernel/kutils.h"
+#include "../../include/kernel/elf.h"
 
 struct struct_sched
 {
@@ -15,17 +11,6 @@ struct struct_sched
     struct task_struct *current;
 } sched;
 
-
-void panic(char* msg)
-{
-    screen_println("Kernel Panic!!!");
-    screen_println(msg);
-    
-    for (;;)
-    {
-        __asm__ volatile("hlt");
-    }
-}
 
 int  task_context_switch(struct task_struct *current, struct task_struct *next);
 
@@ -92,29 +77,6 @@ struct task_struct task_struct_slab[MAX_TASK_CNT];
 
 size_t task_struct_slab_next = 0;
 
-static int kstrcmp(const char *a, const char *b)
-{
-    while (*a && (*a == *b)) 
-    {
-        a++;
-        b++;
-    }
-    return (unsigned char)*a - (unsigned char)*b;
-}
-
-static const struct process_desc *find_process(const char *name)
-{
-    const struct process_desc *p = __proctable_start;
-    while (p < __proctable_end) 
-    {
-        if (kstrcmp(p->name, name) == 0) 
-        {
-            return p;
-        }
-        p++;
-    }
-    return 0;
-}
 
 void exit(int status)
 {
@@ -143,11 +105,20 @@ void exit(int status)
     }
 }
 
-void task_trampoline(int (*entry)(int, char**), int argc, char **argv) 
+void task_trampoline(int (*entry)(int, char**), int argc, char **argv)
 {
+    screen_println("task_trampoline: enter");
+
     int status = entry(argc, argv);
+
+    screen_println("task_trampoline: returned from main");
+    screen_print("exit status = ");
+    screen_put_uint64((uint64_t)status);
+    screen_put_char('\n');
+
     exit(status);
 }
+
 
 int sched_get_tasks(struct task_info *tasks, int max)
 {
@@ -192,22 +163,35 @@ void sched_add_task(const char *filename, int argc, char **argv)
         panic("sched_add_task: too many tasks");
     }
 
-    const struct process_desc *desc = find_process(filename);
-    if (!desc) {
-        screen_print("sched_add_task: unknown process '");
+    const struct embedded_app *app = find_app(filename);
+    if (!app) {
+        screen_print("sched_add_task: unknown app '");
         screen_print(filename);
         screen_println("'");
         return;
     }
 
+     const void *image = app->start;
+    size_t image_size = (size_t)(app->end - app->start);
+
+    // TEMP: load code into a fixed high region to avoid stack overlap
+    uint32_t code_base = 0x200000;
+    uint32_t main_addr = elf_load(image, image_size, code_base);
+
+    screen_print("sched_add_task: main_addr = ");
+    screen_put_uint64((uint64_t)main_addr);
+    screen_put_char('\n');
+
+    if (main_addr == 0) {
+        screen_println("sched_add_task: main_addr == 0, aborting");
+        return;
+    }
+
+//    return ;
+
     struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
     task->pid = next_pid++;
 
-    for (int i = 0; i < MAX_NAME_LENGTH; i++)
-    {
-        task->name[i] = filename[i];
-        if (filename[i] == '\0') break;
-    }
 
     uint32_t stack_top = next_stack;
     next_stack += TASK_STACK_SIZE;
@@ -245,7 +229,7 @@ void sched_add_task(const char *filename, int argc, char **argv)
 
     *(--sp32) = (uint32_t)new_argv;
     *(--sp32) = (uint32_t)argc;
-    *(--sp32) = (uint32_t)desc->entry;
+    *(--sp32) = main_addr;
     *(--sp32) = 0;
     *(--sp32) = (uint32_t)task_trampoline;
     *(--sp32) = 0x202;

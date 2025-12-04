@@ -1,10 +1,9 @@
 #include <stdint.h>
 #include "../include/kernel/libc.h"
-#include "../include/kernel/process.h"
 
 #define MAX_INDENT 80
 
-int process1(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if (argc != 3) 
     {
@@ -54,5 +53,3 @@ int process1(int argc, char **argv)
 
     return 0;
 }
-
-REGISTER_PROCESS(process1, "/bin/loop");

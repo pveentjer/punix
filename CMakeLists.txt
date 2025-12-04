@@ -3,12 +3,12 @@ cmake_minimum_required(VERSION 3.20)
 project(Munix C ASM)
 
 # ------------------------------------------------------------
-# Tool detection (rough equivalent of check-tools)
+# Tool detection
 # ------------------------------------------------------------
 find_program(NASM_EXECUTABLE nasm REQUIRED)
 find_program(OBJCOPY_EXECUTABLE objcopy REQUIRED)
 find_program(QEMU_EXECUTABLE qemu-system-i386 REQUIRED)
-find_program(LD_EXECUTABLE ld REQUIRED)  # kept for explicitness, even though we don't call it directly
+find_program(LD_EXECUTABLE ld REQUIRED)
 
 # ------------------------------------------------------------
 # Compiler / flags
@@ -16,11 +16,9 @@ find_program(LD_EXECUTABLE ld REQUIRED)  # kept for explicitness, even though we
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Freestanding 32-bit kernel flags
 set(COMMON_C_FLAGS "-ffreestanding -nostdlib -m32 -O2 -Wall -Wextra")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
 
-# Headers live in top-level include/
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 set(BOOT_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/boot)
@@ -48,14 +46,15 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
-# Kernel C sources -> object library
+# Kernel core sources
 # ------------------------------------------------------------
 set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/kernel.c
         ${KERNEL_DIR}/core/sched.c
         ${KERNEL_DIR}/core/interrupt.c
-        ${KERNEL_DIR}/core/io.c
-        ${KERNEL_DIR}/core/libc.c
+        ${KERNEL_DIR}/core/kernel_api.c
+        ${KERNEL_DIR}/core/kutils.c
+        ${KERNEL_DIR}/core/elf.c
 )
 
 set(KERNEL_DRIVER_SOURCES
@@ -63,20 +62,9 @@ set(KERNEL_DRIVER_SOURCES
         ${KERNEL_DIR}/drivers/keyboard.c
 )
 
-set(APP_SOURCES
-        ${APPS_DIR}/init.c
-        ${APPS_DIR}/loop.c
-        ${APPS_DIR}/test_args.c
-        ${APPS_DIR}/ps.c
-)
-
 set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
-        ${APP_SOURCES}
-        kernel/core/libc.c
-        include/kernel/kutils.h
-        kernel/core/ktils.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
@@ -95,19 +83,65 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
-# Kernel ELF target (uses normal CMake link logic)
+# Helper: build & embed a user app
+# ------------------------------------------------------------
+function(add_app name)
+    add_executable(${name}.elf
+            ${APPS_DIR}/${name}.c
+            ${APPS_DIR}/libc.c
+    )
+
+    target_compile_options(${name}.elf PRIVATE
+            -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
+    )
+
+    target_link_options(${name}.elf PRIVATE
+            -m32 -nostdlib
+            -Wl,-Ttext=0x00200000
+    )
+
+    set_target_properties(${name}.elf PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR}
+    )
+
+    add_custom_command(
+            OUTPUT ${BUILD_DIR}/${name}_elf.o
+            COMMAND ${OBJCOPY_EXECUTABLE}
+            -I binary -O elf32-i386 -B i386
+            ${name}.elf ${name}_elf.o
+            DEPENDS ${name}.elf
+            WORKING_DIRECTORY ${BUILD_DIR}
+            COMMENT "Embedding ${name}.elf into kernel"
+    )
+
+    set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
+endfunction()
+
+
+# ------------------------------------------------------------
+# Build user apps
+# ------------------------------------------------------------
+add_app(init)
+add_app(ps)
+add_app(loop)
+add_app(test_args)
+
+# ------------------------------------------------------------
+# Kernel ELF target
 # ------------------------------------------------------------
 add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
         ${BUILD_DIR}/sched_x86.o
+        ${init_OBJ}
+        ${ps_OBJ}
+        ${loop_OBJ}
+        ${test_args_OBJ}
 )
 
-# Put kernel.elf into the build dir
 set_target_properties(kernel.elf PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR}
 )
 
-# Link options: 32-bit, freestanding, custom linker script
 target_link_options(kernel.elf PRIVATE
         -m32
         -nostdlib
@@ -115,7 +149,7 @@ target_link_options(kernel.elf PRIVATE
 )
 
 # ------------------------------------------------------------
-# kernel.elf -> kernel.bin (objcopy)
+# kernel.elf -> kernel.bin
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/kernel.bin
@@ -126,7 +160,7 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
-# Disk image (dd) – equivalent of build/disk.img
+# Disk image (bootsector + loader + kernel)
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/disk.img
@@ -142,13 +176,12 @@ add_custom_command(
         COMMENT "Building disk.img"
 )
 
-# Build this by default (like 'all: ... disk.img')
 add_custom_target(disk ALL
         DEPENDS ${BUILD_DIR}/disk.img
 )
 
 # ------------------------------------------------------------
-# run target (qemu)
+# Run target (QEMU)
 # ------------------------------------------------------------
 add_custom_target(run
         COMMAND ${QEMU_EXECUTABLE} -drive format=raw,file=${BUILD_DIR}/disk.img

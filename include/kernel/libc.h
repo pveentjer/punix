@@ -1,5 +1,5 @@
-#ifndef SYSCALLS_H
-#define SYSCALLS_H
+#ifndef LIBC_H
+#define LIBC_H
 
 #include <stdint.h>
 #include <stddef.h>   // for size_t
@@ -20,6 +20,8 @@ ssize_t read(int fd, void *buf, size_t count);
 
 pid_t getpid(void);
 
+void sched_add_task(const char *filename, int argc, char **argv);
+
 void yield(void);
 
 void exit(int status);
@@ -34,4 +36,4 @@ int printf(const char *fmt, ...);
 
 void delay(uint32_t count);
 
-#endif // SYSCALLS_H
+#endif // LIBC_H

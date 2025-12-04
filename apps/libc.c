@@ -1,10 +1,14 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "../../include/kernel/libc.h"
+#include "kernel/libc.h"
+#include "kernel/api.h"
 
-void delay(uint32_t count) {
-    for (volatile uint32_t i = 0; i < count; i++) {
+
+void delay(uint32_t count)
+{
+    for (volatile uint32_t i = 0; i < count; i++)
+    {
         __asm__ volatile ("nop");
     }
 }
@@ -13,8 +17,7 @@ char *strcpy(char *dest, const char *src)
 {
     char *d = dest;
 
-    while ((*d++ = *src++))
-        ;   // copy each character including the terminating '\0'
+    while ((*d++ = *src++));   // copy each character including the terminating '\0'
 
     return dest;
 }
@@ -22,7 +25,8 @@ char *strcpy(char *dest, const char *src)
 size_t strlen(const char *s)
 {
     size_t len = 0;
-    while (s[len] != '\0') {
+    while (s[len] != '\0')
+    {
         len++;
     }
     return len;
@@ -34,7 +38,8 @@ size_t strlen(const char *s)
 
 static void buf_putc(char *buf, size_t *len, char c)
 {
-    if (*len < PRINTF_BUF_SIZE) {
+    if (*len < PRINTF_BUF_SIZE)
+    {
         buf[*len] = c;
         (*len)++;
     }
@@ -44,7 +49,8 @@ static void buf_puts(char *buf, size_t *len, const char *s)
 {
     if (!s) return;
 
-    while (*s && *len < PRINTF_BUF_SIZE) {
+    while (*s && *len < PRINTF_BUF_SIZE)
+    {
         buf[*len] = *s;
         (*len)++;
         s++;
@@ -57,17 +63,21 @@ static void buf_put_uint(char *buf, size_t *len, unsigned int n, unsigned int ba
     const char digits[] = "0123456789abcdef";
     int i = 0;
 
-    if (n == 0) {
+    if (n == 0)
+    {
         tmp[i++] = '0';
-    } else {
-        while (n > 0 && i < (int)sizeof(tmp)) {
+    } else
+    {
+        while (n > 0 && i < (int) sizeof(tmp))
+        {
             tmp[i++] = digits[n % base];
             n /= base;
         }
     }
 
     // reverse into main buffer
-    while (i-- > 0 && *len < PRINTF_BUF_SIZE) {
+    while (i-- > 0 && *len < PRINTF_BUF_SIZE)
+    {
         buf[*len] = tmp[i];
         (*len)++;
     }
@@ -81,8 +91,10 @@ int printf(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    for (const char *p = fmt; *p && len < PRINTF_BUF_SIZE; p++) {
-        if (*p != '%') {
+    for (const char *p = fmt; *p && len < PRINTF_BUF_SIZE; p++)
+    {
+        if (*p != '%')
+        {
             buf_putc(buf, &len, *p);
             continue;
         }
@@ -90,41 +102,50 @@ int printf(const char *fmt, ...)
         p++; // skip '%'
         if (!*p) break; // stray '%' at end
 
-        switch (*p) {
-            case 's': {
+        switch (*p)
+        {
+            case 's':
+            {
                 const char *s = va_arg(args, const char *);
                 buf_puts(buf, &len, s ? s : "(null)");
                 break;
             }
-            case 'd': {
+            case 'd':
+            {
                 int val = va_arg(args, int);
-                if (val < 0) {
+                if (val < 0)
+                {
                     buf_putc(buf, &len, '-');
                     val = -val;
                 }
-                buf_put_uint(buf, &len, (unsigned int)val, 10);
+                buf_put_uint(buf, &len, (unsigned int) val, 10);
                 break;
             }
-            case 'u': {
+            case 'u':
+            {
                 unsigned int val = va_arg(args, unsigned int);
                 buf_put_uint(buf, &len, val, 10);
                 break;
             }
-            case 'x': {
+            case 'x':
+            {
                 unsigned int val = va_arg(args, unsigned int);
                 buf_put_uint(buf, &len, val, 16);
                 break;
             }
-            case 'c': {
-                char c = (char)va_arg(args, int);
+            case 'c':
+            {
+                char c = (char) va_arg(args, int);
                 buf_putc(buf, &len, c);
                 break;
             }
-            case '%': {
+            case '%':
+            {
                 buf_putc(buf, &len, '%');
                 break;
             }
-            default: {
+            default:
+            {
                 // Unknown format: print it literally
                 buf_putc(buf, &len, '%');
                 buf_putc(buf, &len, *p);
@@ -140,7 +161,7 @@ int printf(const char *fmt, ...)
         write(FD_STDOUT, buf, len);
     }
 
-    return (int)len;
+    return (int) len;
 }
 
 int atoi(const char *str)
@@ -149,23 +170,58 @@ int atoi(const char *str)
     int sign = 1;
 
     // Skip whitespace
-    while (*str == ' ' || *str == '\t' || *str == '\n') {
+    while (*str == ' ' || *str == '\t' || *str == '\n')
+    {
         str++;
     }
 
     // Handle sign
-    if (*str == '-') {
+    if (*str == '-')
+    {
         sign = -1;
         str++;
-    } else if (*str == '+') {
+    } else if (*str == '+')
+    {
         str++;
     }
 
     // Convert digits
-    while (*str >= '0' && *str <= '9') {
+    while (*str >= '0' && *str <= '9')
+    {
         result = result * 10 + (*str - '0');
         str++;
     }
 
     return sign * result;
+}
+
+
+ssize_t write(int fd, const void *buf, size_t count)
+{
+    return kapi()->write(fd, buf, count);
+}
+
+ssize_t read(int fd, void *buf, size_t count)
+{
+    return kapi()->read(fd, buf, count);
+}
+
+pid_t getpid(void)
+{
+    return kapi()->getpid();
+}
+
+void yield(void)
+{
+    return kapi()->yield();
+}
+
+void exit(int status)
+{
+    kapi()->exit(status);
+}
+
+void sched_add_task(const char *filename, int argc, char **argv)
+{
+    kapi()->sched_add_task(filename, argc, argv);
 }
