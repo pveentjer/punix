@@ -32,6 +32,8 @@ void exit(int status);
 
 int kill(pid_t pid, int sig);
 
+int nice(int inc);
+
 size_t strlen(const char *s);
 
 char *strcpy(char *dest, const char *src);

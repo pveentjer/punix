@@ -228,6 +228,11 @@ int kill(pid_t pid, int sig)
     kapi()->sys_kill(pid, sig);
 }
 
+int nice(int inc)
+{
+    kapi()->sys_nice(inc);
+}
+
 void sched_add_task(const char *filename, int argc, char **argv)
 {
     kapi()->sys_add_task(filename, argc, argv);
