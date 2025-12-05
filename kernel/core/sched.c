@@ -194,6 +194,8 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         panic("sched_add_task: too many tasks");
     }
 
+    k_strcpy(task->name, filename);
+
     task->pending_signals = 0;
     pid_table[task->pid] = task;
 

@@ -26,11 +26,11 @@ int main(int argc, char **argv)
         return 1;
     }
 
-//    char buf[4096];
-//    int n = sched_get_tasks(buf, sizeof(buf));
-//
-//    printf("PID   NAME\n");
-//    printf("%s", buf);
+    char buf[4096];
+    int n = sched_get_tasks(buf, sizeof(buf));
+
+    printf("PID   NAME\n");
+    printf("%s", buf);
 
     return 0;
 }

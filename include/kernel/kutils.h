@@ -14,6 +14,8 @@ void *k_memset(void *dest, int value, size_t n);
 
 int k_strcmp(const char *a, const char *b);
 
+char* k_strcpy(char *dest, const char *src);
+
 void k_itoa(int value, char *str);
 
 size_t k_strlen(const char *s);
