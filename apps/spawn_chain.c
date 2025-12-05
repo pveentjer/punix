@@ -1,9 +1,6 @@
 #include <stdint.h>
 #include "../include/kernel/libc.h"
 
-// If you don't have a header for this yet, this prototype is enough:
-void sched_add_task(const char *filename, int argc, char **argv);
-
 #define MAX_DEPTH 100000  // safety guard
 
 /* Simple uint32 -> decimal string */

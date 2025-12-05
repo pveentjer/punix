@@ -11,4 +11,8 @@
 // each app 1 MiB
 #define PROCESS_SIZE 0x00100000
 
+#define MAX_PROCESS_NAME_LENGTH 64
+
+#define MAX_SIGNALS 32   // enough for now
+
 #endif //MUNIX_CONSTANTS_H

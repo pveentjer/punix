@@ -20,7 +20,7 @@ ssize_t read(int fd, void *buf, size_t count);
 
 pid_t getpid(void);
 
-void sched_add_task(const char *filename, int argc, char **argv);
+pid_t sched_add_task(const char *filename, int argc, char **argv);
 
 pid_t fork(void);
 
@@ -33,6 +33,8 @@ void exit(int status);
 int kill(pid_t pid, int sig);
 
 int nice(int inc);
+
+int strcmp(const char *s1, const char *s2);
 
 size_t strlen(const char *s);
 

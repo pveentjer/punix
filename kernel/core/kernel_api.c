@@ -73,11 +73,11 @@ static void sys_exit(int status)
     sched_exit(status);
 }
 
-static void sys_add_task(const char *filename, int argc, char **argv)
+static pid_t sys_add_task(const char *filename, int argc, char **argv)
 {
     sched_yield();
 
-    sched_add_task(filename, argc, argv);
+     return sched_add_task(filename, argc, argv);
 }
 
 static pid_t sys_fork(void)
@@ -92,7 +92,7 @@ static int sys_execve(const char *pathname, char *const argv[], char *const envp
 
 int sys_kill(pid_t pid, int sig)
 {
-    return -ENOSYS;
+    return sched_kill(pid, sig);
 }
 
 int sys_nice(int inc)

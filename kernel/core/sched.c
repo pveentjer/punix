@@ -132,7 +132,7 @@ int sched_get_tasks(struct task_info *tasks, int max)
     if (sched.current && count < max)
     {
         tasks[count].pid = sched.current->pid;
-        for (int i = 0; i < MAX_NAME_LENGTH; i++)
+        for (int i = 0; i < MAX_PROCESS_NAME_LENGTH; i++)
         {
             tasks[count].name[i] = sched.current->name[i];
             if (sched.current->name[i] == '\0')
@@ -147,7 +147,7 @@ int sched_get_tasks(struct task_info *tasks, int max)
     while (t && count < max)
     {
         tasks[count].pid = t->pid;
-        for (int i = 0; i < MAX_NAME_LENGTH; i++)
+        for (int i = 0; i < MAX_PROCESS_NAME_LENGTH; i++)
         {
             tasks[count].name[i] = t->name[i];
             if (t->name[i] == '\0')
@@ -162,13 +162,13 @@ int sched_get_tasks(struct task_info *tasks, int max)
     return count;
 }
 
-void sched_add_task(const char *filename, int argc, char **argv)
+pid_t sched_add_task(const char *filename, int argc, char **argv)
 {
     const struct embedded_app *app = find_app(filename);
     if (!app)
     {
         screen_printf("sched_add_task: unknown app '%s'\n", filename);
-        return;
+        return -1;
     }
 
     struct task_struct *task = task_slab_alloc();
@@ -192,7 +192,7 @@ void sched_add_task(const char *filename, int argc, char **argv)
         pid_table[task->pid] = NULL;
         task_slab_free(task);
         screen_printf("Failed to load the binary\n");
-        return;
+        return -1;
     }
 
     uint32_t main_addr = elf_info.entry;
@@ -252,6 +252,8 @@ void sched_add_task(const char *filename, int argc, char **argv)
     task->parent = sched.current ? sched.current : task;
 
     run_queue_push(&sched.run_queue, task);
+
+    return task->pid;
 }
 
 pid_t sched_fork(void)
@@ -262,6 +264,10 @@ pid_t sched_fork(void)
 int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 {
     return 0;
+}
+
+int sched_kill(pid_t pid, int sig){
+    return -1;
 }
 
 void sched_start(void)

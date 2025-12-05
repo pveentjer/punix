@@ -1,12 +1,13 @@
 #ifndef SCHED_H
 #define SCHED_H
 
-#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
-#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stddef.h"
+#include <stdint.h>
+#include <stddef.h>
+#include "constants.h"
 
 typedef int pid_t;
 
-#define MAX_NAME_LENGTH 64
+typedef uint32_t sigset_t;
 
 struct task_struct
 {
@@ -25,7 +26,9 @@ struct task_struct
 
     uint32_t  mem_base;         // 32
 
-    char name[MAX_NAME_LENGTH]; // 36+
+    char name[MAX_PROCESS_NAME_LENGTH]; // 36+
+
+    sigset_t pending_signals;
 
     uint32_t slab_idx;
 };
@@ -49,9 +52,11 @@ int sched_get_tasks(struct task_info *tasks, int max);
 
 void sched_init(void);
 
-void sched_add_task(const char *filename, int argc, char **argv);
+pid_t  sched_add_task(const char *filename, int argc, char **argv);
 
 pid_t sched_fork(void);
+
+int sched_kill(pid_t pid, int sig);
 
 int sched_execve(const char *pathname, char *const argv[], char *const envp[]);
 

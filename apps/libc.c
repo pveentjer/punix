@@ -198,6 +198,17 @@ int atoi(const char *str)
     return sign * result;
 }
 
+int strcmp(const char *s1, const char *s2)
+{
+    while (*s1 && (*s1 == *s2))
+    {
+        s1++;
+        s2++;
+    }
+
+    return (unsigned char) *s1 - (unsigned char) *s2;
+}
+
 ssize_t write(int fd, const void *buf, size_t count)
 {
     return kapi()->sys_write(fd, buf, count);
@@ -233,9 +244,9 @@ int nice(int inc)
     kapi()->sys_nice(inc);
 }
 
-void sched_add_task(const char *filename, int argc, char **argv)
+pid_t sched_add_task(const char *filename, int argc, char **argv)
 {
-    kapi()->sys_add_task(filename, argc, argv);
+    return kapi()->sys_add_task(filename, argc, argv);
 }
 
 pid_t fork(void)

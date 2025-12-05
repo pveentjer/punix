@@ -27,7 +27,7 @@ struct kernel_api
 
     int (*sys_execve)(const char *pathname, char *const argv[], char *const envp[]);
 
-    void (*sys_add_task)(const char *filename, int argc, char **argv);
+    pid_t (*sys_add_task)(const char *filename, int argc, char **argv);
 };
 
 /* Fixed address of pointer slot written by the linker header */

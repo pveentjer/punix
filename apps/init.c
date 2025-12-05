@@ -1,43 +1,6 @@
 #include <stdint.h>
 #include "../include/kernel/libc.h"
 
-/* ------------------------------------------------------------
- * Direct VGA debug helpers (bypass kernel API)
- * ------------------------------------------------------------ */
-
-static inline volatile uint16_t *VGA = (volatile uint16_t *) 0xB8000;
-
-static void vga_clear_row(int row, uint8_t attr)
-{
-    if (row < 0 || row >= 25) return;
-
-    for (int col = 0; col < 80; col++)
-    {
-        uint16_t cell = ((uint16_t) attr << 8) | (uint8_t) ' ';
-        VGA[row * 80 + col] = cell;
-    }
-}
-
-static void vga_put_at(int row, int col, char c, uint8_t attr)
-{
-    uint16_t cell = ((uint16_t) attr << 8) | (uint8_t) c;
-    VGA[row * 80 + col] = cell;
-}
-
-static void vga_puts_at(int row, const char *s, uint8_t attr)
-{
-    if (row < 0 || row >= 25) return;
-
-    vga_clear_row(row, attr);
-
-    int col = 0;
-    while (s[col] && col < 80)
-    {
-        vga_put_at(row, col, s[col], attr);
-        col++;
-    }
-}
-
 /* handy macro so you don’t type row/attr all the time */
 #define DBG(row, msg) vga_puts_at((row), (msg), 0x07)
 
@@ -47,6 +10,9 @@ enum cli_state
     STATE_READ,
     STATE_PARSE
 };
+
+/* store PID of last created task */
+static pid_t last_pid = -1;
 
 int main(int argc, char **argv)
 {
@@ -125,51 +91,61 @@ int main(int argc, char **argv)
                 while (*p && cmd_argc < 15) // leave space for NULL terminator
                 {
                     while (*p == ' ')
-                    { p++; }
+                        p++;
                     if (!*p) break;
 
                     cmd_argv[cmd_argc++] = p;
 
                     while (*p && *p != ' ')
-                    { p++; }
+                        p++;
                     if (*p) *p++ = '\0';
                 }
 
-//                if (cmd_argc > 0)
-//                {
-//                    char *pathname = cmd_argv[0];
-//                    printf("starting '%s'\n", pathname);
-//
-//                    // NULL-terminate argv list
-//                    cmd_argv[cmd_argc] = NULL;
-//
-//                    int pid = fork();
-//                    if (pid < 0)
-//                    {
-//                        printf("Failed to fork %s\n", pathname);
-//                    }
-//                    else if (pid == 0)
-//                    {
-//                        char *envp[] = {NULL};
-//                        int rc = execve(pathname, cmd_argv, envp);
-//
-//                        // If execve returns, it failed
-//                        printf("execve('%s') failed, rc=%d\n", pathname, rc);
-//                        exit(1);
-//                    }
-//                    else
-//                    {
-//                        // --- Parent ---
-//                        // TODO: wait for child if you implement waitpid() later
-//                        printf("spawned pid=%d\n", pid);
-//                    }
-//                }
+                if (cmd_argc == 0) {
+                    state = STATE_PROMPT;
+                    break;
+                }
 
+                /* -------- built-in: echo (supports echo $!) -------- */
+                if (strcmp(cmd_argv[0], "echo") == 0) {
+                    if (cmd_argc == 1) {
+                        // plain "echo"
+                        printf("\n");
+                    } else {
+                        for (int i = 1; i < cmd_argc; i++) {
+                            if (strcmp(cmd_argv[i], "$!") == 0) {
+                                if (last_pid < 0) {
+                                    printf("no last pid");
+                                } else {
+                                    printf("%d", last_pid);
+                                }
+                            } else {
+                                printf("%s", cmd_argv[i]);
+                            }
+                            if (i < cmd_argc - 1)
+                                printf(" ");
+                        }
+                        printf("\n");
+                    }
+
+                    state = STATE_PROMPT;
+                    break;
+                }
+
+                /* -------- default: start a task via sched_add_task -------- */
                 if (cmd_argc > 0) {
-//            DBG(25, "DBG: sched_add_task   ");
                     printf("starting '%s'\n", cmd_argv[0]);
-                    sched_add_task(cmd_argv[0], cmd_argc, cmd_argv);
-//            DBG(25, "DBG: after sched_add  ");
+
+                    // NULL-terminate argv list for the new task
+                    cmd_argv[cmd_argc] = NULL;
+
+                    pid_t pid = sched_add_task(cmd_argv[0], cmd_argc, cmd_argv);
+                    if (pid < 0) {
+                        printf("Failed to create task\n");
+                    } else {
+                        last_pid = pid;
+                        printf("spawned pid=%d\n", pid);
+                    }
                 }
 
                 state = STATE_PROMPT;
