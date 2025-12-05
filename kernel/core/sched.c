@@ -5,6 +5,7 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
 #include "../../include/kernel/task_slab.h"
+#include "../../include/kernel/constants.h"
 
 struct struct_sched
 {
@@ -12,6 +13,8 @@ struct struct_sched
     struct task_struct *current;
 } sched;
 
+
+struct task_struct *pid_table[MAX_PROCESS_CNT];
 
 int task_context_switch(struct task_struct *current, struct task_struct *next);
 
@@ -31,7 +34,8 @@ void run_queue_push(struct run_queue *rq, struct task_struct *task)
     if (rq->len == 0)
     {
         rq->first = rq->last = task;
-    } else
+    }
+    else
     {
         rq->last->next = task;
         rq->last = task;
@@ -61,20 +65,22 @@ struct task_struct *run_queue_poll(struct run_queue *rq)
 
 void sched_init(void)
 {
+    k_memset(pid_table, 0, sizeof(pid_table));
+
     sched.current = NULL;
     run_queue_init(&sched.run_queue);
 }
 
-uint32_t next_pid = 0;
-
-
 void sched_exit(int status)
 {
+
     struct task_struct *current = sched.current;
     if (current == NULL)
     {
         panic("exit failed because there is no current task.\n");
     }
+
+    pid_table[current->pid] = NULL;
 
     // A copy of the current needs to be made because it is needed
     // for the context switch at the end, but we want to return the
@@ -171,7 +177,7 @@ void sched_add_task(const char *filename, int argc, char **argv)
         panic("sched_add_task: too many tasks");
     }
 
-    task->pid = next_pid++;
+    pid_table[task->pid] = task;
 
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
@@ -183,6 +189,7 @@ void sched_add_task(const char *filename, int argc, char **argv)
     bool success = elf_load(image, image_size, task->mem_base, &elf_info);
     if (!success)
     {
+        pid_table[task->pid] = NULL;
         task_slab_free(task);
         screen_printf("Failed to load the binary\n");
         return;
@@ -199,7 +206,8 @@ void sched_add_task(const char *filename, int argc, char **argv)
     for (int i = argc - 1; i >= 0; i--)
     {
         size_t len = 0;
-        while (argv[i][len]) len++;
+        while (argv[i][len])
+        { len++; }
         len++;
 
         sp -= len;
@@ -219,7 +227,8 @@ void sched_add_task(const char *filename, int argc, char **argv)
     for (int i = argc - 1; i >= 0; i--)
     {
         size_t len = 0;
-        while (argv[i][len]) len++;
+        while (argv[i][len])
+        { len++; }
         len++;
         str_ptr -= len;
         *(--sp32) = (uint32_t) str_ptr;

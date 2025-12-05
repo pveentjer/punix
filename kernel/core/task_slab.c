@@ -1,11 +1,7 @@
 #include "../../include/kernel/task_slab.h"
 #include "../../include/kernel/kutils.h"
+#include "../../include/kernel/constants.h"
 
-#define MAX_PROCESS_CNT 64
-// first app at 2 MiB
-#define PROCESS_BASE 0x00200000
-// each app 1 MiB
-#define PROCESS_SIZE 0x00100000
 
 static uint32_t free_list[MAX_PROCESS_CNT];
 static uint32_t free_index;
@@ -18,6 +14,7 @@ void task_slab_init(void)
     {
         struct task_struct *task = &slab[k];
         task->slab_idx = k;
+        task->pid = k;
         task->mem_base = PROCESS_BASE + k * PROCESS_SIZE;
         free_list[k] = k;
     }
