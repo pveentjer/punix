@@ -6,6 +6,7 @@
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/gdt.h"
 #include "../../include/kernel/keyboard.h"
+#include "../../include/kernel/task_slab.h"
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -25,6 +26,9 @@ void kmain(void)
     
     screen_printf("Initializing keyboard.\n");
     keyboard_init();
+
+    screen_printf("Initializing Task Slab Allocator.\n");
+    task_slab_init();
 
     screen_printf("Starting scheduler.\n");
     sched_init();

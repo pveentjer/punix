@@ -4,6 +4,7 @@
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
+#include "../../include/kernel/task_slab.h"
 
 struct struct_sched
 {
@@ -66,12 +67,6 @@ void sched_init(void)
 
 uint32_t next_pid = 0;
 
-#define MAX_TASK_CNT 1024
-
-struct task_struct task_struct_slab[MAX_TASK_CNT];
-
-size_t task_struct_slab_next = 0;
-
 
 void sched_exit(int status)
 {
@@ -80,6 +75,11 @@ void sched_exit(int status)
     {
         panic("exit failed because there is no current task.\n");
     }
+
+    // todo: this is nasty because we 'free' the slab, but we still
+    // use the slab for the context switch at the end
+    // it is fine for now because free doesn't modify the task for now.
+    task_slab_free(current);
 
     struct task_struct *next = run_queue_poll(&sched.run_queue);
 
@@ -153,17 +153,8 @@ int sched_get_tasks(struct task_info *tasks, int max)
     return count;
 }
 
-static uint32_t next_process_base = 0x00200000;  // first app at 2 MiB
-
 void sched_add_task(const char *filename, int argc, char **argv)
 {
-//    screen_println("abcdef");
-
-    if (task_struct_slab_next >= MAX_TASK_CNT)
-    {
-        panic("sched_add_task: too many tasks");
-    }
-
     const struct embedded_app *app = find_app(filename);
     if (!app)
     {
@@ -171,7 +162,12 @@ void sched_add_task(const char *filename, int argc, char **argv)
         return;
     }
 
-    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
+    struct task_struct *task = task_slab_alloc();
+    if (task == NULL)
+    {
+        panic("sched_add_task: too many tasks");
+    }
+
     task->pid = next_pid++;
 
     const void *image = app->start;
@@ -179,35 +175,17 @@ void sched_add_task(const char *filename, int argc, char **argv)
 
     uint8_t *p = (uint8_t *) image;
 
-//    screen_printf("magic bytes: ");
-//    for (int i = 0; i < 8; i++) {
-//        screen_printf("%02X ", p[i]);
-//    }
-//    screen_printf("\n");
-
-    task->mem_base = next_process_base;
-    next_process_base += 0x00100000;
-
     struct elf_info elf_info;
 
     bool success = elf_load(image, image_size, task->mem_base, &elf_info);
     if (!success)
     {
+        task_slab_free(task);
         screen_printf("Failed to load the binary\n");
         return;
     }
 
     uint32_t main_addr = elf_info.entry;
-
-//    screen_printf("sched_add_task: main_addr = %u\n", main_addr);
-
-
-    if (main_addr == 0)
-    {
-        screen_printf("sched_add_task: main_addr == 0, aborting\n");
-        return;
-    }
-
 
     uint32_t stack_top = align_up(task->mem_base + elf_info.size + 0x1000, 16);
 

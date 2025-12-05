@@ -26,6 +26,8 @@ struct task_struct
     uint32_t  mem_base;         // 32
 
     char name[MAX_NAME_LENGTH]; // 36+
+
+    uint32_t slab_idx;
 };
 
 
