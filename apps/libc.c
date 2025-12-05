@@ -236,12 +236,12 @@ void exit(int status)
 
 int kill(pid_t pid, int sig)
 {
-    kapi()->sys_kill(pid, sig);
+    return kapi()->sys_kill(pid, sig);
 }
 
 int nice(int inc)
 {
-    kapi()->sys_nice(inc);
+    return kapi()->sys_nice(inc);
 }
 
 pid_t sched_add_task(const char *filename, int argc, char **argv)
@@ -256,7 +256,7 @@ int sys_get_tasks(char *buf, int buf_size)
 
 pid_t fork(void)
 {
-    kapi()->sys_fork();
+    return kapi()->sys_fork();
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
