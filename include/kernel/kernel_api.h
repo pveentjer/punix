@@ -10,28 +10,25 @@ typedef int pid_t;
 struct kernel_api
 {
     ssize_t (*sys_write)(int fd, const char *buf, size_t count);
-
     ssize_t (*sys_read)(int fd, void *buf, size_t count);
 
     pid_t (*sys_getpid)(void);
-
     void (*sys_yield)(void);
-
     void (*sys_exit)(int status);
-
-    int (*sys_kill)(pid_t pid, int sig);
-
+    int  (*sys_kill)(pid_t pid, int sig);
     pid_t (*sys_fork)(void);
-
-    int (*sys_nice)(int inc);
+    int  (*sys_nice)(int inc);
 
     int (*sys_execve)(const char *pathname,
                       char *const argv[],
                       char *const envp[]);
 
     pid_t (*sys_add_task)(const char *filename, int argc, char **argv);
-
     int (*sys_get_tasks)(char *buf, int buf_size);
+
+    // === Newly added file system syscalls ===
+    int (*sys_open)(const char *pathname, int flags, int mode);
+    int (*sys_close)(int fd);
 };
 
 /* 1 MiB base where the kernel header lives */

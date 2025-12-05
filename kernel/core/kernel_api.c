@@ -60,7 +60,6 @@ static ssize_t sys_read(int fd, void *buf, size_t count)
 static pid_t sys_getpid(void)
 {
     sched_yield();
-
     return sched_getpid();
 }
 
@@ -77,8 +76,7 @@ static void sys_exit(int status)
 static pid_t sys_add_task(const char *filename, int argc, char **argv)
 {
     sched_yield();
-
-     return sched_add_task(filename, argc, argv);
+    return sched_add_task(filename, argc, argv);
 }
 
 static pid_t sys_fork(void)
@@ -91,19 +89,33 @@ static int sys_execve(const char *pathname, char *const argv[], char *const envp
     return -ENOSYS;
 }
 
-int sys_kill(pid_t pid, int sig)
+static int sys_kill(pid_t pid, int sig)
 {
     return sched_kill(pid, sig);
 }
 
-int sys_nice(int inc)
+static int sys_nice(int inc)
+{
+    return 0;   // do nothing, succeed
+}
+
+static int sys_get_tasks(char *buf, int buf_size)
+{
+    return sched_get_tasks(buf, buf_size);
+}
+
+/* ------------------------------------------------------------
+ * New dummy file syscalls
+ * ------------------------------------------------------------ */
+
+static int sys_open(const char *pathname, int flags, int mode)
 {
     return -ENOSYS;
 }
 
-int sys_get_tasks(char *buf, int buf_size)
+static int sys_close(int fd)
 {
-    return sched_get_tasks(buf, buf_size);
+    return -ENOSYS;
 }
 
 /* ------------------------------------------------------------
@@ -112,15 +124,17 @@ int sys_get_tasks(char *buf, int buf_size)
 
 __attribute__((section(".kernel_api"), used))
 const struct kernel_api kernel_api_instance = {
-        .sys_write          = sys_write,
-        .sys_read           = sys_read,
-        .sys_getpid         = sys_getpid,
-        .sys_yield          = sys_yield,
-        .sys_exit           = sys_exit,
-        .sys_execve         = sys_execve,
-        .sys_fork           = sys_fork,
-        .sys_kill           = sys_kill,
-        .sys_add_task       = sys_add_task,
-        .sys_nice           = sys_nice,
-        .sys_get_tasks      = sys_get_tasks,
+        .sys_write     = sys_write,
+        .sys_read      = sys_read,
+        .sys_getpid    = sys_getpid,
+        .sys_yield     = sys_yield,
+        .sys_exit      = sys_exit,
+        .sys_execve    = sys_execve,
+        .sys_fork      = sys_fork,
+        .sys_kill      = sys_kill,
+        .sys_add_task  = sys_add_task,
+        .sys_nice      = sys_nice,
+        .sys_get_tasks = sys_get_tasks,
+        .sys_open      = sys_open,
+        .sys_close     = sys_close,
 };

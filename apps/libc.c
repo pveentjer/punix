@@ -263,3 +263,14 @@ int execve(const char *pathname, char *const argv[], char *const envp[])
 {
     return kapi()->sys_execve(pathname, argv, envp);
 }
+
+
+int open(const char *pathname, int flags, int mode)
+{
+    return kapi()->sys_open(pathname, flags, mode);
+}
+
+int close(int fd)
+{
+    return kapi()->sys_close(fd);
+}
