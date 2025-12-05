@@ -12,12 +12,15 @@ extern unsigned char _binary_ps_elf_start[];
 extern unsigned char _binary_ps_elf_end[];
 extern unsigned char _binary_test_args_elf_start[];
 extern unsigned char _binary_test_args_elf_end[];
+extern unsigned char _binary_spawn_chain_elf_start[];
+extern unsigned char _binary_spawn_chain_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
-        {"/sbin/init",     _binary_init_elf_start,      _binary_init_elf_end},
-        {"/bin/loop",      _binary_loop_elf_start,      _binary_loop_elf_end},
-        {"/bin/ps",        _binary_ps_elf_start,        _binary_ps_elf_end},
-        {"/bin/test_args", _binary_test_args_elf_start, _binary_test_args_elf_end},
+        {"/sbin/init",       _binary_init_elf_start,        _binary_init_elf_end},
+        {"/bin/loop",        _binary_loop_elf_start,        _binary_loop_elf_end},
+        {"/bin/ps",          _binary_ps_elf_start,          _binary_ps_elf_end},
+        {"/bin/test_args",   _binary_test_args_elf_start,   _binary_test_args_elf_end},
+        {"/bin/spawn_chain", _binary_spawn_chain_elf_start, _binary_spawn_chain_elf_end},
 };
 
 const size_t embedded_app_count =
@@ -39,23 +42,23 @@ const struct embedded_app *find_app(const char *name)
 
 bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
 {
-    (void)size;
+    (void) size;
 
-    const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
+    const Elf32_Ehdr *eh = (const Elf32_Ehdr *) image;
 
     // Basic ELF magic check
     if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
-        eh->e_ident[2] != 'L'  || eh->e_ident[3] != 'F')
+        eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
     {
         screen_printf("Invalid ELF magic\n");
         return false;
     }
 
     const Elf32_Phdr *ph =
-            (const Elf32_Phdr *)((uintptr_t)image + eh->e_phoff);
+            (const Elf32_Phdr *) ((uintptr_t) image + eh->e_phoff);
 
-    uint32_t max_end       = 0;
-    uint32_t total_copied  = 0;
+    uint32_t max_end = 0;
+    uint32_t total_copied = 0;
 
     // Copy all PT_LOAD segments to load_base + p_vaddr
     for (int i = 0; i < eh->e_phnum; i++, ph++)
@@ -64,15 +67,15 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
             continue;
 
         uint32_t dest_addr = load_base + ph->p_vaddr;
-        void    *dest      = (void *)dest_addr;
-        const void *src    = (const void *)((uintptr_t)image + ph->p_offset);
+        void *dest = (void *) dest_addr;
+        const void *src = (const void *) ((uintptr_t) image + ph->p_offset);
 
         k_memcpy(dest, src, ph->p_filesz);
         total_copied += ph->p_filesz;
 
         if (ph->p_memsz > ph->p_filesz)
         {
-            k_memset((uint8_t *)dest + ph->p_filesz, 0,
+            k_memset((uint8_t *) dest + ph->p_filesz, 0,
                      ph->p_memsz - ph->p_filesz);
         }
 
@@ -83,10 +86,10 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
 
     if (out)
     {
-        out->base       = load_base;
-        out->entry      = load_base + eh->e_entry;
+        out->base = load_base;
+        out->entry = load_base + eh->e_entry;
         out->max_offset = max_end;       // still in "process space"
-        out->size       = total_copied;
+        out->size = total_copied;
     }
 
     return true;

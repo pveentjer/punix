@@ -76,9 +76,11 @@ void sched_exit(int status)
         panic("exit failed because there is no current task.\n");
     }
 
-    // todo: this is nasty because we 'free' the slab, but we still
-    // use the slab for the context switch at the end
-    // it is fine for now because free doesn't modify the task for now.
+    // A copy of the current needs to be made because it is needed
+    // for the context switch at the end, but we want to return the
+    // struct to the slab before that.
+    struct task_struct copy_current = *current;
+
     task_slab_free(current);
 
     struct task_struct *next = run_queue_poll(&sched.run_queue);
@@ -92,10 +94,11 @@ void sched_exit(int status)
         {
             __asm__ volatile("hlt");
         }
-    } else
+    }
+    else
     {
         sched.current = next;
-        task_context_switch(current, next);
+        task_context_switch(&copy_current, next);
     }
 }
 
