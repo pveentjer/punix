@@ -264,7 +264,6 @@ int execve(const char *pathname, char *const argv[], char *const envp[])
     return kapi()->sys_execve(pathname, argv, envp);
 }
 
-
 int open(const char *pathname, int flags, int mode)
 {
     return kapi()->sys_open(pathname, flags, mode);
@@ -273,4 +272,9 @@ int open(const char *pathname, int flags, int mode)
 int close(int fd)
 {
     return kapi()->sys_close(fd);
+}
+
+int getdents(int fd, struct dirent *buf, unsigned int count)
+{
+    return kapi()->getdents(fd, buf, count);
 }

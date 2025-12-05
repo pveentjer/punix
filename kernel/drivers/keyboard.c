@@ -9,6 +9,7 @@
 #define PIC1_DATA          0x21
 
 static bool shift_pressed = false;
+static bool extended_code = false;  // NEW: track 0xE0 extended prefix
 
 static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
@@ -66,29 +67,75 @@ char keyboard_get_char(void)
  * ------------------------------------------------------------------ */
 
 static const char scancode_lower[] = {
-    0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
-    'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',
-    'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',
-    'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' '
+        0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
+        'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0, 'a', 's',
+        'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v',
+        'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' '
 };
 
 static const char scancode_upper[] = {
-    0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b', '\t',
-    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0, 'A', 'S',
-    'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|', 'Z', 'X', 'C', 'V',
-    'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' '
+        0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b', '\t',
+        'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0, 'A', 'S',
+        'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|', 'Z', 'X', 'C', 'V',
+        'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' '
 };
 
 void keyboard_interrupt_handler(void) {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
-    
-    // Handle shift keys
+
+    /* ------------------------------------------------------------
+     * Handle extended scancodes (0xE0 prefix) for arrow keys
+     * ------------------------------------------------------------ */
+    if (scancode == 0xE0) {
+        extended_code = true;
+        goto eoi;
+    }
+
+    if (extended_code) {
+        // Handle only key presses (no release: high bit not set)
+        if (!(scancode & 0x80)) {
+            switch (scancode) {
+                case 0x48: // Up arrow: ESC [ A
+                    kbd_buffer_put('\x1b');
+                    kbd_buffer_put('[');
+                    kbd_buffer_put('A');
+                    break;
+                case 0x50: // Down arrow: ESC [ B
+                    kbd_buffer_put('\x1b');
+                    kbd_buffer_put('[');
+                    kbd_buffer_put('B');
+                    break;
+                case 0x4B: // Left arrow: ESC [ D (if you want later)
+                    kbd_buffer_put('\x1b');
+                    kbd_buffer_put('[');
+                    kbd_buffer_put('D');
+                    break;
+                case 0x4D: // Right arrow: ESC [ C (if you want later)
+                    kbd_buffer_put('\x1b');
+                    kbd_buffer_put('[');
+                    kbd_buffer_put('C');
+                    break;
+                default:
+                    // ignore other extended keys for now
+                    break;
+            }
+        }
+
+        extended_code = false;
+        goto eoi;
+    }
+
+    /* ------------------------------------------------------------
+     * Handle shift keys
+     * ------------------------------------------------------------ */
     if (scancode == 0x2A || scancode == 0x36) {
         shift_pressed = true;
     } else if (scancode == 0xAA || scancode == 0xB6) {
         shift_pressed = false;
     }
-    // Handle regular keys (only key press, not release)
+        /* ------------------------------------------------------------
+         * Handle regular keys (only key press, not release)
+         * ------------------------------------------------------------ */
     else if (!(scancode & 0x80) && scancode < sizeof(scancode_lower)) {
         char c = shift_pressed ? scancode_upper[scancode] : scancode_lower[scancode];
         if (c != 0) {
@@ -96,7 +143,8 @@ void keyboard_interrupt_handler(void) {
             kbd_buffer_put(c);
         }
     }
-    
+
+    eoi:
     // Send EOI to PIC
     outb(PIC1_COMMAND, 0x20);
 }
@@ -105,17 +153,17 @@ void keyboard_interrupt_handler(void) {
 __attribute__((naked))
 void keyboard_isr(void) {
     asm volatile(
-        "pushal\n\t"
-        "call keyboard_interrupt_handler\n\t"
-        "popal\n\t"
-        "iret"
-    );
+            "pushal\n\t"
+            "call keyboard_interrupt_handler\n\t"
+            "popal\n\t"
+            "iret"
+            );
 }
 
 void keyboard_init(void) {
     // Register keyboard interrupt handler at IRQ1 (vector 0x09)
     idt_set_gate(0x09, (uint32_t)keyboard_isr, 0x08, 0x8E);
-    
+
     // Enable IRQ1 on PIC
     uint8_t mask = inb(PIC1_DATA);
     mask &= ~0x02;  // Clear bit 1 (IRQ1)

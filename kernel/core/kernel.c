@@ -33,8 +33,8 @@ void kmain(void)
     screen_printf("Starting scheduler.\n");
     sched_init();
     
-    char *argv[] = {"/sbin/init", NULL};
-    sched_add_task("/sbin/init", 1, argv);
+    char *argv[] = {"/bin/sh", NULL};
+    sched_add_task("/bin/sh", 1, argv);
     
     sched_start();
 }

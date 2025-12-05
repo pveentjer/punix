@@ -14,6 +14,90 @@ enum cli_state
 /* store PID of last created task */
 static pid_t last_pid = -1;
 
+#define LINE_MAX       128
+#define HISTORY_MAX    30
+
+static char history[HISTORY_MAX][LINE_MAX];
+static int  history_size = 0;   // how many entries currently stored (<= HISTORY_MAX)
+static int  history_pos  = 0;   // cursor into history [0..history_size], history_size == "current line"
+
+/* helper: add a line to history (drop oldest if full) */
+static void history_add(const char *line)
+{
+    if (line[0] == '\0') {
+        return; // don't store empty commands
+    }
+
+    if (history_size < HISTORY_MAX) {
+        strcpy(history[history_size], line);
+        history_size++;
+    } else {
+        // shift everything up and overwrite last
+        for (int i = 1; i < HISTORY_MAX; i++) {
+            strcpy(history[i - 1], history[i]);
+        }
+        strcpy(history[HISTORY_MAX - 1], line);
+    }
+
+    history_pos = history_size; // reset browsing position to "after last"
+}
+
+/* helper: replace current input line on screen with given text */
+static void load_history_entry(char *line, size_t *len, int new_index)
+{
+    // erase current line content (after prompt) using backspace
+    while (*len > 0) {
+        write(FD_STDOUT, "\b \b", 3);
+        (*len)--;
+    }
+
+    if (new_index == history_size) {
+        // "current line" (empty)
+        line[0] = '\0';
+        *len = 0;
+        return;
+    }
+
+    // copy from history[new_index] into line
+    strcpy(line, history[new_index]);
+    *len = strlen(line);
+
+    // print new line contents
+    write(FD_STDOUT, line, *len);
+}
+
+/* handle escape sequences for arrow keys: ESC [ A / ESC [ B */
+static int handle_escape_sequence(char *line, size_t *len)
+{
+    char seq1, seq2;
+    ssize_t n1 = read(FD_STDIN, &seq1, 1);
+    if (n1 <= 0) return 0;
+
+    ssize_t n2 = read(FD_STDIN, &seq2, 1);
+    if (n2 <= 0) return 0;
+
+    if (seq1 == '[') {
+        if (seq2 == 'A') {
+            // Up arrow
+            if (history_size > 0 && history_pos > 0) {
+                history_pos--;
+                load_history_entry(line, len, history_pos);
+            }
+            return 1;
+        } else if (seq2 == 'B') {
+            // Down arrow
+            if (history_size > 0 && history_pos < history_size) {
+                history_pos++;
+                load_history_entry(line, len, history_pos);
+            }
+            return 1;
+        }
+    }
+
+    // Unknown escape sequence: ignore
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 1)
@@ -22,7 +106,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    char line[128];
+    char line[LINE_MAX];
     size_t len = 0;
 
     char *cmd_argv[16];
@@ -37,6 +121,8 @@ int main(int argc, char **argv)
             case STATE_PROMPT:
                 printf("> ");
                 len = 0;
+                line[0] = '\0';
+                history_pos = history_size; // reset history cursor
                 state = STATE_READ;
                 break;
 
@@ -48,6 +134,16 @@ int main(int argc, char **argv)
                 if (n <= 0)
                 {
                     // nothing to read this tick; just move on
+                    break;
+                }
+
+                // handle arrow keys: ESC [ A / ESC [ B
+                if (c == 0x1b)  // ESC
+                {
+                    if (handle_escape_sequence(line, &len)) {
+                        break;
+                    }
+                    // if not recognized, fall through and ignore
                     break;
                 }
 
@@ -84,6 +180,9 @@ int main(int argc, char **argv)
                     state = STATE_PROMPT;
                     break;
                 }
+
+                // store in history
+                history_add(line);
 
                 cmd_argc = 0;
                 char *p = line;
