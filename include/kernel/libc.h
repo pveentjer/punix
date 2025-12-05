@@ -37,6 +37,7 @@ int nice(int inc);
 int strcmp(const char *s1, const char *s2);
 size_t strlen(const char *s);
 char *strcpy(char *dest, const char *src);
+int strncmp(const char *s1, const char *s2, size_t n);
 int atoi(const char *str);
 int printf(const char *fmt, ...);
 void delay(uint32_t count);

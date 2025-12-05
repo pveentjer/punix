@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "kutils.h"
+#include "dirent.h"
 
 /* ------------------------------------------------------------
  * Minimal 32-bit ELF types (freestanding)
@@ -72,5 +73,7 @@ extern const struct embedded_app embedded_apps[];
 extern const size_t embedded_app_count;
 
 const struct embedded_app *find_app(const char *name);
+
+int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries);
 
 #endif // ELF_H

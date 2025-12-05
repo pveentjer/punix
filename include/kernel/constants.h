@@ -1,9 +1,5 @@
-//
-// Created by pveentjer on 12/5/25.
-//
-
-#ifndef MUNIX_CONSTANTS_H
-#define MUNIX_CONSTANTS_H
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
 
 #define MAX_PROCESS_CNT 64
 // first app at 2 MiB
@@ -13,6 +9,6 @@
 
 #define MAX_PROCESS_NAME_LENGTH 64
 
-#define MAX_SIGNALS 32   // enough for now
+#define MAX_SIGNALS 32
 
-#endif //MUNIX_CONSTANTS_H
+#endif //CONSTANTS_H

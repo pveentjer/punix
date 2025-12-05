@@ -46,6 +46,24 @@ char *k_strcpy(char *dest, const char *src)
     return dest;
 }
 
+char *k_strrchr(const char *s, int c)
+{
+    const char *last = NULL;
+    char ch = (char)c;
+
+    while (*s)
+    {
+        if (*s == ch)
+        {
+            last = s;
+        }
+        s++;
+    }
+
+    return (char *)last;
+}
+
+
 void k_itoa(int value, char *str)
 {
     char tmp[16];

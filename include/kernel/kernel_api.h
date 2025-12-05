@@ -2,7 +2,7 @@
 #define KERNEL_API_H
 
 #include <stddef.h>
-#include <stdint.h>
+#include "dirent.h"
 
 typedef long ssize_t;
 typedef int pid_t;
@@ -33,12 +33,11 @@ struct kernel_api
 
     int (*sys_get_tasks)(char *buf, int buf_size);
 
-    // === Newly added file system syscalls ===
     int (*sys_open)(const char *pathname, int flags, int mode);
 
     int (*sys_close)(int fd);
 
-    int (*getdents)(int fd, struct dirent *buf, unsigned int count);
+    int (*sys_getdents)(int fd, struct dirent *buf, unsigned int count);
 };
 
 /* 1 MiB base where the kernel header lives */

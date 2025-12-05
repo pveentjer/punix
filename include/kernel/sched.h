@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "constants.h"
+#include "dirent.h"
 
 typedef int pid_t;
 
@@ -65,6 +66,8 @@ void sched_exit(int status);
 
 /* asm functions */
 void task_start(struct task_struct *t);
+
+int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries);
 
 int task_context_switch(struct task_struct *current, struct task_struct *next);
 

@@ -16,6 +16,8 @@ int k_strcmp(const char *a, const char *b);
 
 char* k_strcpy(char *dest, const char *src);
 
+char *k_strrchr(const char *str, int c);
+
 void k_itoa(int value, char *str);
 
 size_t k_strlen(const char *s);

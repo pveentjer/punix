@@ -233,17 +233,43 @@ int main(int argc, char **argv)
 
                 /* -------- default: start a task via sched_add_task -------- */
                 if (cmd_argc > 0) {
-                    printf("starting '%s'\n", cmd_argv[0]);
-
                     // NULL-terminate argv list for the new task
                     cmd_argv[cmd_argc] = NULL;
 
-                    pid_t pid = sched_add_task(cmd_argv[0], cmd_argc, cmd_argv);
+                    const char *filename = cmd_argv[0];
+                    char fullpath[LINE_MAX];
+
+                    // If not prefixed with "/bin/", add it
+                    if (strncmp(filename, "/bin/", 5) != 0) {
+                        const char *prefix = "/bin/";
+                        size_t plen = strlen(prefix);
+                        size_t nlen = strlen(filename);
+
+                        // Very simple bound check; truncate if needed
+                        if (plen + nlen >= sizeof(fullpath)) {
+                            nlen = sizeof(fullpath) - plen - 1;
+                        }
+
+                        // build "/bin/" + filename
+                        // (we know plen == 5 here)
+                        fullpath[0] = '/';
+                        fullpath[1] = 'b';
+                        fullpath[2] = 'i';
+                        fullpath[3] = 'n';
+                        fullpath[4] = '/';
+                        for (size_t i = 0; i < nlen; i++) {
+                            fullpath[plen + i] = filename[i];
+                        }
+                        fullpath[plen + nlen] = '\0';
+
+                        filename = fullpath;
+                    }
+
+                    pid_t pid = sched_add_task(filename, cmd_argc, cmd_argv);
                     if (pid < 0) {
                         printf("Failed to create task\n");
                     } else {
                         last_pid = pid;
-                        printf("spawned pid=%d\n", pid);
                     }
                 }
 

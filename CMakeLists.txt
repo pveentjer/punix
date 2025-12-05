@@ -128,12 +128,12 @@ endfunction()
 # Build user apps
 # ------------------------------------------------------------
 add_app(sh)
+add_app(ls)
 add_app(ps)
 add_app(loop)
 add_app(test_args)
 add_app(spawn_chain)
 add_app(kill)
-add_app(ls)
 add_app(cat)
 
 # ------------------------------------------------------------
@@ -143,12 +143,12 @@ add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
         ${BUILD_DIR}/sched_x86.o
         ${sh_OBJ}
+        ${ls_OBJ}
         ${ps_OBJ}
         ${loop_OBJ}
         ${test_args_OBJ}
         ${spawn_chain_OBJ}
         ${kill_OBJ}
-        ${ls_OBJ}
         ${cat_OBJ}
 )
 
