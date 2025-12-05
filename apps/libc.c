@@ -17,7 +17,8 @@ char *strcpy(char *dest, const char *src)
 {
     char *d = dest;
 
-    while ((*d++ = *src++));   // copy each character including the terminating '\0'
+    while ((*d++ = *src++))
+    {}   // copy each character including the terminating '\0'
 
     return dest;
 }
@@ -66,7 +67,8 @@ static void buf_put_uint(char *buf, size_t *len, unsigned int n, unsigned int ba
     if (n == 0)
     {
         tmp[i++] = '0';
-    } else
+    }
+    else
     {
         while (n > 0 && i < (int) sizeof(tmp))
         {
@@ -180,7 +182,8 @@ int atoi(const char *str)
     {
         sign = -1;
         str++;
-    } else if (*str == '+')
+    }
+    else if (*str == '+')
     {
         str++;
     }
@@ -218,6 +221,11 @@ void sched_yield(void)
 void exit(int status)
 {
     kapi()->sys_exit(status);
+}
+
+int kill(pid_t pid, int sig)
+{
+    kapi()->sys_kill(pid, sig);
 }
 
 void sched_add_task(const char *filename, int argc, char **argv)

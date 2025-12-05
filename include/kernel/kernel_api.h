@@ -19,6 +19,8 @@ struct kernel_api
 
     void (*sys_exit)(int status);
 
+    int (*sys_kill)(pid_t pid, int sig);
+
     pid_t (*sys_fork)(void);
 
     int (*sys_execve)(const char *pathname, char *const argv[], char *const envp[]);
@@ -52,7 +54,8 @@ static inline void vga_puts_at_col(int row, int col, const char *s, uint8_t attr
 static inline int str_len(const char *s)
 {
     int n = 0;
-    while (s[n]) n++;
+    while (s[n])
+    { n++; }
     return n;
 }
 

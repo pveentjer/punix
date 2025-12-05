@@ -30,6 +30,8 @@ void sched_yield(void);
 
 void exit(int status);
 
+int kill(pid_t pid, int sig);
+
 size_t strlen(const char *s);
 
 char *strcpy(char *dest, const char *src);

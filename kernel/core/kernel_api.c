@@ -85,6 +85,10 @@ static int sys_execve(const char *pathname, char *const argv[], char *const envp
     return sched_execve(pathname, argv, envp);
 }
 
+int sys_kill(pid_t pid, int sig){
+    return 0;
+}
+
 /* ------------------------------------------------------------
  * Exported API instance in its own section
  * ------------------------------------------------------------ */
@@ -98,5 +102,6 @@ const struct kernel_api kernel_api_instance = {
         .sys_exit           = sys_exit,
         .sys_execve         = sys_execve,
         .sys_fork           = sys_fork,
+        .sys_kill           = sys_kill,
         .sys_add_task       = sys_add_task,
 };
