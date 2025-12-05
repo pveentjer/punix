@@ -31,6 +31,38 @@ int k_strcmp(const char *a, const char *b)
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+void k_itoa(int value, char *str)
+{
+    char tmp[16];
+    int i = 0, j = 0;
+
+    if (value == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+
+    int neg = 0;
+    if (value < 0) {
+        neg = 1;
+        value = -value;
+    }
+
+    while (value > 0 && i < 15) {
+        tmp[i++] = '0' + (value % 10);
+        value /= 10;
+    }
+
+    if (neg)
+        tmp[i++] = '-';
+
+    // reverse
+    while (i > 0)
+        str[j++] = tmp[--i];
+    str[j] = '\0';
+}
+
+
 size_t k_strlen(const char *s)
 {
     size_t len = 0;

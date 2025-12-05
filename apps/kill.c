@@ -40,8 +40,21 @@ static int parse_signal(const char *s)
 
 static void print_usage(const char *prog)
 {
-    printf("usage: %s [-s signal] pid ...\n", prog);
-    printf("       %s -signal pid ...\n", prog);
+    printf("Usage:\n");
+    printf("  %s [-s signal] pid ...\n", prog);
+    printf("  %s -signal pid ...\n", prog);
+    printf("  %s --help\n", prog);
+    printf("\n");
+    printf("Send signals to processes.\n\n");
+    printf("Options:\n");
+    printf("  -s <signal>     Specify signal by name or number (e.g. -s KILL)\n");
+    printf("  -<signal>       Shorthand form (e.g. -9 or -TERM)\n");
+    printf("  --help          Show this help message\n");
+    printf("\n");
+    printf("Examples:\n");
+    printf("  %s 1234             # send SIGTERM to pid 1234\n", prog);
+    printf("  %s -9 1234          # send SIGKILL to pid 1234\n", prog);
+    printf("  %s -s STOP 5678     # send SIGSTOP to pid 5678\n", prog);
 }
 
 /*
@@ -50,12 +63,18 @@ static void print_usage(const char *prog)
  *   kill -9 PID
  *   kill -TERM PID
  *   kill -s TERM PID
+ *   kill --help
  */
 int main(int argc, char **argv)
 {
     if (argc < 2) {
         print_usage(argv[0]);
         return 1;
+    }
+
+    if (strcmp(argv[1], "--help") == 0) {
+        print_usage(argv[0]);
+        return 0;
     }
 
     int sig = SIGTERM_DEFAULT;  // default SIGTERM

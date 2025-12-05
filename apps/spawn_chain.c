@@ -3,6 +3,18 @@
 
 #define MAX_DEPTH 100000  // safety guard
 
+static void print_help(const char *prog)
+{
+    printf("Usage: %s --count <number>\n", prog);
+    printf("\n");
+    printf("Spawns a chain of child processes, each with count-1.\n");
+    printf("Each process prints its PID and spawns the next until count reaches 0.\n");
+    printf("\n");
+    printf("Options:\n");
+    printf("  --count <number>   Depth of the spawn chain (0-%d)\n", MAX_DEPTH);
+    printf("  --help             Show this help message\n");
+}
+
 /* Convert a 32-bit unsigned integer to a decimal string */
 static void u32_to_str(uint32_t number, char *out_str)
 {
@@ -16,8 +28,7 @@ static void u32_to_str(uint32_t number, char *out_str)
     }
 
     while (number > 0 && digit_count < 10) {
-        uint32_t digit = number % 10;
-        reversed_digits[digit_count++] = (char)('0' + digit);
+        reversed_digits[digit_count++] = (char)('0' + (number % 10));
         number /= 10;
     }
 
@@ -27,22 +38,22 @@ static void u32_to_str(uint32_t number, char *out_str)
     out_str[digit_count] = '\0';
 }
 
-/* Simple argument parser for named flags like --count 10 */
+/* Parse named arguments like --count 10 */
 static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
 {
-    if (argc < 3) {
-        printf("usage: %s --count <number>\n", argv[0]);
-        return -1;
-    }
-
     *out_count = 0;
+
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--count") == 0) {
+        if (strcmp(argv[i], "--help") == 0) {
+            print_help(argv[0]);
+            return 1;  // signal that help was shown
+        }
+        else if (strcmp(argv[i], "--count") == 0) {
             if (i + 1 >= argc) {
                 printf("error: missing value after --count\n");
                 return -1;
             }
-            int32_t count_signed = atoi(argv[i + 1]);
+            int32_t count_signed = atoi(argv[++i]);
             if (count_signed < 0) {
                 printf("error: count must be >= 0\n");
                 return -1;
@@ -52,14 +63,14 @@ static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
                 return -1;
             }
             *out_count = (uint32_t)count_signed;
-            i++; // skip the value
-        } else {
+        }
+        else {
             printf("error: unknown argument '%s'\n", argv[i]);
             return -1;
         }
     }
 
-    if (*out_count == 0 && argc > 1) {
+    if (*out_count == 0) {
         printf("error: missing required --count argument\n");
         return -1;
     }
@@ -70,8 +81,11 @@ static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
 int main(int argc, char **argv)
 {
     uint32_t count = 0;
+    int rc = parse_named_args(argc, argv, &count);
 
-    if (parse_named_args(argc, argv, &count) != 0)
+    if (rc > 0)  // help shown
+        return 0;
+    if (rc < 0)
         return 1;
 
     int current_pid = getpid();

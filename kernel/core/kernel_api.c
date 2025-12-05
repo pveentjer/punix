@@ -2,6 +2,7 @@
 #include "../../include/kernel/vga.h"
 #include "../../include/kernel/keyboard.h"
 #include "../../include/kernel/sched.h"
+#include "../../include/kernel/libc.h"
 #include <stdint.h>
 
 #define FD_STDIN   0
@@ -100,6 +101,11 @@ int sys_nice(int inc)
     return -ENOSYS;
 }
 
+int sys_get_tasks(char *buf, int buf_size)
+{
+    return sched_get_tasks(buf, buf_size);
+}
+
 /* ------------------------------------------------------------
  * Exported API instance in its own section
  * ------------------------------------------------------------ */
@@ -116,4 +122,5 @@ const struct kernel_api kernel_api_instance = {
         .sys_kill           = sys_kill,
         .sys_add_task       = sys_add_task,
         .sys_nice           = sys_nice,
+        .sys_get_tasks      = sys_get_tasks,
 };

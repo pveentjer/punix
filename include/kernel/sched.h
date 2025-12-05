@@ -42,13 +42,7 @@ struct run_queue
 };
 
 
-struct task_info
-{
-    pid_t pid;
-    char name[64];
-};
-
-int sched_get_tasks(struct task_info *tasks, int max);
+int sched_get_tasks(char *buf, int buf_size);
 
 void sched_init(void);
 

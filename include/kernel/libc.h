@@ -14,6 +14,9 @@ typedef int pid_t;
 #define FD_STDOUT  1
 #define FD_STDERR  2
 
+// hack because there is no proc fs
+int sched_get_tasks(char *buf, int buf_size);
+
 ssize_t write(int fd, const void *buf, size_t count);
 
 ssize_t read(int fd, void *buf, size_t count);

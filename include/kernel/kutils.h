@@ -14,6 +14,8 @@ void *k_memset(void *dest, int value, size_t n);
 
 int k_strcmp(const char *a, const char *b);
 
+void k_itoa(int value, char *str);
+
 size_t k_strlen(const char *s);
 
 void panic(char* msg);

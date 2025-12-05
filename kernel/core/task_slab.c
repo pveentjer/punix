@@ -37,7 +37,7 @@ struct task_struct *task_slab_alloc(void)
 
 void task_slab_free(struct task_struct *task_struct)
 {
-    if (free_list == 1)
+    if (free_index == 0)
     {
         panic("task_slab: too many frees.");
     }

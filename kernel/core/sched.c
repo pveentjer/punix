@@ -123,44 +123,61 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 
     sched_exit(status);
 }
-
-
-int sched_get_tasks(struct task_info *tasks, int max)
+static int render_task(char *buf, int buf_size, int written, struct task_struct *task)
 {
-    int count = 0;
+    int i;
+    char num[16];
 
-    if (sched.current && count < max)
-    {
-        tasks[count].pid = sched.current->pid;
-        for (int i = 0; i < MAX_PROCESS_NAME_LENGTH; i++)
-        {
-            tasks[count].name[i] = sched.current->name[i];
-            if (sched.current->name[i] == '\0')
-            {
-                break;
-            }
-        }
-        count++;
-    }
+    if (task == NULL)
+        return written;
 
-    struct task_struct *t = sched.run_queue.first;
-    while (t && count < max)
+    // PID
+    k_itoa(task->pid, num);
+    for (i = 0; num[i] && written < buf_size - 1; i++)
+        buf[written++] = num[i];
+
+    // space
+    if (written < buf_size - 1)
+        buf[written++] = ' ';
+
+    // name
+    for (i = 0; task->name[i] && written < buf_size - 1; i++)
+        buf[written++] = task->name[i];
+
+    // newline
+    if (written < buf_size - 1)
+        buf[written++] = '\n';
+
+    return written;
+}
+
+
+int sched_get_tasks(char *buf, int buf_size)
+{
+    int written = 0;
+    struct task_struct *t;
+
+    if (buf_size <= 0)
+        return 0;
+
+    // current task
+    if (sched.current)
+        written = render_task(buf, buf_size, written, sched.current);
+
+    // queued tasks
+    t = sched.run_queue.first;
+    while (t && written < buf_size - 1)
     {
-        tasks[count].pid = t->pid;
-        for (int i = 0; i < MAX_PROCESS_NAME_LENGTH; i++)
-        {
-            tasks[count].name[i] = t->name[i];
-            if (t->name[i] == '\0')
-            {
-                break;
-            }
-        }
-        count++;
+        if (t != sched.current)
+            written = render_task(buf, buf_size, written, t);
         t = t->next;
     }
 
-    return count;
+    buf[written] = '\0';
+    return written;
 }
+
+
 
 pid_t sched_add_task(const char *filename, int argc, char **argv)
 {
@@ -269,23 +286,23 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 
 int sched_kill(pid_t pid, int sig)
 {
-//    if (sig <= 0 || sig > MAX_SIGNALS)
-//    {
-//        return -1;
-//    }
-//
-//    if (pid >= MAX_PROCESS_CNT)
-//    {
-//        return -1;
-//    }
-//
-//    struct task_struct *task = pid_table[pid];
-//    if (task == NULL)
-//    {
-//        return -1;
-//    }
-//
-//    task->pending_signals |= (1u << (sig - 1));
+    if (sig <= 0 || sig > MAX_SIGNALS)
+    {
+        return -1;
+    }
+
+    if (pid >= MAX_PROCESS_CNT)
+    {
+        return -1;
+    }
+
+    struct task_struct *task = pid_table[pid];
+    if (task == NULL)
+    {
+        return -1;
+    }
+
+    task->pending_signals |= (1u << (sig - 1));
     return 0;
 }
 
