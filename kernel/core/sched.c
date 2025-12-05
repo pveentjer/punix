@@ -177,6 +177,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         panic("sched_add_task: too many tasks");
     }
 
+    task->pending_signals = 0;
     pid_table[task->pid] = task;
 
     const void *image = app->start;
@@ -266,8 +267,26 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     return 0;
 }
 
-int sched_kill(pid_t pid, int sig){
-    return -1;
+int sched_kill(pid_t pid, int sig)
+{
+//    if (sig <= 0 || sig > MAX_SIGNALS)
+//    {
+//        return -1;
+//    }
+//
+//    if (pid >= MAX_PROCESS_CNT)
+//    {
+//        return -1;
+//    }
+//
+//    struct task_struct *task = pid_table[pid];
+//    if (task == NULL)
+//    {
+//        return -1;
+//    }
+//
+//    task->pending_signals |= (1u << (sig - 1));
+    return 0;
 }
 
 void sched_start(void)

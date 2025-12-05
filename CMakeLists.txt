@@ -132,7 +132,7 @@ add_app(ps)
 add_app(loop)
 add_app(test_args)
 add_app(spawn_chain)
-#add_app(kill)
+add_app(kill)
 
 # ------------------------------------------------------------
 # Kernel ELF target
@@ -145,7 +145,7 @@ add_executable(kernel.elf
         ${loop_OBJ}
         ${test_args_OBJ}
         ${spawn_chain_OBJ}
-#        ${kill_OBJ}
+        ${kill_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

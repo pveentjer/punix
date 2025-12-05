@@ -3,75 +3,99 @@
 
 #define MAX_DEPTH 100000  // safety guard
 
-/* Simple uint32 -> decimal string */
-static void u32_to_str(uint32_t value, char *buf)
+/* Convert a 32-bit unsigned integer to a decimal string */
+static void u32_to_str(uint32_t number, char *out_str)
 {
-    char tmp[11]; // enough for 4294967295
-    int pos = 0;
+    char reversed_digits[11];
+    int digit_count = 0;
 
-    if (value == 0) {
-        buf[0] = '0';
-        buf[1] = '\0';
+    if (number == 0) {
+        out_str[0] = '0';
+        out_str[1] = '\0';
         return;
     }
 
-    while (value > 0 && pos < 10) {
-        uint32_t digit = value % 10;
-        tmp[pos++] = (char)('0' + digit);
-        value /= 10;
+    while (number > 0 && digit_count < 10) {
+        uint32_t digit = number % 10;
+        reversed_digits[digit_count++] = (char)('0' + digit);
+        number /= 10;
     }
 
-    for (int i = 0; i < pos; i++) {
-        buf[i] = tmp[pos - 1 - i];
+    for (int i = 0; i < digit_count; i++) {
+        out_str[i] = reversed_digits[digit_count - 1 - i];
     }
-    buf[pos] = '\0';
+    out_str[digit_count] = '\0';
+}
+
+/* Simple argument parser for named flags like --count 10 */
+static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
+{
+    if (argc < 3) {
+        printf("usage: %s --count <number>\n", argv[0]);
+        return -1;
+    }
+
+    *out_count = 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--count") == 0) {
+            if (i + 1 >= argc) {
+                printf("error: missing value after --count\n");
+                return -1;
+            }
+            int32_t count_signed = atoi(argv[i + 1]);
+            if (count_signed < 0) {
+                printf("error: count must be >= 0\n");
+                return -1;
+            }
+            if (count_signed > MAX_DEPTH) {
+                printf("error: count too large (max %d)\n", MAX_DEPTH);
+                return -1;
+            }
+            *out_count = (uint32_t)count_signed;
+            i++; // skip the value
+        } else {
+            printf("error: unknown argument '%s'\n", argv[i]);
+            return -1;
+        }
+    }
+
+    if (*out_count == 0 && argc > 1) {
+        printf("error: missing required --count argument\n");
+        return -1;
+    }
+
+    return 0;
 }
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
-        printf("usage: spawn_chain <count>\n");
+    uint32_t count = 0;
+
+    if (parse_named_args(argc, argv, &count) != 0)
         return 1;
-    }
 
-    int32_t count_signed = atoi(argv[1]);
-    if (count_signed < 0) {
-        printf("invalid count (must be >= 0)\n");
-        return 1;
-    }
-    if (count_signed > MAX_DEPTH) {
-        printf("count too large (max %d)\n", MAX_DEPTH);
-        return 1;
-    }
+    int current_pid = getpid();
+    printf("[pid %d] count=%u\n", current_pid, count);
 
-    uint32_t count = (uint32_t)count_signed;
-    int pid = getpid();
-
-    printf("[pid %d] count=%u\n", pid, count);
-
-    // Base case: no more children
     if (count == 0) {
-        printf("[pid %d] leaf reached, exiting.\n", pid);
+        printf("[pid %d] leaf reached, exiting.\n", current_pid);
         return 0;
     }
 
-    // Build argv for child: same program, count-1
-    char next_arg[16];
-    u32_to_str(count - 1, next_arg);
+    char next_count_str[16];
+    u32_to_str(count - 1, next_count_str);
 
-    // argv array for the child task: { filename, "<count-1>", NULL }
-    char *child_argv[] = {
-            argv[0],     // same filename as this program
-            next_arg,    // new count
+    char *child_args[] = {
+            argv[0],
+            "--count", next_count_str,
             NULL
     };
 
-    printf("[pid %d] scheduling child %s %s\n", pid, argv[0], next_arg);
+    printf("[pid %d] scheduling child %s --count %s\n",
+           current_pid, argv[0], next_count_str);
 
-    // Create the next task in the chain
-    sched_add_task(argv[0], 2, child_argv);
+    sched_add_task(argv[0], 3, child_args);
 
-    // This task exits; kernel should call sched_exit and switch away
-    printf("[pid %d] spawned child, exiting.\n", pid);
+    printf("[pid %d] spawned child, exiting.\n", current_pid);
     return 0;
 }
