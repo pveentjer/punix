@@ -9,21 +9,21 @@ typedef int pid_t;
 
 struct kernel_api
 {
-    ssize_t (*write)(int fd, const char *buf, size_t count);
+    ssize_t (*sys_write)(int fd, const char *buf, size_t count);
 
-    ssize_t (*read)(int fd, void *buf, size_t count);
+    ssize_t (*sys_read)(int fd, void *buf, size_t count);
 
-    pid_t (*getpid)(void);
+    pid_t (*sys_getpid)(void);
 
-    void (*yield)(void);
+    void (*sys_yield)(void);
 
-    void (*exit)(int status);
+    void (*sys_exit)(int status);
 
-    pid_t (*fork)(void);
+    pid_t (*sys_fork)(void);
 
-    int (*execve)(const char *pathname, char *const argv[], char *const envp[]);
+    int (*sys_execve)(const char *pathname, char *const argv[], char *const envp[]);
 
-    void (*sched_add_task)(const char *filename, int argc, char **argv);
+    void (*sys_add_task)(const char *filename, int argc, char **argv);
 };
 
 /* Fixed address of pointer slot written by the linker header */

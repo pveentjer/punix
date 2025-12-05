@@ -9,7 +9,7 @@
 #define FD_STDERR  2
 
 
-static ssize_t k_write(int fd, const char *buf, size_t count)
+static ssize_t sys_write(int fd, const char *buf, size_t count)
 {
     sched_yield();
 
@@ -32,7 +32,7 @@ static ssize_t k_write(int fd, const char *buf, size_t count)
     }
 }
 
-static ssize_t k_read(int fd, void *buf, size_t count)
+static ssize_t sys_read(int fd, void *buf, size_t count)
 {
     sched_yield();
 
@@ -51,36 +51,36 @@ static ssize_t k_read(int fd, void *buf, size_t count)
     return (ssize_t) read_cnt;
 }
 
-static pid_t k_getpid(void)
+static pid_t sys_getpid(void)
 {
     sched_yield();
 
     return sched_getpid();
 }
 
-static void k_yield(void)
+static void sys_yield(void)
 {
     sched_yield();
 }
 
-static void k_exit(int status)
+static void sys_exit(int status)
 {
     sched_exit(status);
 }
 
-static void k_sched_add_task(const char *filename, int argc, char **argv)
+static void sys_add_task(const char *filename, int argc, char **argv)
 {
     sched_yield();
 
     sched_add_task(filename, argc, argv);
 }
 
-static pid_t k_fork(void)
+static pid_t sys_fork(void)
 {
     sched_fork();
 }
 
-static int k_execve(const char *pathname, char *const argv[], char *const envp[])
+static int sys_execve(const char *pathname, char *const argv[], char *const envp[])
 {
     return sched_execve(pathname, argv, envp);
 }
@@ -91,12 +91,12 @@ static int k_execve(const char *pathname, char *const argv[], char *const envp[]
 
 __attribute__((section(".kernel_api"), used))
 const struct kernel_api kernel_api_instance = {
-        .write          = k_write,
-        .read           = k_read,
-        .getpid         = k_getpid,
-        .yield          = k_yield,
-        .exit           = k_exit,
-        .execve         = k_execve,
-        .fork           = k_fork,
-        .sched_add_task = k_sched_add_task,
+        .sys_write          = sys_write,
+        .sys_read           = sys_read,
+        .sys_getpid         = sys_getpid,
+        .sys_yield          = sys_yield,
+        .sys_exit           = sys_exit,
+        .sys_execve         = sys_execve,
+        .sys_fork           = sys_fork,
+        .sys_add_task       = sys_add_task,
 };

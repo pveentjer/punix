@@ -197,40 +197,40 @@ int atoi(const char *str)
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
-    return kapi()->write(fd, buf, count);
+    return kapi()->sys_write(fd, buf, count);
 }
 
 ssize_t read(int fd, void *buf, size_t count)
 {
-    return kapi()->read(fd, buf, count);
+    return kapi()->sys_read(fd, buf, count);
 }
 
 pid_t getpid(void)
 {
-    return kapi()->getpid();
+    return kapi()->sys_getpid();
 }
 
 void sched_yield(void)
 {
-    kapi()->yield();
+    kapi()->sys_yield();
 }
 
 void exit(int status)
 {
-    kapi()->exit(status);
+    kapi()->sys_exit(status);
 }
 
 void sched_add_task(const char *filename, int argc, char **argv)
 {
-    kapi()->sched_add_task(filename, argc, argv);
+    kapi()->sys_add_task(filename, argc, argv);
 }
 
 pid_t fork(void)
 {
-    kapi()->fork();
+    kapi()->sys_fork();
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    return kapi()->execve(pathname, argv, envp);
+    return kapi()->sys_execve(pathname, argv, envp);
 }
