@@ -14,6 +14,8 @@ void *k_memset(void *dest, int value, size_t n);
 
 int k_strcmp(const char *a, const char *b);
 
+size_t k_strlen(const char *s);
+
 void panic(char* msg);
 
 static inline uint32_t align_up(uint32_t value, uint32_t align)

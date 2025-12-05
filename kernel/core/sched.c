@@ -153,7 +153,7 @@ int sched_get_tasks(struct task_info *tasks, int max)
     return count;
 }
 
-static uint32_t next_code_base = 0x00200000;  // first app at 2 MiB
+static uint32_t next_process_base = 0x00200000;  // first app at 2 MiB
 
 void sched_add_task(const char *filename, int argc, char **argv)
 {
@@ -171,6 +171,9 @@ void sched_add_task(const char *filename, int argc, char **argv)
         return;
     }
 
+    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
+    task->pid = next_pid++;
+
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
 
@@ -182,12 +185,12 @@ void sched_add_task(const char *filename, int argc, char **argv)
 //    }
 //    screen_printf("\n");
 
-    uint32_t code_base = next_code_base;
-    next_code_base += 0x00100000;
+    task->mem_base = next_process_base;
+    next_process_base += 0x00100000;
 
     struct elf_info elf_info;
 
-    bool success = elf_load(image, image_size, code_base, &elf_info);
+    bool success = elf_load(image, image_size, task->mem_base, &elf_info);
     if (!success)
     {
         screen_printf("Failed to load the binary\n");
@@ -205,10 +208,8 @@ void sched_add_task(const char *filename, int argc, char **argv)
         return;
     }
 
-    struct task_struct *task = &task_struct_slab[task_struct_slab_next++];
-    task->pid = next_pid++;
 
-    uint32_t stack_top = align_up(code_base + elf_info.size + 0x1000, 16);
+    uint32_t stack_top = align_up(task->mem_base + elf_info.size + 0x1000, 16);
 
     char *sp = (char *) stack_top;
 
@@ -259,13 +260,6 @@ void sched_add_task(const char *filename, int argc, char **argv)
     task->eip = (uint32_t) task_trampoline;
     task->eflags = 0x202;
     task->parent = sched.current ? sched.current : task;
-
-//    screen_printf("proc pid=%d base=0x%X entry=0x%X\n",
-//                  task->pid, elf_info.base, elf_info.entry);
-//    screen_printf("  max_offset=0x%X code_end=0x%X\n",
-//                  elf_info.max_offset, elf_info.base + elf_info.max_offset);
-//    screen_printf("  stack_top=0x%X esp=0x%X\n",
-//                  stack_top, task->esp);
 
     run_queue_push(&sched.run_queue, task);
 }

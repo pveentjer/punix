@@ -10,15 +10,24 @@ typedef int pid_t;
 
 struct task_struct
 {
-    pid_t pid;
-    uint32_t eip;
-    uint32_t esp;
-    uint32_t ebp;
-    uint32_t eflags;
-    struct task_struct *next;
-    struct task_struct *parent;
-    char name[MAX_NAME_LENGTH];
+    pid_t pid;           // 0
+
+    uint32_t eip;        // 4
+    uint32_t esp;        // 8
+    uint32_t ebp;        // 12
+    uint32_t eflags;     // 16
+
+    uint16_t ss;         // 20: stack segment selector
+    uint16_t _pad;       // 22: padding for alignment
+
+    struct task_struct *next;   // 24 (after padding)
+    struct task_struct *parent; // 28
+
+    uint32_t  mem_base;         // 32
+
+    char name[MAX_NAME_LENGTH]; // 36+
 };
+
 
 struct run_queue
 {

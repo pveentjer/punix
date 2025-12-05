@@ -31,6 +31,13 @@ int k_strcmp(const char *a, const char *b)
     return (unsigned char)*a - (unsigned char)*b;
 }
 
+size_t k_strlen(const char *s)
+{
+    size_t len = 0;
+    while (s[len] != '\0')
+        len++;
+    return len;
+}
 
 void panic(char* msg)
 {
