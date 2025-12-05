@@ -4,10 +4,8 @@
 #include "../../include/kernel/vga.h"
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/interrupt.h"
+#include "../../include/kernel/gdt.h"
 #include "../../include/kernel/keyboard.h"
-
-
-extern void kernel_api_debug_print(void);
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -15,7 +13,10 @@ void kmain(void)
 {
     screen_clear();
     screen_printf("PUnix 0.001\n");
-    
+
+    screen_printf("Initializing Global Descriptor Table.\n");
+    gdt_init();
+
     screen_printf("Initializing Interrupt Descriptor Table.\n");
     idt_init();
     

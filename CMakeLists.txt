@@ -65,6 +65,7 @@ set(KERNEL_DRIVER_SOURCES
 set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
+        kernel/core/gdt.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
