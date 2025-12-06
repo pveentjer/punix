@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "constants.h"
 #include "dirent.h"
+#include "dirent.h"
 
 typedef int pid_t;
 
@@ -27,7 +28,9 @@ struct task_struct
 
     uint32_t  mem_base;         // 32
 
-    char name[MAX_PROCESS_NAME_LENGTH]; // 36+
+    char name[MAX_FILENAME_LEN]; // 36+
+
+    struct fdtable *fdtable;
 
     sigset_t pending_signals;
 
