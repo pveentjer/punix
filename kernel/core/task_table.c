@@ -1,6 +1,8 @@
 #include "../../include/kernel/task_table.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/constants.h"
+#include "../../include/kernel/limts.h"
+
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
@@ -8,7 +10,7 @@
 
 #define PID_MAX INT_MAX
 
-#define MAX_ROUND (PID_MAX / MAX_PROCESS_CNT)
+#define MAX_GENERATION (PID_MAX / MAX_PROCESS_CNT)
 
 
 void task_table_init(struct task_table *task_table)
@@ -19,10 +21,10 @@ void task_table_init(struct task_table *task_table)
     for (int slot_idx = 0; slot_idx < MAX_PROCESS_CNT; slot_idx++)
     {
         struct task_slot *slot = &task_table->slots[slot_idx];
-        slot->round = 0;
+        slot->generation = 0;
 
         struct task_struct *task = &slot->task;
-        memset(task, 0, sizeof(struct task_struct));
+        k_memset(task, 0, sizeof(struct task_struct));
         task->pid = UNUSED_PID;
         task->mem_base = PROCESS_BASE + slot_idx * PROCESS_SIZE;
         task_table->free_ring[slot_idx] = slot_idx;
@@ -63,9 +65,9 @@ struct task_struct *task_table_alloc(struct task_table *task_table)
     struct task_slot *slot = &task_table->slots[slot_idx];
     struct task_struct *task = &slot->task;
 
-    task->pid = slot->round * MAX_PROCESS_CNT + slot_idx;
-    // we need to take care of the wrap around of the slot->round
-    slot->round = (slot->round + 1) & MAX_ROUND;
+    task->pid = slot->generation * MAX_PROCESS_CNT + slot_idx;
+    // we need to take care of the wrap around of the slot->generation
+    slot->generation = (slot->generation + 1) & MAX_GENERATION;
     task_table->free_head++;
 
     return task;

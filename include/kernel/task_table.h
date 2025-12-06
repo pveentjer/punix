@@ -6,7 +6,7 @@
 struct task_slot
 {
     struct task_struct task;
-    uint32_t round;
+    uint32_t generation;
 };
 
 struct task_table

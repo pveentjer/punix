@@ -23,4 +23,6 @@
 // The maximum number of files per process
 #define RLIMIT_NOFILE 16
 
+#define MAX_FILE_CNT 128
+
 #endif //CONSTANTS_H

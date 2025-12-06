@@ -5,6 +5,107 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
 #include "../../include/kernel/vga.h"
+#include "../../include/kernel/constants.h"
+#include "../../include/kernel/limts.h"
+
+#define FD_MASK     (MAX_FILE_CNT - 1)
+
+#define UNUSED_FD   -1
+
+#define FD_MAX      INT_MAX
+
+#define MAX_GENERATION   (FD_MAX / MAX_FILE_CNT)
+
+
+void vfs_table_init(struct vfs_table *vfs_table)
+{
+    vfs_table->free_head = 0;
+    vfs_table->free_tail = MAX_FILE_CNT;
+
+    for (int slot_idx = 0; slot_idx < MAX_FILE_CNT; slot_idx++)
+    {
+        struct vfs_slot *slot = &vfs_table->slots[slot_idx];
+        slot->generation = 0;   // or slot->round if that's your field name
+
+        struct file *file = &slot->file;
+        k_memset(file, 0, sizeof(struct file));
+        file->fd = UNUSED_FD;
+
+        vfs_table->free_ring[slot_idx] = slot_idx;
+    }
+}
+
+struct file *vfs_file_find_by_fd(
+        const struct vfs_table *vfs_table,
+        const int fd)
+{
+    if (fd < 0)
+    {
+        return NULL;
+    }
+
+    uint32_t slot_idx = fd & FD_MASK;
+    struct file *file = &vfs_table->slots[slot_idx].file;
+    if (file->fd != fd)
+    {
+        return NULL;
+    }
+    else
+    {
+        return file;
+    }
+}
+
+struct file *vfs_file_alloc(struct vfs_table *vfs_table)
+{
+    if (vfs_table->free_head == vfs_table->free_tail)
+    {
+        return NULL;
+    }
+
+    const uint32_t free_ring_idx = vfs_table->free_head & FD_MASK;
+    const uint32_t slot_idx      = vfs_table->free_ring[free_ring_idx];
+
+    struct vfs_slot *slot = &vfs_table->slots[slot_idx];
+    struct file *file     = &slot->file;
+
+    file->fd = slot->generation * MAX_FILE_CNT + slot_idx;
+    // we need to take care of the wrap around of the slot->generation
+    slot->generation = (slot->generation + 1) & MAX_GENERATION;
+    vfs_table->free_head++;
+
+    return file;
+}
+
+void vfs_file_free(
+        struct vfs_table *vfs_table,
+        struct file *file)
+{
+    if (vfs_table->free_tail - vfs_table->free_head == MAX_FILE_CNT)
+    {
+        panic("vfs_file_free: too many frees.");
+    }
+
+    const int fd = file->fd;
+    if (fd < 0)
+    {
+        panic("vfs_file_free: file has negative fd.");
+    }
+
+    const uint32_t slot_idx      = fd & FD_MASK;
+    const uint32_t free_ring_idx = vfs_table->free_tail & FD_MASK;
+
+    struct vfs_slot *slot = &vfs_table->slots[slot_idx];
+    if (&slot->file != file)
+    {
+        panic("vfs_file_free: file pointer/slot mismatch");
+    }
+
+    vfs_table->free_ring[free_ring_idx] = slot_idx;
+    vfs_table->free_tail++;
+    file->fd = UNUSED_FD;
+}
+
 
 /* ------------------------------------------------------------
  * Temporary per-directory EOF flags
