@@ -33,8 +33,6 @@ struct task_struct
     struct fdtable *fdtable;
 
     sigset_t pending_signals;
-
-    uint32_t slab_idx;
 };
 
 

@@ -9,6 +9,7 @@
 
 #define ENOSYS 38
 
+// The maximum number of processes. Needs to be power of 2.
 #define MAX_PROCESS_CNT 64
 // first app at 2 MiB
 #define PROCESS_BASE 0x00200000

@@ -31,7 +31,7 @@ struct kernel_api
 
     pid_t (*sys_add_task)(const char *filename, int argc, char **argv);
 
-    int (*sys_get_tasks)(char *buf, int buf_size);
+    pid_t (*sys_waitpid)(pid_t pid, int *status, int options);
 
     int (*sys_open)(const char *pathname, int flags, int mode);
 

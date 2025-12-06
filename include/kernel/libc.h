@@ -28,11 +28,15 @@ void exit(int status);
 
 int kill(pid_t pid, int sig);
 int nice(int inc);
+pid_t waitpid(pid_t pid, int *status, int options);
+
+void *memcpy(void *dest, const void *src, size_t n);
 
 // libc helpers
 int strcmp(const char *s1, const char *s2);
 size_t strlen(const char *s);
 char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
 int strncmp(const char *s1, const char *s2, size_t n);
 int atoi(const char *str);
 int printf(const char *fmt, ...);

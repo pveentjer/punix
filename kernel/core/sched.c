@@ -4,17 +4,16 @@
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
-#include "../../include/kernel/task_slab.h"
+#include "../../include/kernel/task_table.h"
 #include "../../include/kernel/constants.h"
 
 struct struct_sched
 {
+    struct task_table task_table;
     struct run_queue run_queue;
     struct task_struct *current;
 } sched;
 
-
-struct task_struct *pid_table[MAX_PROCESS_CNT];
 
 int task_context_switch(struct task_struct *current, struct task_struct *next);
 
@@ -26,6 +25,7 @@ void run_queue_init(struct run_queue *rq)
     rq->len = 0;
     rq->first = NULL;
     rq->last = NULL;
+
 }
 
 void run_queue_push(struct run_queue *rq, struct task_struct *task)
@@ -65,10 +65,9 @@ struct task_struct *run_queue_poll(struct run_queue *rq)
 
 void sched_init(void)
 {
-    k_memset(pid_table, 0, sizeof(pid_table));
-
     sched.current = NULL;
     run_queue_init(&sched.run_queue);
+    task_table_init(&sched.task_table);
 }
 
 void sched_exit(int status)
@@ -80,14 +79,12 @@ void sched_exit(int status)
         panic("exit failed because there is no current task.\n");
     }
 
-    pid_table[current->pid] = NULL;
-
     // A copy of the current needs to be made because it is needed
     // for the context switch at the end, but we want to return the
-    // struct to the slab before that.
+    // struct to the slots before that.
     struct task_struct copy_current = *current;
 
-    task_slab_free(current);
+    task_table_free(&sched.task_table, current);
 
     struct task_struct *next = run_queue_poll(&sched.run_queue);
 
@@ -134,7 +131,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         return -1;
     }
 
-    struct task_struct *task = task_slab_alloc();
+    struct task_struct *task = task_table_alloc(&sched.task_table);
     if (task == NULL)
     {
         panic("sched_add_task: too many tasks");
@@ -143,7 +140,6 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     k_strcpy(task->name, filename);
 
     task->pending_signals = 0;
-    pid_table[task->pid] = task;
 
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
@@ -155,8 +151,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     bool success = elf_load(image, image_size, task->mem_base, &elf_info);
     if (!success)
     {
-        pid_table[task->pid] = NULL;
-        task_slab_free(task);
+        task_table_free(&sched.task_table, task);
         screen_printf("Failed to load the binary\n");
         return -1;
     }
@@ -187,7 +182,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     sp = (char *) ((uint32_t) sp & ~3);
     uint32_t *sp32 = (uint32_t *) sp;
 
-    // Build argv array - walk through strings again
+    // Build argv slots - walk through strings again
     *(--sp32) = 0;
     char *str_ptr = (char *) stack_top;
     for (int i = argc - 1; i >= 0; i--)
@@ -239,12 +234,7 @@ int sched_kill(pid_t pid, int sig)
         return -1;
     }
 
-    if (pid >= MAX_PROCESS_CNT)
-    {
-        return -1;
-    }
-
-    struct task_struct *task = pid_table[pid];
+    struct task_struct *task = task_table_find_task_by_pid(&sched.task_table, pid);
     if (task == NULL)
     {
         return -1;

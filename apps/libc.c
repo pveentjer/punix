@@ -34,6 +34,41 @@ size_t strlen(const char *s)
 }
 
 
+#include <stddef.h>
+
+char *strncpy(char *dest, const char *src, size_t n)
+{
+    size_t i = 0;
+
+    /* Copy up to n characters or until null terminator */
+    for (; i < n && src[i] != '\0'; i++)
+    {
+        dest[i] = src[i];
+    }
+
+    /* Pad with '\0' if src was shorter than n */
+    for (; i < n; i++)
+    {
+        dest[i] = '\0';
+    }
+
+    return dest;
+}
+
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    unsigned char *d = (unsigned char *) dest;
+    const unsigned char *s = (const unsigned char *) src;
+
+    for (size_t i = 0; i < n; i++)
+    {
+        d[i] = s[i];
+    }
+
+    return dest;
+}
+
+
 #define STDOUT 1
 #define PRINTF_BUF_SIZE 512
 
@@ -202,8 +237,8 @@ int strncmp(const char *s1, const char *s2, size_t n)
 {
     for (size_t i = 0; i < n; i++)
     {
-        unsigned char c1 = (unsigned char)s1[i];
-        unsigned char c2 = (unsigned char)s2[i];
+        unsigned char c1 = (unsigned char) s1[i];
+        unsigned char c2 = (unsigned char) s2[i];
 
         if (c1 != c2)
             return c1 - c2;
@@ -258,6 +293,11 @@ int kill(pid_t pid, int sig)
 int nice(int inc)
 {
     return kapi()->sys_nice(inc);
+}
+
+pid_t waitpid(pid_t pid, int *status, int options)
+{
+    return kapi()->sys_waitpid(pid, status, options);
 }
 
 pid_t sched_add_task(const char *filename, int argc, char **argv)

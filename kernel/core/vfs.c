@@ -19,9 +19,9 @@ static int proc_done = 0;
 static int bin_done  = 0;
 
 /* ------------------------------------------------------------
- * Helper: add an entry into a struct dirent array inside user buffer
+ * Helper: add an entry into a struct dirent slots inside user buffer
  *
- * buf_entries: pointer to start of struct dirent array
+ * buf_entries: pointer to start of struct dirent slots
  * max_entries: how many struct dirent fit in that buffer
  * idx: pointer to current index (will be incremented on success)
  * ino: d_ino

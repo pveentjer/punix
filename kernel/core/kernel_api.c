@@ -98,6 +98,10 @@ static int sys_nice(int inc)
     return 0;   // do nothing, succeed
 }
 
+static pid_t sys_waitpid(pid_t pid, int *status, int options)
+{
+    return -ENOSYS;
+}
 
 static int sys_open(const char *pathname, int flags, int mode)
 {
