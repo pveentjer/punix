@@ -17,11 +17,10 @@ org 0x7E00
 ;     sector 0 : bootsector
 ;     sectors 1–2 : loader
 ;     sector 3 : kernel.bin start
-;   kernel.bin size = 69,512 bytes = 136 sectors
 ; ------------------------------------------------------------------------
 %define KERNEL_HEADER_ADDR MB(1)              ; final run address (1 MiB)
-%define KERNEL_LOAD_TEMP   KB(576)            ; temp load 0x00090000
-%define KERNEL_SECTORS     136                ; exact from image
+%define KERNEL_LOAD_TEMP   KB(64)             ; we temporary load the kernel at addres 64KB
+%define KERNEL_SECTORS     256                ; the kernel can now be up to 128 KB
 %define KERNEL_SIZE_BYTES  (KERNEL_SECTORS * 512)
 %define KERNEL_START_LBA   3                  ; kernel starts at LBA 3
 
