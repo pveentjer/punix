@@ -265,11 +265,6 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     return kapi()->sys_add_task(filename, argc, argv);
 }
 
-int sched_get_tasks(char *buf, int buf_size)
-{
-    return kapi()->sys_get_tasks(buf, buf_size);
-}
-
 pid_t fork(void)
 {
     return kapi()->sys_fork();

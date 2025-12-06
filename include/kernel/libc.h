@@ -16,10 +16,6 @@ typedef int pid_t;
 #define S_IRUSR    0x100
 #define S_IWUSR    0x80
 
-// hack because there is no proc fs
-int sched_get_tasks(char *buf, int buf_size);
-
-
 
 pid_t getpid(void);
 

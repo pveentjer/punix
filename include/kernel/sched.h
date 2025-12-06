@@ -46,8 +46,6 @@ struct run_queue
 };
 
 
-int sched_get_tasks(char *buf, int buf_size);
-
 void sched_init(void);
 
 pid_t  sched_add_task(const char *filename, int argc, char **argv);

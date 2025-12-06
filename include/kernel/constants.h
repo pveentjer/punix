@@ -1,6 +1,14 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+
+#define FD_STDIN   0
+#define FD_STDOUT  1
+#define FD_STDERR  2
+
+
+#define ENOSYS 38
+
 #define MAX_PROCESS_CNT 64
 // first app at 2 MiB
 #define PROCESS_BASE 0x00200000

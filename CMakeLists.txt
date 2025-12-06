@@ -67,6 +67,7 @@ set(KERNEL_SOURCES
         ${KERNEL_DRIVER_SOURCES}
         kernel/core/gdt.c
         kernel/core/task_slab.c
+        kernel/core/vfs.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
