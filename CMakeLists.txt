@@ -31,16 +31,16 @@ set(BUILD_DIR  ${CMAKE_CURRENT_BINARY_DIR})
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/bootsector.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/bootsector.asm -o bootsector.bin
-        DEPENDS ${BOOT_DIR}/bootsector.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/arch/x86/bootsector.asm -o bootsector.bin
+        DEPENDS ${BOOT_DIR}/arch/x86/bootsector.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling bootsector.bin"
 )
 
 add_custom_command(
         OUTPUT ${BUILD_DIR}/loader.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/loader.asm -o loader.bin
-        DEPENDS ${BOOT_DIR}/loader.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/arch/x86/loader.asm -o loader.bin
+        DEPENDS ${BOOT_DIR}/arch/x86/loader.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling loader.bin"
 )
