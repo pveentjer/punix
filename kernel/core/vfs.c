@@ -1,8 +1,22 @@
+// vfs.c
 
 #include "../../include/kernel/vfs.h"
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
+#include "../../include/kernel/vga.h"
+
+/* ------------------------------------------------------------
+ * Temporary per-directory EOF flags
+ *
+ * This is a stopgap until we have a proper file descriptor
+ * abstraction with per-FD position. For now:
+ *  - first getdents(fd) returns all entries
+ *  - subsequent getdents(fd) returns 0 (EOF)
+ * ------------------------------------------------------------ */
+static int root_done = 0;
+static int proc_done = 0;
+static int bin_done  = 0;
 
 /* ------------------------------------------------------------
  * Helper: add an entry into a struct dirent array inside user buffer
@@ -26,9 +40,9 @@ static int add_entry(struct dirent *buf_entries,
     if (*idx >= max_entries) return 0;
 
     struct dirent *de = &buf_entries[*idx];
-    de->d_ino = ino;
+    de->d_ino    = ino;
     de->d_reclen = (uint16_t) sizeof(struct dirent);
-    de->d_type = d_type;
+    de->d_type   = d_type;
 
     /* safe copy and ensure NUL termination */
     if (name)
@@ -49,12 +63,20 @@ static int add_entry(struct dirent *buf_entries,
 
 /* ------------------------------------------------------------
  * getdents implementation for FD_PROC, FD_ROOT, FD_BIN
- * - expects buf to be large enough for an integral number of struct dirent
- * - returns number of bytes written (idx * sizeof(struct dirent))
- * - returns -ENOSYS for unsupported fd
+ *
+ * Linux-style semantics:
+ *  - 'count' is buffer size in BYTES
+ *  - return value = number of BYTES written
+ *  - return 0 on EOF
+ *
+ * NOTE (temporary):
+ *  For now we assume each directory fits in a single call.
+ *  The *_done flags make subsequent calls return 0 (EOF).
  * ------------------------------------------------------------ */
 int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
 {
+    // screen_println("vfs_getdents");
+
     if (!buf || count < sizeof(struct dirent))
     {
         return 0;
@@ -65,6 +87,12 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
 
     if (fd == FD_ROOT)
     {
+        /* Already listed once? Then EOF. */
+        if (root_done)
+        {
+            return 0;
+        }
+
         /* . and .. */
         add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
         add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
@@ -73,10 +101,17 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
         add_entry(buf, max_entries, &idx, 0, DT_DIR, "proc");
         add_entry(buf, max_entries, &idx, 0, DT_DIR, "bin");
 
-        return (int) (idx * sizeof(struct dirent));
+        root_done = 1;
+        return (int)(idx * sizeof(struct dirent));
     }
     else if (fd == FD_PROC)
     {
+        // screen_println("vfs_getdents: FD_PROC");
+
+        if (proc_done)
+        {
+            return 0;   // EOF
+        }
 
         /* . and .. */
         add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
@@ -86,38 +121,68 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
         if (idx < max_entries)
         {
             unsigned int remaining = max_entries - idx;
+            /*
+             * sched_fill_proc_dirents:
+             *  - should write up to 'remaining' entries into &buf[idx]
+             *  - should return NUMBER OF ENTRIES written (not bytes)
+             */
             int written = sched_fill_proc_dirents(&buf[idx], remaining);
             if (written > 0)
             {
-                idx += (unsigned int) written;
+                idx += (unsigned int)written;
             }
         }
 
-        return (int) (idx * sizeof(struct dirent));
+        proc_done = 1;
+        return (int)(idx * sizeof(struct dirent));
     }
     else if (fd == FD_BIN)
     {
+        if (bin_done)
+        {
+            return 0;   // EOF
+        }
+
         add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
         add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
 
         if (idx < max_entries)
         {
             unsigned int remaining = max_entries - idx;
+            /*
+             * elf_fill_bin_dirents:
+             *  - should write up to 'remaining' entries into &buf[idx]
+             *  - should return NUMBER OF ENTRIES written (not bytes)
+             */
             int written = elf_fill_bin_dirents(&buf[idx], remaining);
             if (written > 0)
-                idx += (unsigned int) written;
+            {
+                idx += (unsigned int)written;
+            }
         }
 
-        return (int) (idx * sizeof(struct dirent));
+        bin_done = 1;
+        return (int)(idx * sizeof(struct dirent));
     }
 
     return -ENOSYS;
 }
 
-
+/* ------------------------------------------------------------
+ * vfs_open
+ *
+ * Very simple dispatcher that returns magic FDs for /, /proc, /bin.
+ * Later this should be replaced by a real VFS lookup + file table.
+ * ------------------------------------------------------------ */
 int vfs_open(const char *pathname, int flags, int mode)
 {
-    if (!pathname) return -ENOSYS;
+    (void)flags;
+    (void)mode;
+
+    if (!pathname)
+    {
+        return -ENOSYS;
+    }
 
     if (k_strcmp(pathname, "/") == 0 || k_strcmp(pathname, "/.") == 0)
     {
@@ -138,11 +203,30 @@ int vfs_open(const char *pathname, int flags, int mode)
     return -ENOSYS;
 }
 
+/* ------------------------------------------------------------
+ * vfs_close
+ *
+ * Resets the per-dir EOF flags for our magic FDs.
+ * ------------------------------------------------------------ */
 int vfs_close(int fd)
 {
-    if (fd == FD_PROC || fd == FD_ROOT || fd == FD_BIN)
+    if (fd == FD_ROOT)
     {
+        root_done = 0;
         return 0;
     }
+
+    if (fd == FD_PROC)
+    {
+        proc_done = 0;
+        return 0;
+    }
+
+    if (fd == FD_BIN)
+    {
+        bin_done = 0;
+        return 0;
+    }
+
     return -ENOSYS;
 }
