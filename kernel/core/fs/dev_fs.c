@@ -10,11 +10,19 @@
 static ssize_t dev_read(struct file *file, void *buf, size_t count)
 {
     if (!buf || count == 0)
+    {
         return 0;
+    }
 
     const char *name = k_strrchr(file->pathname, '/');
-    if (!name) name = file->pathname;
-    else name++;
+    if (!name)
+    {
+        name = file->pathname;
+    }
+    else
+    {
+        name++;
+    }
 
     if (k_strcmp(name, "stdin") != 0)
     {
@@ -35,7 +43,9 @@ static ssize_t dev_read(struct file *file, void *buf, size_t count)
 static ssize_t dev_write(struct file *file, const void *buf, size_t count)
 {
     if (!buf || count == 0)
+    {
         return 0;
+    }
 
     const char *name = k_strrchr(file->pathname, '/');
     if (!name) name = file->pathname;

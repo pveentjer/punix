@@ -45,10 +45,11 @@ struct files
 struct file
 {
     uint32_t idx;
-    char *pathname;
+    char pathname[MAX_FILENAME_LEN];
     int flags;
     int mode;
     bool done;
+    int fd;
     struct fs *fs;
 };
 

@@ -2,6 +2,7 @@
 
 #include "kernel/vfs.h"
 #include "kernel/kutils.h"
+#include "kernel/vga.h"
 
 #define VFS_RING_MASK (MAX_FILE_CNT - 1)
 
@@ -106,6 +107,7 @@ int vfs_open(
         return -1;
     }
 
+    file->fd = fd;
     file->done = false;
     file->flags = flags;
     file->mode = mode;
@@ -152,6 +154,8 @@ int vfs_close(
     {
         file->fs->close(file);
     }
+
+    file->fd = -1;
 
     files_free_fd(&task->files, fd);
 

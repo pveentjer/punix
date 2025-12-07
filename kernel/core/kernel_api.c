@@ -58,6 +58,17 @@ static ssize_t sys_read(int fd, void *buf, size_t count)
     return file->fs->read(file, buf, count);
 }
 
+static int sys_open(const char *pathname, int flags, int mode)
+{
+
+    return vfs_open(&vfs, sched_current(), pathname, flags, mode);
+}
+
+static int sys_close(int fd)
+{
+    return vfs_close(&vfs, sched_current(), fd);
+}
+
 static int sys_getdents(int fd, struct dirent *buf, unsigned int count)
 {
     struct task *current = sched_current();
@@ -120,17 +131,6 @@ static int sys_nice(int inc)
 static pid_t sys_waitpid(pid_t pid, int *status, int options)
 {
     return -ENOSYS;
-}
-
-static int sys_open(const char *pathname, int flags, int mode)
-{
-
-    return vfs_open(&vfs, sched_current(), pathname, flags, mode);
-}
-
-static int sys_close(int fd)
-{
-    return vfs_close(&vfs, sched_current(), fd);
 }
 
 

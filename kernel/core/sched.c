@@ -157,7 +157,9 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     int fd_stdout = vfs_open(&vfs, task, "/dev/stdout", O_WRONLY, 0);
     int fd_stderr = vfs_open(&vfs, task, "/dev/stderr", O_WRONLY, 0);
 
-    screen_printf("fd_stdin %d fd_stdout %d fd_stderr %d ", fd_stdin, fd_stdout, fd_stderr);
+    struct file *f_stdin = files_find_by_fd(&task->files, fd_stdin);
+    struct file *f_stdout = files_find_by_fd(&task->files, fd_stdout);
+    struct file *f_stderr = files_find_by_fd(&task->files, fd_stderr);
 
     uint32_t main_addr = elf_info.entry;
 
@@ -181,6 +183,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         }
     }
 
+
     // Align
     sp = (char *) ((uint32_t) sp & ~3);
     uint32_t *sp32 = (uint32_t *) sp;
@@ -199,6 +202,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     }
     char **new_argv = (char **) sp32;
 
+
     *(--sp32) = (uint32_t) new_argv;
     *(--sp32) = (uint32_t) argc;
     *(--sp32) = main_addr;
@@ -214,6 +218,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     task->eip = (uint32_t) task_trampoline;
     task->eflags = 0x202;
     task->parent = sched.current ? sched.current : task;
+
 
     run_queue_push(&sched.run_queue, task);
 

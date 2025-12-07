@@ -310,7 +310,25 @@ int screen_printf(const char *fmt, ...)
                 }
                 break;
             }
+            case 'p':
+            {
+                void *ptr = va_arg(ap, void *);
+                unsigned int v = (unsigned int)ptr;
 
+                // Print "0x" prefix
+                screen_put_char('0');
+                screen_put_char('x');
+                count += 2;
+
+                // Print hex value (always 8 digits for pointer)
+                static const char HEX[] = "0123456789abcdef";
+                for (int i = 7; i >= 0; i--)
+                {
+                    screen_put_char(HEX[(v >> (i * 4)) & 0xF]);
+                    count++;
+                }
+                break;
+            }
             default:
                 // unknown specifier, print it literally
                 screen_put_char('%');

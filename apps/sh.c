@@ -195,7 +195,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    load_bin_entries();
+//    load_bin_entries();
 
     char line[LINE_MAX];
     size_t len = 0;
