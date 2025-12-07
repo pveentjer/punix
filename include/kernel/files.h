@@ -1,0 +1,80 @@
+#ifndef FILES_H
+#define FILES_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "constants.h"
+
+/* Fake fds for virtual filesystems */
+#define FD_PROC    4
+#define FD_ROOT    5
+#define FD_BIN     6
+#define FD_DEV     7
+
+#define FD_STDIN   0
+#define FD_STDOUT  1
+#define FD_STDERR  2
+
+#define O_RDONLY   0x0
+#define O_WRONLY   0x1
+#define O_RDWR     0x2
+#define O_CREAT    0x40
+#define O_TRUNC    0x200
+
+/*
+ * Per-process file descriptor table.
+ *
+ * - MAX_FD_CNT must be a power of two if you want the mask trick.
+ * - FDs are 0..MAX_FD_CNT-1.
+ */
+
+struct files_slot
+{
+    int fd;
+    struct file *file;
+    uint32_t generation;
+};
+
+struct files
+{
+    uint32_t free_ring[RLIMIT_NOFILE];  /* ring buffer of free fd indices */
+    uint32_t free_head;                 /* allocation side */
+    uint32_t free_tail;                 /* free side */
+
+    struct files_slot slots[RLIMIT_NOFILE];
+};
+
+struct file
+{
+    uint32_t idx;
+    char *pathname;
+    int flags;
+    int mode;
+    uint8_t fs_type;
+    // hack
+    bool done;
+};
+
+/* ------------------------------------------------------------------
+ * files
+ * ------------------------------------------------------------------ */
+
+void files_init(
+        struct files *files);
+
+int files_alloc_fd(
+        struct files *files,
+        struct file *file);
+
+struct file *files_free_fd(
+        struct files *files,
+        int fd);
+
+void files_free_all(
+        struct files *files);
+
+struct file *files_find_by_fd(
+        const struct files *files,
+        int fd);
+
+#endif //FILES_H

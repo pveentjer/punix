@@ -1,123 +1,185 @@
 // vfs.c
 
 #include "../../include/kernel/vfs.h"
-#include "../../include/kernel/sched.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
-#include "../../include/kernel/vga.h"
 #include "../../include/kernel/constants.h"
-#include "../../include/kernel/limts.h"
 
-#define FD_MASK     (MAX_FILE_CNT - 1)
+#define VFS_RING_MASK (RLIMIT_NOFILE - 1)
 
-#define UNUSED_FD   -1
+// ==================== files =======================================
 
-#define FD_MAX      INT_MAX
+// ==================== vfs =======================================
 
-#define MAX_GENERATION   (FD_MAX / MAX_FILE_CNT)
+struct vfs vfs;  // this creates the actual storage
 
-
-void vfs_table_init(struct vfs_table *vfs_table)
+void vfs_init(
+        struct vfs *vfs)
 {
-    vfs_table->free_head = 0;
-    vfs_table->free_tail = MAX_FILE_CNT;
+    vfs->free_head = 0;
+    vfs->free_tail = MAX_FILE_CNT;
 
-    for (int slot_idx = 0; slot_idx < MAX_FILE_CNT; slot_idx++)
+    for (int file_idx = 0; file_idx < MAX_FILE_CNT; file_idx++)
     {
-        struct vfs_slot *slot = &vfs_table->slots[slot_idx];
-        slot->generation = 0;   // or slot->round if that's your field name
+        struct file *file = &vfs->files[file_idx];
 
-        struct file *file = &slot->file;
         k_memset(file, 0, sizeof(struct file));
-        file->fd = UNUSED_FD;
-
-        vfs_table->free_ring[slot_idx] = slot_idx;
+        file->idx = file_idx;
+        vfs->free_ring[file_idx] = file_idx;
     }
 }
 
-struct file *vfs_file_find_by_fd(
-        const struct vfs_table *vfs_table,
-        const int fd)
+static int to_fs_type(
+        const char *pathname)
 {
-    if (fd < 0)
+    if (!pathname)
     {
-        return NULL;
+        return -1;
     }
 
-    uint32_t slot_idx = fd & FD_MASK;
-    struct file *file = &vfs_table->slots[slot_idx].file;
-    if (file->fd != fd)
+    // Must start with '/'
+    if (pathname[0] != '/')
     {
-        return NULL;
-    }
-    else
-    {
-        return file;
-    }
-}
-
-struct file *vfs_file_alloc(struct vfs_table *vfs_table)
-{
-    if (vfs_table->free_head == vfs_table->free_tail)
-    {
-        return NULL;
+        return -1;
     }
 
-    const uint32_t free_ring_idx = vfs_table->free_head & FD_MASK;
-    const uint32_t slot_idx      = vfs_table->free_ring[free_ring_idx];
+    const char *p = pathname + 1;  // skip leading '/'
+    const char *s = p;
 
-    struct vfs_slot *slot = &vfs_table->slots[slot_idx];
-    struct file *file     = &slot->file;
-
-    file->fd = slot->generation * MAX_FILE_CNT + slot_idx;
-    // we need to take care of the wrap around of the slot->generation
-    slot->generation = (slot->generation + 1) & MAX_GENERATION;
-    vfs_table->free_head++;
-
-    return file;
-}
-
-void vfs_file_free(
-        struct vfs_table *vfs_table,
-        struct file *file)
-{
-    if (vfs_table->free_tail - vfs_table->free_head == MAX_FILE_CNT)
+    // Find end of first component or end of string
+    while (*s != '\0' && *s != '/')
     {
-        panic("vfs_file_free: too many frees.");
+        s++;
     }
 
-    const int fd = file->fd;
-    if (fd < 0)
+    size_t len = (size_t) (s - p);
+
+    // Cases:
+    // "/"           -> p == "", len == 0         -> root
+    // "/."          -> p == ".", len == 1        -> root
+    // "/foo"        -> p == "foo", len == 3      -> maybe special
+    // "/foo/bar"    -> p == "foo", len == 3      -> same FS as "/foo"
+
+    if (len == 0)
     {
-        panic("vfs_file_free: file has negative fd.");
+        // "/" or "/<nothing>" -> root FS
+        return FD_ROOT;
     }
 
-    const uint32_t slot_idx      = fd & FD_MASK;
-    const uint32_t free_ring_idx = vfs_table->free_tail & FD_MASK;
-
-    struct vfs_slot *slot = &vfs_table->slots[slot_idx];
-    if (&slot->file != file)
+    if (len == 1 && p[0] == '.')
     {
-        panic("vfs_file_free: file pointer/slot mismatch");
+        // "/." -> root FS
+        return FD_ROOT;
     }
 
-    vfs_table->free_ring[free_ring_idx] = slot_idx;
-    vfs_table->free_tail++;
-    file->fd = UNUSED_FD;
+    if (len == 4 && k_strncmp(p, "proc", 4) == 0)
+    {
+        return FD_PROC;
+    }
+
+    if (len == 3 && k_strncmp(p, "bin", 3) == 0)
+    {
+        return FD_BIN;
+    }
+
+    if (len == 3 && k_strncmp(p, "dev", 3) == 0)
+    {
+        return FD_DEV;
+    }
+
+    // Anything else lives on the root filesystem: /etc, /home, /foo/bar, ...
+    return FD_ROOT;
 }
 
 
 /* ------------------------------------------------------------
- * Temporary per-directory EOF flags
+ * vfs_open
  *
- * This is a stopgap until we have a proper file descriptor
- * abstraction with per-FD position. For now:
- *  - first getdents(fd) returns all entries
- *  - subsequent getdents(fd) returns 0 (EOF)
+ * Very simple dispatcher that returns magic FDs for /, /proc, /bin.
+ * Later this should be replaced by a real VFS lookup + file table.
  * ------------------------------------------------------------ */
-static int root_done = 0;
-static int proc_done = 0;
-static int bin_done  = 0;
+int vfs_open(
+        struct vfs *vfs,
+        struct task *task,
+        const char *pathname,
+        int flags,
+        int mode)
+{
+    int vfs_type = to_fs_type(pathname);
+    if (vfs_type == -1)
+    {
+        return -1;
+    }
+
+    if (task == NULL)
+    {
+        return -1;
+    }
+
+    if (vfs->free_head == vfs->free_tail)
+    {
+        // no space
+        return -1;
+    }
+
+    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
+    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
+
+    struct file *file = &vfs->files[file_idx];
+
+    vfs->free_head++;
+
+    int fd = files_alloc_fd(&task->files, file);
+    if (fd < 0)
+    {
+        //todo
+        //vfs_close(file);
+        return -1;
+    }
+
+    file->done = false;
+    file->flags = flags;
+    file->mode = mode;
+    file->fs_type = vfs_type;
+    k_strcpy(file->pathname, pathname);
+    return fd;
+}
+
+
+int vfs_close(
+        struct vfs *vfs,
+        struct task *task,
+        const int fd)
+{
+    if (fd < 0)
+    {
+        return -1;
+    }
+
+    if (task == NULL)
+    {
+        return -1;
+    }
+
+    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
+    {
+        panic("vfs_file_free: too many frees.");
+    }
+
+    struct file *file = files_free_fd(&task->files, fd);
+    if (file == NULL)
+    {
+        return -1;
+    }
+
+    const uint32_t file_idx = file->idx;
+    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
+
+    vfs->free_ring[free_ring_idx] = file_idx;
+    vfs->free_tail++;
+    return 0;
+}
+
 
 /* ------------------------------------------------------------
  * Helper: add an entry into a struct dirent slots inside user buffer
@@ -131,19 +193,20 @@ static int bin_done  = 0;
  *
  * returns 1 on success, 0 if no space
  * ------------------------------------------------------------ */
-static int add_entry(struct dirent *buf_entries,
-                     unsigned int max_entries,
-                     unsigned int *idx,
-                     uint32_t ino,
-                     uint8_t d_type,
-                     const char *name)
+static int add_entry(
+        struct dirent *buf_entries,
+        unsigned int max_entries,
+        unsigned int *idx,
+        uint32_t ino,
+        uint8_t d_type,
+        const char *name)
 {
     if (*idx >= max_entries) return 0;
 
     struct dirent *de = &buf_entries[*idx];
-    de->d_ino    = ino;
+    de->d_ino = ino;
     de->d_reclen = (uint16_t) sizeof(struct dirent);
-    de->d_type   = d_type;
+    de->d_type = d_type;
 
     /* safe copy and ensure NUL termination */
     if (name)
@@ -174,7 +237,12 @@ static int add_entry(struct dirent *buf_entries,
  *  For now we assume each directory fits in a single call.
  *  The *_done flags make subsequent calls return 0 (EOF).
  * ------------------------------------------------------------ */
-int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
+int vfs_getdents(
+        struct vfs *vfs,
+        struct task *task,
+        int fd,
+        struct dirent *buf,
+        unsigned int count)
 {
     // screen_println("vfs_getdents");
 
@@ -183,13 +251,25 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
         return 0;
     }
 
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        panic("vfs_close: current is NULL");
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL)
+    {
+        return -1;
+    }
+
     unsigned int max_entries = count / sizeof(struct dirent);
     unsigned int idx = 0;
 
     if (fd == FD_ROOT)
     {
         /* Already listed once? Then EOF. */
-        if (root_done)
+        if (file->done)
         {
             return 0;
         }
@@ -202,16 +282,15 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
         add_entry(buf, max_entries, &idx, 0, DT_DIR, "proc");
         add_entry(buf, max_entries, &idx, 0, DT_DIR, "bin");
 
-        root_done = 1;
-        return (int)(idx * sizeof(struct dirent));
+        file->done;
+        return (int) (idx * sizeof(struct dirent));
     }
     else if (fd == FD_PROC)
     {
         // screen_println("vfs_getdents: FD_PROC");
-
-        if (proc_done)
+        if (file->done)
         {
-            return 0;   // EOF
+            return 0;
         }
 
         /* . and .. */
@@ -230,18 +309,18 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
             int written = sched_fill_proc_dirents(&buf[idx], remaining);
             if (written > 0)
             {
-                idx += (unsigned int)written;
+                idx += (unsigned int) written;
             }
         }
 
-        proc_done = 1;
-        return (int)(idx * sizeof(struct dirent));
+        file->done;
+        return (int) (idx * sizeof(struct dirent));
     }
     else if (fd == FD_BIN)
     {
-        if (bin_done)
+        if (file->done)
         {
-            return 0;   // EOF
+            return 0;
         }
 
         add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
@@ -258,76 +337,15 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
             int written = elf_fill_bin_dirents(&buf[idx], remaining);
             if (written > 0)
             {
-                idx += (unsigned int)written;
+                idx += (unsigned int) written;
             }
         }
 
-        bin_done = 1;
-        return (int)(idx * sizeof(struct dirent));
+        file->done;
+        return (int) (idx * sizeof(struct dirent));
     }
 
     return -ENOSYS;
 }
 
-/* ------------------------------------------------------------
- * vfs_open
- *
- * Very simple dispatcher that returns magic FDs for /, /proc, /bin.
- * Later this should be replaced by a real VFS lookup + file table.
- * ------------------------------------------------------------ */
-int vfs_open(const char *pathname, int flags, int mode)
-{
-    (void)flags;
-    (void)mode;
 
-    if (!pathname)
-    {
-        return -ENOSYS;
-    }
-
-    if (k_strcmp(pathname, "/") == 0 || k_strcmp(pathname, "/.") == 0)
-    {
-        return FD_ROOT;
-    }
-
-    if (k_strcmp(pathname, "/proc") == 0 || k_strcmp(pathname, "/proc/") == 0)
-    {
-        return FD_PROC;
-    }
-
-    if (k_strcmp(pathname, "/bin") == 0 || k_strcmp(pathname, "/bin/") == 0)
-    {
-        return FD_BIN;
-    }
-
-    /* optionally support opening /proc/<pid> or /bin/<name> later */
-    return -ENOSYS;
-}
-
-/* ------------------------------------------------------------
- * vfs_close
- *
- * Resets the per-dir EOF flags for our magic FDs.
- * ------------------------------------------------------------ */
-int vfs_close(int fd)
-{
-    if (fd == FD_ROOT)
-    {
-        root_done = 0;
-        return 0;
-    }
-
-    if (fd == FD_PROC)
-    {
-        proc_done = 0;
-        return 0;
-    }
-
-    if (fd == FD_BIN)
-    {
-        bin_done = 0;
-        return 0;
-    }
-
-    return -ENOSYS;
-}

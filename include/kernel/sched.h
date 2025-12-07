@@ -5,13 +5,13 @@
 #include <stddef.h>
 #include "constants.h"
 #include "dirent.h"
-#include "dirent.h"
+#include "files.h"
 
 typedef int pid_t;
 
 typedef uint32_t sigset_t;
 
-struct task_struct
+struct task
 {
     pid_t pid;           // 0
 
@@ -23,14 +23,14 @@ struct task_struct
     uint16_t ss;         // 20: stack segment selector
     uint16_t _pad;       // 22: padding for alignment
 
-    struct task_struct *next;   // 24 (after padding)
-    struct task_struct *parent; // 28
+    struct task *next;   // 24 (after padding)
+    struct task *parent; // 28
 
     uint32_t  mem_base;         // 32
 
     char name[MAX_FILENAME_LEN]; // 36+
 
-    struct fdtable *fdtable;
+    struct files files;
 
     sigset_t pending_signals;
 };
@@ -38,11 +38,12 @@ struct task_struct
 
 struct run_queue
 {
-    struct task_struct *first;
-    struct task_struct *last;
+    struct task *first;
+    struct task *last;
     size_t len;
 };
 
+struct task* sched_current(void);
 
 void sched_init(void);
 
@@ -64,10 +65,10 @@ pid_t sched_getpid(void);
 void sched_exit(int status);
 
 /* asm functions */
-void task_start(struct task_struct *t);
+void task_start(struct task *t);
 
 int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries);
 
-int task_context_switch(struct task_struct *current, struct task_struct *next);
+int task_context_switch(struct task *current, struct task *next);
 
 #endif // SCHED_H

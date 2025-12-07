@@ -105,17 +105,18 @@ static pid_t sys_waitpid(pid_t pid, int *status, int options)
 
 static int sys_open(const char *pathname, int flags, int mode)
 {
-    return vfs_open(pathname, flags, mode);
+
+    return vfs_open(&vfs, sched_current(), pathname, flags, mode);
 }
 
 static int sys_close(int fd)
 {
-    return vfs_close(fd);
+    return vfs_close(&vfs, sched_current(), fd);
 }
 
 int sys_getdents(int fd, struct dirent *buf, unsigned int count)
 {
-    return vfs_getdents(fd, buf, count);
+    return vfs_getdents(&vfs, sched_current(), fd, buf, count);
 }
 
 

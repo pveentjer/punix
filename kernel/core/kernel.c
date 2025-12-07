@@ -6,6 +6,7 @@
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/gdt.h"
 #include "../../include/kernel/keyboard.h"
+#include "../../include/kernel/vfs.h"
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -22,7 +23,10 @@ void kmain(void)
     
     screen_printf("Enabling interrupts.\n");
     interrupts_enable();
-    
+
+    screen_printf("Init VFS.\n");
+    vfs_init(&vfs);
+
     screen_printf("Init keyboard.\n");
     keyboard_init();
 

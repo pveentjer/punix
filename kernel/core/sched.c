@@ -6,16 +6,18 @@
 #include "../../include/kernel/elf.h"
 #include "../../include/kernel/task_table.h"
 #include "../../include/kernel/constants.h"
+#include "../../include/kernel/vfs.h"
+
 
 struct struct_sched
 {
     struct task_table task_table;
     struct run_queue run_queue;
-    struct task_struct *current;
+    struct task *current;
 } sched;
 
 
-int task_context_switch(struct task_struct *current, struct task_struct *next);
+int task_context_switch(struct task *current, struct task *next);
 
 
 /* ---------------- Run queue ---------------- */
@@ -25,10 +27,9 @@ void run_queue_init(struct run_queue *rq)
     rq->len = 0;
     rq->first = NULL;
     rq->last = NULL;
-
 }
 
-void run_queue_push(struct run_queue *rq, struct task_struct *task)
+void run_queue_push(struct run_queue *rq, struct task *task)
 {
     task->next = NULL;
     if (rq->len == 0)
@@ -43,14 +44,14 @@ void run_queue_push(struct run_queue *rq, struct task_struct *task)
     rq->len++;
 }
 
-struct task_struct *run_queue_poll(struct run_queue *rq)
+struct task *run_queue_poll(struct run_queue *rq)
 {
     if (rq->len == 0)
     {
         return NULL;
     }
 
-    struct task_struct *t = rq->first;
+    struct task *t = rq->first;
     rq->first = t->next;
     rq->len--;
     if (rq->len == 0)
@@ -70,10 +71,15 @@ void sched_init(void)
     task_table_init(&sched.task_table);
 }
 
+struct task *sched_current(void)
+{
+    return sched.current;
+}
+
 void sched_exit(int status)
 {
 
-    struct task_struct *current = sched.current;
+    struct task *current = sched.current;
     if (current == NULL)
     {
         panic("exit failed because there is no current task.\n");
@@ -82,11 +88,11 @@ void sched_exit(int status)
     // A copy of the current needs to be made because it is needed
     // for the context switch at the end, but we want to return the
     // struct to the slots before that.
-    struct task_struct copy_current = *current;
+    struct task copy_current = *current;
 
     task_table_free(&sched.task_table, current);
 
-    struct task_struct *next = run_queue_poll(&sched.run_queue);
+    struct task *next = run_queue_poll(&sched.run_queue);
 
     if (next == NULL)
     {
@@ -131,7 +137,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         return -1;
     }
 
-    struct task_struct *task = task_table_alloc(&sched.task_table);
+    struct task *task = task_table_alloc(&sched.task_table);
     if (task == NULL)
     {
         panic("sched_add_task: too many tasks");
@@ -155,6 +161,12 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         screen_printf("Failed to load the binary\n");
         return -1;
     }
+
+    int fd_stdin = vfs_open(&vfs, task, "/dev/stdin", O_RDONLY, 0);
+    int fd_stdout = vfs_open(&vfs, task, "/dev/stdout", O_WRONLY, 0);
+    int fd_stderr = vfs_open(&vfs, task, "/dev/stderr", O_WRONLY, 0);
+
+    screen_printf("fd_stdin %d fd_stdout %d fd_stderr %d ", fd_stdin, fd_stdout, fd_stderr);
 
     uint32_t main_addr = elf_info.entry;
 
@@ -234,7 +246,7 @@ int sched_kill(pid_t pid, int sig)
         return -1;
     }
 
-    struct task_struct *task = task_table_find_task_by_pid(&sched.task_table, pid);
+    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
     if (task == NULL)
     {
         return -1;
@@ -246,7 +258,7 @@ int sched_kill(pid_t pid, int sig)
 
 void sched_start(void)
 {
-    struct task_struct dummy;
+    struct task dummy;
     sched.current = run_queue_poll(&sched.run_queue);
     if (!sched.current)
     {
@@ -279,23 +291,23 @@ void sched_yield(void)
 //    screen_println("sched_yield to other task.");
 
 
-    struct task_struct *prev = sched.current;
+    struct task *prev = sched.current;
     run_queue_push(&sched.run_queue, prev);
 
     sched.current = run_queue_poll(&sched.run_queue);
-    struct task_struct *next = sched.current;
+    struct task *next = sched.current;
 
     task_context_switch(prev, next);
 }
 
 /* ------------------------------------------------------------
- * Helper: fill one dirent entry from a task_struct
+ * Helper: fill one dirent entry from a task
  * ------------------------------------------------------------ */
-static void fill_dirent_from_task(struct dirent *de, const struct task_struct *task)
+static void fill_dirent_from_task(struct dirent *de, const struct task *task)
 {
-    de->d_ino    = (uint32_t)task->pid;
-    de->d_reclen = (uint16_t)sizeof(struct dirent);
-    de->d_type   = DT_DIR;
+    de->d_ino = (uint32_t) task->pid;
+    de->d_reclen = (uint16_t) sizeof(struct dirent);
+    de->d_type = DT_DIR;
 
     char namebuf[16];
     k_itoa(task->pid, namebuf);
@@ -326,7 +338,7 @@ int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
     }
 
     // Add all other tasks in the run queue
-    struct task_struct *t = sched.run_queue.first;
+    struct task *t = sched.run_queue.first;
     while (t && idx < max_entries)
     {
         if (t != sched.current)
@@ -337,5 +349,5 @@ int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
         t = t->next;
     }
 
-    return (int)idx;
+    return (int) idx;
 }

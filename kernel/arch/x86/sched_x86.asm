@@ -12,7 +12,7 @@ global task_prepare_new
              ; jump to task entry
 
 
-; int task_context_switch(struct task_struct *prev, struct task_struct *next);
+; int task_context_switch(struct task *prev, struct task *next);
 ; Switch from prev to next task
 task_context_switch:
     ; Save callee-saved registers and flags

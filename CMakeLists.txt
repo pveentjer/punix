@@ -68,6 +68,7 @@ set(KERNEL_SOURCES
         kernel/core/gdt.c
         kernel/core/task_table.c
         kernel/core/vfs.c
+        kernel/core/files.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})

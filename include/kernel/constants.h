@@ -9,8 +9,10 @@
 
 #define ENOSYS 38
 
-// The maximum number of processes. Needs to be power of 2.
+// The maximum number of processes.
+// Should to be power of 2.
 #define MAX_PROCESS_CNT 64
+
 // first app at 2 MiB
 #define PROCESS_BASE 0x00200000
 // each app 1 MiB
@@ -20,9 +22,19 @@
 
 #define MAX_SIGNALS 32
 
+// The maximum number of open files for the kernel
+// should be power of 2.
+#define MAX_FILE_CNT 1024
+
 // The maximum number of files per process
+// should be power of 2
 #define RLIMIT_NOFILE 16
 
-#define MAX_FILE_CNT 128
+#define FD_NONE -1
+
+#define PID_NONE -1
+
+#define INT_MAX  2147483647
+#define INT_MIN (-INT_MAX - 1)
 
 #endif //CONSTANTS_H
