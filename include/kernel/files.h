@@ -3,13 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "constants.h"
-
-/* Fake fds for virtual filesystems */
-#define FD_PROC    4
-#define FD_ROOT    5
-#define FD_BIN     6
-#define FD_DEV     7
+#include "dirent.h"
 
 #define FD_STDIN   0
 #define FD_STDOUT  1
@@ -20,6 +16,8 @@
 #define O_RDWR     0x2
 #define O_CREAT    0x40
 #define O_TRUNC    0x200
+
+typedef long ssize_t;
 
 /*
  * Per-process file descriptor table.
@@ -50,11 +48,18 @@ struct file
     char *pathname;
     int flags;
     int mode;
-    uint8_t fs_type;
-    // hack
     bool done;
+    struct fs *fs;
 };
 
+struct fs
+{
+    int (*open)(struct file *file);
+    int (*close)(struct file *file);
+    ssize_t (*read)(struct file *file, void *buf, size_t count);
+    ssize_t (*write)(struct file *file, const void *buf, size_t count);
+    int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
+};
 /* ------------------------------------------------------------------
  * files
  * ------------------------------------------------------------------ */

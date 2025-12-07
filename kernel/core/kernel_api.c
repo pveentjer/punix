@@ -14,46 +14,65 @@ static ssize_t sys_write(int fd, const char *buf, size_t count)
 {
     sched_yield();
 
-    if (buf == 0 || count == 0)
-        return 0;
-
-    switch (fd)
+    if (buf == NULL || count == 0)
     {
-        case FD_STDOUT:
-        case FD_STDERR:
-            for (size_t i = 0; i < count; i++)
-            {
-                screen_put_char(buf[i]);
-            }
-            return (ssize_t) count;
-
-        case FD_STDIN:
-            return -1;
-
-        default:
-            return -1;
+        return 0;
     }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->write == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->write(file, buf, count);
 }
 
 static ssize_t sys_read(int fd, void *buf, size_t count)
 {
     sched_yield();
 
-    if (fd != FD_STDIN)
-        return -1;
-
-    if (!buf || count == 0)
-        return 0;
-
-    char *cbuf = (char *) buf;
-    size_t read_cnt = 0;
-
-    while (read_cnt < count && keyboard_has_char())
+    if (buf == NULL || count == 0)
     {
-        cbuf[read_cnt++] = keyboard_get_char();
+        return 0;
     }
 
-    return (ssize_t) read_cnt;
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->read == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->read(file, buf, count);
+}
+
+static int sys_getdents(int fd, struct dirent *buf, unsigned int count)
+{
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->getdents == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->getdents(file, buf, count);
 }
 
 static pid_t sys_getpid(void)
@@ -112,11 +131,6 @@ static int sys_open(const char *pathname, int flags, int mode)
 static int sys_close(int fd)
 {
     return vfs_close(&vfs, sched_current(), fd);
-}
-
-int sys_getdents(int fd, struct dirent *buf, unsigned int count)
-{
-    return vfs_getdents(&vfs, sched_current(), fd, buf, count);
 }
 
 

@@ -1,85 +1,323 @@
+#include <stdint.h>
 #include "../include/kernel/libc.h"
 #include "../include/kernel/fcntl.h"
 #include "../include/kernel/dirent.h"
+#include "../include/kernel/vga.h"
 
-static void print_help(const char *prog)
+#define DBG(row, msg) vga_puts_at((row), (msg), 0x07)
+
+enum cli_state
 {
-    printf("Usage: %s [--help]\n", prog);
-    printf("\n");
-    printf("List all running processes by reading /proc/.\n");
-    printf("\n");
-    printf("Options:\n");
-    printf("  --help    Show this help message\n");
-    printf("\n");
-    printf("Example:\n");
-    printf("  %s\n", prog);
-}
+    STATE_PROMPT,
+    STATE_READ,
+    STATE_PARSE
+};
 
-static int is_number(const char *s)
+#define LINE_MAX        128
+#define HISTORY_MAX     30
+
+/* store PID of last created task */
+static pid_t last_pid = -1;
+
+/* command history */
+static char history[HISTORY_MAX][LINE_MAX];
+static int  history_size = 0;
+static int  history_pos  = 0;
+
+/* ------------------------------------------------------------------
+ * helpers: history
+ * ------------------------------------------------------------------ */
+static void history_add(const char *line)
 {
-    if (!s || !*s)
-        return 0;
-
-    for (const char *p = s; *p; ++p) {
-        if (*p < '0' || *p > '9')
-            return 0;
+    if (line[0] == '\0')
+    {
+        return;
     }
-    return 1;
+
+    if (history_size < HISTORY_MAX)
+    {
+        strcpy(history[history_size], line);
+        history_size++;
+    }
+    else
+    {
+        for (int i = 1; i < HISTORY_MAX; i++)
+        {
+            strcpy(history[i - 1], history[i]);
+        }
+        strcpy(history[HISTORY_MAX - 1], line);
+    }
+    history_pos = history_size;
 }
 
+static void load_history_entry(char *line, size_t *len, int new_index)
+{
+    while (*len > 0)
+    {
+        write(FD_STDOUT, "\b \b", 3);
+        (*len)--;
+    }
+
+    if (new_index == history_size)
+    {
+        line[0] = '\0';
+        *len = 0;
+        return;
+    }
+
+    strcpy(line, history[new_index]);
+    *len = strlen(line);
+    write(FD_STDOUT, line, *len);
+}
+
+/* handle arrow key escape sequences */
+static int handle_escape_sequence(char *line, size_t *len)
+{
+    char seq1, seq2;
+    ssize_t n1 = read(FD_STDIN, &seq1, 1);
+    if (n1 <= 0)
+    {
+        return 0;
+    }
+    ssize_t n2 = read(FD_STDIN, &seq2, 1);
+    if (n2 <= 0)
+    {
+        return 0;
+    }
+
+    if (seq1 == '[')
+    {
+        if (seq2 == 'A')
+        {
+            // up
+            if (history_size > 0 && history_pos > 0)
+            {
+                history_pos--;
+                load_history_entry(line, len, history_pos);
+            }
+            return 1;
+        }
+        else if (seq2 == 'B')
+        {
+            // down
+            if (history_size > 0 && history_pos < history_size)
+            {
+                history_pos++;
+                load_history_entry(line, len, history_pos);
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* ------------------------------------------------------------------
+ * Build "/bin/<name>" into dst without snprintf
+ * dst_size includes space for terminating NUL.
+ * ------------------------------------------------------------------ */
+static void build_bin_path(char *dst, size_t dst_size, const char *name)
+{
+    const char *prefix = "/bin/";
+    size_t plen = strlen(prefix);
+    size_t nlen = strlen(name);
+
+    if (dst_size == 0)
+    {
+        return;
+    }
+
+    /* copy prefix */
+    size_t to_copy = plen;
+    if (to_copy >= dst_size)
+    {
+        to_copy = dst_size - 1;
+    }
+    memcpy(dst, prefix, to_copy);
+
+    size_t pos = to_copy;
+
+    /* copy name (possibly truncated) */
+    if (pos < dst_size - 1)
+    {
+        size_t remaining = dst_size - 1 - pos;
+        size_t name_copy = (nlen > remaining) ? remaining : nlen;
+        memcpy(dst + pos, name, name_copy);
+        pos += name_copy;
+    }
+
+    dst[pos] = '\0';
+}
+
+/* ------------------------------------------------------------------
+ * main shell
+ * ------------------------------------------------------------------ */
 int main(int argc, char **argv)
 {
-    if (argc == 2 && strcmp(argv[1], "--help") == 0) {
-        print_help(argv[0]);
-        return 0;
-    }
-
-    if (argc != 1) {
-        printf("ps: no arguments expected\n");
-        printf("Try '%s --help' for more information.\n", argv[0]);
+    if (argc != 1)
+    {
+        printf("shell: no arguments expected\n");
         return 1;
     }
 
-    int fd = open("/proc", O_RDONLY, 0);
-    if (fd < 0) {
-        printf("ps: failed to open /proc\n");
-        return 1;
-    }
+    char line[LINE_MAX];
+    size_t len = 0;
+    char *cmd_argv[16];
+    int cmd_argc = 0;
 
-    printf("PID\n");
+    enum cli_state state = STATE_PROMPT;
 
-    /* Buffer for multiple dirent records */
-    struct dirent buf[32];
+    for (;;)
+    {
+        switch (state)
+        {
+            case STATE_PROMPT:
+                printf("> ");
+                len = 0;
+                line[0] = '\0';
+                history_pos = history_size;
+                state = STATE_READ;
+                break;
 
-    for (;;) {
-        /* Assuming getdents returns number of BYTES read, like Linux */
-        int nbytes = getdents(fd, buf, sizeof(buf));
-        if (nbytes < 0) {
-            printf("ps: getdents failed\n");
-            break;
-        }
-        if (nbytes == 0) {
-            /* End of directory */
-            break;
-        }
+            case STATE_READ:
+            {
+                char c;
+                ssize_t n = read(FD_STDIN, &c, 1);
+                if (n <= 0)
+                {
+                    break;
+                }
 
-        int offset = 0;
-        while (offset < nbytes) {
-            struct dirent *de = (struct dirent *)((char *)buf + offset);
+                if (c == 0x1b)
+                {
+                    // ESC
+                    if (handle_escape_sequence(line, &len))
+                    {
+                        break;
+                    }
+                    break;
+                }
 
-            /* Only consider directory entries with numeric names */
-            if (de->d_type == DT_DIR && is_number(de->d_name)) {
-                printf("%s\n", de->d_name);
-            }
+                if (c == '\r' || c == '\n')
+                {
+                    line[len] = '\0';
+                    write(FD_STDOUT, "\n", 1);
+                    state = STATE_PARSE;
+                    break;
+                }
 
-            /* Safety: avoid infinite loop if d_reclen is ever zero */
-            if (de->d_reclen == 0) {
+                if (c == '\b' || c == 127)
+                {
+                    if (len > 0)
+                    {
+                        len--;
+                        write(FD_STDOUT, "\b \b", 3);
+                    }
+                    break;
+                }
+
+                if (len < sizeof(line) - 1)
+                {
+                    line[len++] = c;
+                    write(FD_STDOUT, &c, 1);
+                }
                 break;
             }
-            offset += de->d_reclen;
+
+            case STATE_PARSE:
+            {
+                if (len == 0)
+                {
+                    state = STATE_PROMPT;
+                    break;
+                }
+
+                history_add(line);
+                cmd_argc = 0;
+                char *p = line;
+
+                while (*p && cmd_argc < 15)
+                {
+                    while (*p == ' ')
+                    {
+                        p++;
+                    }
+                    if (!*p)
+                    {
+                        break;
+                    }
+                    cmd_argv[cmd_argc++] = p;
+                    while (*p && *p != ' ')
+                    {
+                        p++;
+                    }
+                    if (*p)
+                    {
+                        *p++ = '\0';
+                    }
+                }
+                cmd_argv[cmd_argc] = NULL;
+                if (cmd_argc == 0)
+                {
+                    state = STATE_PROMPT;
+                    break;
+                }
+
+                /* built-in: echo */
+                if (strcmp(cmd_argv[0], "echo") == 0)
+                {
+                    if (cmd_argc == 1)
+                    {
+                        printf("\n");
+                    }
+                    else
+                    {
+                        for (int i = 1; i < cmd_argc; i++)
+                        {
+                            if (strcmp(cmd_argv[i], "$!") == 0)
+                            {
+                                if (last_pid < 0)
+                                {
+                                    printf("no last pid");
+                                }
+                                else
+                                {
+                                    printf("%d", last_pid);
+                                }
+                            }
+                            else
+                            {
+                                printf("%s", cmd_argv[i]);
+                            }
+                            if (i < cmd_argc - 1)
+                            {
+                                printf(" ");
+                            }
+                        }
+                        printf("\n");
+                    }
+                    state = STATE_PROMPT;
+                    break;
+                }
+
+                /* external command - always prepend /bin/ */
+                char fullpath[LINE_MAX];
+                build_bin_path(fullpath, sizeof(fullpath), cmd_argv[0]);
+
+                pid_t pid = sched_add_task(fullpath, cmd_argc, cmd_argv);
+                if (pid < 0)
+                {
+                    printf("Failed to create task\n");
+                }
+                else
+                {
+                    last_pid = pid;
+                }
+
+                state = STATE_PROMPT;
+                break;
+            }
         }
     }
 
-    close(fd);
     return 0;
 }

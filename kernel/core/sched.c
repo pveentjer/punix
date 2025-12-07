@@ -4,21 +4,12 @@
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"
-#include "../../include/kernel/task_table.h"
 #include "../../include/kernel/constants.h"
 #include "../../include/kernel/vfs.h"
 
-
-struct struct_sched
-{
-    struct task_table task_table;
-    struct run_queue run_queue;
-    struct task *current;
-} sched;
-
+struct scheduler sched;
 
 int task_context_switch(struct task *current, struct task *next);
-
 
 /* ---------------- Run queue ---------------- */
 
@@ -298,56 +289,4 @@ void sched_yield(void)
     struct task *next = sched.current;
 
     task_context_switch(prev, next);
-}
-
-/* ------------------------------------------------------------
- * Helper: fill one dirent entry from a task
- * ------------------------------------------------------------ */
-static void fill_dirent_from_task(struct dirent *de, const struct task *task)
-{
-    de->d_ino = (uint32_t) task->pid;
-    de->d_reclen = (uint16_t) sizeof(struct dirent);
-    de->d_type = DT_DIR;
-
-    char namebuf[16];
-    k_itoa(task->pid, namebuf);
-
-    size_t nlen = k_strlen(namebuf);
-    if (nlen >= sizeof(de->d_name))
-        nlen = sizeof(de->d_name) - 1;
-
-    k_memcpy(de->d_name, namebuf, nlen);
-    de->d_name[nlen] = '\0';
-}
-
-/* ------------------------------------------------------------
- * Fill struct dirent entries for /proc
- * ------------------------------------------------------------ */
-int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
-{
-    unsigned int idx = 0;
-
-    if (!buf || max_entries == 0)
-        return 0;
-
-    // Add the current task first (if any)
-    if (sched.current && idx < max_entries)
-    {
-        fill_dirent_from_task(&buf[idx], sched.current);
-        idx++;
-    }
-
-    // Add all other tasks in the run queue
-    struct task *t = sched.run_queue.first;
-    while (t && idx < max_entries)
-    {
-        if (t != sched.current)
-        {
-            fill_dirent_from_task(&buf[idx], t);
-            idx++;
-        }
-        t = t->next;
-    }
-
-    return (int) idx;
 }

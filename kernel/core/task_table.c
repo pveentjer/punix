@@ -1,4 +1,4 @@
-#include "../../include/kernel/task_table.h"
+#include "../../include/kernel/sched.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/constants.h"
 #include "../../include/kernel/vfs.h"

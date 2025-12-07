@@ -18,6 +18,7 @@ struct vfs
     struct file files[MAX_FILE_CNT];
 };
 
+
 extern struct vfs vfs;
 
 /* ------------------------------------------------------------------
@@ -26,13 +27,6 @@ extern struct vfs vfs;
 
 void vfs_init(
         struct vfs *vfs);
-
-int vfs_getdents(
-        struct vfs *vfs,
-        struct task *task,
-        int fd,
-        struct dirent *buf,
-        unsigned int count);
 
 int vfs_open(
         struct vfs *vfs,

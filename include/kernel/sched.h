@@ -4,11 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "constants.h"
-#include "dirent.h"
 #include "files.h"
 
 typedef int pid_t;
-
 typedef uint32_t sigset_t;
 
 struct task
@@ -26,7 +24,7 @@ struct task
     struct task *next;   // 24 (after padding)
     struct task *parent; // 28
 
-    uint32_t  mem_base;         // 32
+    uint32_t mem_base;         // 32
 
     char name[MAX_FILENAME_LEN]; // 36+
 
@@ -35,6 +33,20 @@ struct task
     sigset_t pending_signals;
 };
 
+/* Task table - must be defined before struct scheduler */
+struct task_slot
+{
+    struct task task;
+    uint32_t generation;
+};
+
+struct task_table
+{
+    uint32_t free_ring[MAX_PROCESS_CNT];
+    uint32_t free_head;
+    uint32_t free_tail;
+    struct task_slot slots[MAX_PROCESS_CNT];
+};
 
 struct run_queue
 {
@@ -43,11 +55,34 @@ struct run_queue
     size_t len;
 };
 
-struct task* sched_current(void);
+struct scheduler
+{
+    struct task_table task_table;
+    struct run_queue run_queue;
+    struct task *current;
+};
+
+extern struct scheduler sched;
+
+/* Task table functions */
+struct task *task_table_find_task_by_pid(
+        const struct task_table *task_table,
+        const pid_t pid);
+
+void task_table_init(struct task_table *task_table);
+
+struct task *task_table_alloc(struct task_table *task_table);
+
+void task_table_free(
+        struct task_table *task_table,
+        struct task *task);
+
+/* Scheduler functions */
+struct task *sched_current(void);
 
 void sched_init(void);
 
-pid_t  sched_add_task(const char *filename, int argc, char **argv);
+pid_t sched_add_task(const char *filename, int argc, char **argv);
 
 pid_t sched_fork(void);
 
@@ -66,8 +101,6 @@ void sched_exit(int status);
 
 /* asm functions */
 void task_start(struct task *t);
-
-int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries);
 
 int task_context_switch(struct task *current, struct task *next);
 
