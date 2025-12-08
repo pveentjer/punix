@@ -9,13 +9,15 @@
 /* ------------------------------------------------------------
  * Helper: fill one dirent entry from a task
  * ------------------------------------------------------------ */
-static void fill_dirent_from_task(struct dirent *de, const struct task *task)
+static void fill_dirent_from_task(
+        struct dirent *de,
+        const struct task *task)
 {
     de->d_ino = (uint32_t) task->pid;
     de->d_reclen = (uint16_t) sizeof(struct dirent);
     de->d_type = DT_DIR;
 
-    char namebuf[16];
+    char namebuf[MAX_FILENAME_LEN];
     k_itoa(task->pid, namebuf);
 
     size_t nlen = k_strlen(namebuf);
@@ -31,7 +33,9 @@ static void fill_dirent_from_task(struct dirent *de, const struct task *task)
 /* ------------------------------------------------------------
  * Fill struct dirent entries for /proc
  * ------------------------------------------------------------ */
-int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
+int sched_fill_proc_dirents(
+        struct dirent *buf,
+        unsigned int max_entries)
 {
     unsigned int idx = 0;
 
@@ -63,7 +67,8 @@ int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
 }
 
 /* Helper: extract PID from /proc/PID/... path */
-static pid_t proc_path_to_pid(const char *pathname)
+static pid_t proc_path_to_pid(
+        const char *pathname)
 {
     if (!pathname || pathname[0] != '/')
     {
@@ -87,7 +92,9 @@ static pid_t proc_path_to_pid(const char *pathname)
     return pid;
 }
 
-static ssize_t proc_read(struct file *file, void *buf, size_t count)
+static ssize_t proc_read(
+        struct file *file,
+        void *buf, size_t count)
 {
     if (file->pos > 0)
     {
@@ -150,7 +157,10 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
     return -1;
 }
 
-static int proc_getdents(struct file *file, struct dirent *buf, unsigned int count)
+static int proc_getdents(
+        struct file *file,
+        struct dirent *buf,
+        unsigned int count)
 {
     if (!buf || count < sizeof(struct dirent))
     {
@@ -179,7 +189,7 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
     }
 
     int size = (int) (idx * sizeof(struct dirent));
-    file->pos+=size;
+    file->pos += size;
     return size;
 }
 

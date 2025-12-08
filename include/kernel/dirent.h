@@ -8,10 +8,14 @@
  * ------------------------------------------------------------ */
 struct dirent
 {
-    uint32_t d_ino;      /* Inode number (or unique ID if no FS) */
-    uint16_t d_reclen;   /* Total size of this record */
-    uint8_t  d_type;     /* File type (see DT_* below) */
-    char     d_name[256];/* Null-terminated filename */
+    /* Inode number (or unique ID if no FS) */
+    uint32_t d_ino;
+    /* Total size of this record */
+    uint16_t d_reclen;
+    /* File type (see DT_* below) */
+    uint8_t d_type;
+    /* Null-terminated filename */
+    char d_name[MAX_FILENAME_LEN];
 };
 
 /* ------------------------------------------------------------
