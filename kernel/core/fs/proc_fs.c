@@ -84,11 +84,6 @@ static pid_t proc_path_to_pid(const char *pathname)
         p++;
     }
 
-    if (pid == 0)
-    {
-        return PID_NONE;
-    }
-
     return pid;
 }
 
