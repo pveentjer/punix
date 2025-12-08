@@ -89,7 +89,8 @@ static pid_t proc_path_to_pid(const char *pathname)
 
 static ssize_t proc_read(struct file *file, void *buf, size_t count)
 {
-    if(file->done){
+    if (file->pos > 0)
+    {
         return 0;
     }
 
@@ -126,11 +127,11 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
         }
 
         k_memcpy(buf, task->name, len);
-        ((char *)buf)[len] = '\n';
+        ((char *) buf)[len] = '\n';
 
-        file->done;
-
-        return (ssize_t)(len + 1);
+        ssize_t size = (ssize_t) (len + 1);
+        file->pos += size;
+        return size;
     }
     else if (k_strcmp(filename, "cmdline") == 0)
     {
@@ -142,9 +143,8 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
 
         k_memcpy(buf, task->name, len);
 
-        file->done;
-
-        return (ssize_t)len;
+        file->pos += len;
+        return (ssize_t) len;
     }
 
     return -1;
@@ -157,7 +157,7 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
         return 0;
     }
 
-    if (file->done)
+    if (file->pos > 0)
     {
         return 0;
     }
@@ -178,8 +178,9 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
         }
     }
 
-    file->done = true;
-    return (int) (idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
+    file->pos+=size;
+    return size;
 }
 
 struct fs proc_fs = {

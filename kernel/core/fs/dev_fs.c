@@ -72,7 +72,7 @@ static int dev_getdents(struct file *file, struct dirent *buf, unsigned int coun
         return 0;
     }
 
-    if (file->done)
+    if (file->pos > 0)
     {
         return 0;
     }
@@ -86,8 +86,9 @@ static int dev_getdents(struct file *file, struct dirent *buf, unsigned int coun
     fs_add_entry(buf, max_entries, &idx, FD_STDOUT, DT_CHR, "stdout");
     fs_add_entry(buf, max_entries, &idx, FD_STDERR, DT_CHR, "stderr");
 
-    file->done = true;
-    return (int) (idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
+    file->pos += size;
+    return size;
 }
 
 struct fs dev_fs = {

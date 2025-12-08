@@ -11,7 +11,7 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
         return 0;
     }
 
-    if (file->done)
+    if (file->pos > 0)
     {
         return 0;
     }
@@ -32,8 +32,9 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
         }
     }
 
-    file->done = true;
-    return (int) (idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
+    file->pos += size;
+    return size;
 }
 
 struct fs bin_fs = {

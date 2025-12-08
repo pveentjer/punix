@@ -50,8 +50,8 @@ struct file
     int mode;
     // ref-count because when a process is forked, there will be multiple
     // process that have a fd to the same file instance.
-    uint8_t f_count;
-    bool done;
+    uint8_t ref_count;
+    uint64_t pos;
     int fd;
     struct fs *fs;
 };

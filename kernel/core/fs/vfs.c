@@ -138,7 +138,7 @@ int vfs_open(
     }
 
     file->fd = fd;
-    file->done = false;
+    file->pos = 0;
     file->flags = flags;
     file->mode = mode;
     file->fs = fs;

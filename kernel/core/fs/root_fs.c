@@ -11,7 +11,7 @@ static int root_getdents(struct file *file, struct dirent *buf, unsigned int cou
         return 0;
     }
 
-    if (file->done)
+    if (file->pos > 0)
     {
         return 0;
     }
@@ -25,8 +25,9 @@ static int root_getdents(struct file *file, struct dirent *buf, unsigned int cou
     fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "bin");
     fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "dev");
 
-    file->done = true;
-    return (int) (idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
+    file->pos+=size;
+    return size;
 }
 
 struct fs root_fs = {
