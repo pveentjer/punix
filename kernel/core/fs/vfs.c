@@ -16,7 +16,8 @@ extern struct fs dev_fs;
 
 struct vfs vfs;
 
-void vfs_init(struct vfs *vfs)
+void vfs_init(
+        struct vfs *vfs)
 {
     vfs->free_head = 0;
     vfs->free_tail = MAX_FILE_CNT;
@@ -30,7 +31,8 @@ void vfs_init(struct vfs *vfs)
     }
 }
 
-static struct fs *path_to_fs(const char *pathname)
+static struct fs *path_to_fs(
+        const char *pathname)
 {
     if (!pathname || pathname[0] != '/')
     {
@@ -51,24 +53,60 @@ static struct fs *path_to_fs(const char *pathname)
     {
         return &root_fs;
     }
-
-    if (len == 4 && k_strncmp(p, "proc", 4) == 0)
+    else if (len == 4 && k_strncmp(p, "proc", 4) == 0)
     {
         return &proc_fs;
     }
-
-    if (len == 3 && k_strncmp(p, "bin", 3) == 0)
+    else if (len == 3 && k_strncmp(p, "bin", 3) == 0)
     {
         return &bin_fs;
     }
-
-    if (len == 3 && k_strncmp(p, "dev", 3) == 0)
+    else if (len == 3 && k_strncmp(p, "dev", 3) == 0)
     {
         return &dev_fs;
     }
-
-    return &root_fs;
+    else
+    {
+        return &root_fs;
+    }
 }
+
+struct file *vfs_alloc_file(
+        struct vfs *vfs)
+{
+    if (vfs->free_head == vfs->free_tail)
+    {
+        return NULL;
+    }
+
+    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
+    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
+
+    struct file *file = &vfs->files[file_idx];
+
+    vfs->free_head++;
+    return file;
+}
+
+
+void vfs_free_file(
+        struct vfs *vfs,
+        struct file *file)
+{
+    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
+    {
+        panic("vfs_free_file: too many frees");
+    }
+
+    file->fd = -1;
+
+    const uint32_t file_idx = file->idx;
+    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
+
+    vfs->free_ring[free_ring_idx] = file_idx;
+    vfs->free_tail++;
+}
+
 
 int vfs_open(
         struct vfs *vfs,
@@ -88,22 +126,16 @@ int vfs_open(
         return -1;
     }
 
-    if (vfs->free_head == vfs->free_tail)
+    struct file *file = vfs_alloc_file(vfs);
+    if (file == NULL)
     {
         return -1;
     }
 
-    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
-    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
-
-    struct file *file = &vfs->files[file_idx];
-
-    vfs->free_head++;
-
     int fd = files_alloc_fd(&task->files, file);
     if (fd < 0)
     {
-        // TODO: rollback vfs allocation
+        vfs_free_file(vfs, file);
         return -1;
     }
 
@@ -121,6 +153,7 @@ int vfs_open(
         if (result < 0)
         {
             files_free_fd(&task->files, fd);
+            vfs_free_file(vfs, file);
             return -1;
         }
     }
@@ -138,10 +171,6 @@ int vfs_close(
         return -1;
     }
 
-    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
-    {
-        panic("vfs_close: too many frees");
-    }
 
     struct file *file = files_find_by_fd(&task->files, fd);
     if (file == NULL)
@@ -155,15 +184,9 @@ int vfs_close(
         file->fs->close(file);
     }
 
-    file->fd = -1;
-
     files_free_fd(&task->files, fd);
 
-    const uint32_t file_idx = file->idx;
-    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
-
-    vfs->free_ring[free_ring_idx] = file_idx;
-    vfs->free_tail++;
+    vfs_free_file(vfs, file);
 
     return 0;
 }

@@ -89,6 +89,10 @@ static pid_t proc_path_to_pid(const char *pathname)
 
 static ssize_t proc_read(struct file *file, void *buf, size_t count)
 {
+    if(file->done){
+        return 0;
+    }
+
     if (!buf || count == 0)
     {
         return 0;
@@ -124,6 +128,8 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
         k_memcpy(buf, task->name, len);
         ((char *)buf)[len] = '\n';
 
+        file->done;
+
         return (ssize_t)(len + 1);
     }
     else if (k_strcmp(filename, "cmdline") == 0)
@@ -135,6 +141,8 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
         }
 
         k_memcpy(buf, task->name, len);
+
+        file->done;
 
         return (ssize_t)len;
     }
