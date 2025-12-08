@@ -48,6 +48,9 @@ struct file
     char pathname[MAX_FILENAME_LEN];
     int flags;
     int mode;
+    // ref-count because when a process is forked, there will be multiple
+    // process that have a fd to the same file instance.
+    uint8_t f_count;
     bool done;
     int fd;
     struct fs *fs;

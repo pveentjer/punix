@@ -88,7 +88,6 @@ struct file *vfs_alloc_file(
     return file;
 }
 
-
 void vfs_free_file(
         struct vfs *vfs,
         struct file *file)
@@ -106,7 +105,6 @@ void vfs_free_file(
     vfs->free_ring[free_ring_idx] = file_idx;
     vfs->free_tail++;
 }
-
 
 int vfs_open(
         struct vfs *vfs,
@@ -185,8 +183,6 @@ int vfs_close(
     }
 
     files_free_fd(&task->files, fd);
-
     vfs_free_file(vfs, file);
-
     return 0;
 }

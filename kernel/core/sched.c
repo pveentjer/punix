@@ -104,20 +104,9 @@ void sched_exit(int status)
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
-//    screen_printf("task_trampoline: enter\n");
-
     int status = entry(argc, argv);
-//    if (status!= 0)
-//    {
-//            screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
-//    }
-
-//    screen_printf("task_trampoline: returned from main\nexit status = %d\n", status);
-
-
     sched_exit(status);
 }
-
 
 pid_t sched_add_task(const char *filename, int argc, char **argv)
 {
@@ -227,12 +216,12 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
 
 pid_t sched_fork(void)
 {
-
+    return -ENOSYS;
 }
 
 int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    return 0;
+    return -ENOSYS;
 }
 
 int sched_kill(pid_t pid, int sig)
@@ -271,21 +260,10 @@ pid_t sched_getpid(void)
 
 void sched_yield(void)
 {
-
-    // if(!interrupts_are_enabled())
-    // {
-    //     screen_println("sched_yield; interrupts not enabled.");
-    // }
-
     if (sched.run_queue.len == 0)
     {
-        // screen_println("sched_yield; no other task.");
         return;
     }
-
-
-//    screen_println("sched_yield to other task.");
-
 
     struct task *prev = sched.current;
     run_queue_push(&sched.run_queue, prev);
