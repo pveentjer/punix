@@ -67,7 +67,7 @@ static struct fs *path_to_fs(
     }
     else
     {
-        return &root_fs;
+        return NULL;
     }
 }
 
