@@ -22,23 +22,27 @@ int main(int argc, char **argv)
 {
     const char *path = "/";
 
-    if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+    if (argc == 2 && strcmp(argv[1], "--help") == 0)
+    {
         print_help(argv[0]);
         return 0;
     }
 
-    if (argc > 2) {
+    if (argc > 2)
+    {
         printf("ls: too many arguments\n");
         printf("Try '%s --help' for more information.\n", argv[0]);
         return 1;
     }
 
-    if (argc == 2) {
+    if (argc == 2)
+    {
         path = argv[1];
     }
 
     int fd = open(path, O_RDONLY, 0);
-    if (fd < 0) {
+    if (fd < 0)
+    {
         printf("ls: cannot open '%s'\n", path);
         return 1;
     }
@@ -48,20 +52,23 @@ int main(int argc, char **argv)
     /* Our current kernel getdents always returns the full listing each time,
        so we only call it once. */
     int nbytes = getdents(fd, entries, sizeof(entries));
-    if (nbytes < 0) {
+    if (nbytes < 0)
+    {
         printf("ls: getdents failed\n");
         close(fd);
         return 1;
     }
 
-    int n = nbytes / (int)sizeof(struct dirent);
+    int n = nbytes / (int) sizeof(struct dirent);
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         struct dirent *de = &entries[i];
 
         /* Skip "." and ".." */
         if ((de->d_name[0] == '.' && de->d_name[1] == '\0') ||
-            (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == '\0')) {
+            (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == '\0'))
+        {
             continue;
         }
 

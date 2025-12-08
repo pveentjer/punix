@@ -21,18 +21,21 @@ static void u32_to_str(uint32_t number, char *out_str)
     char reversed_digits[11];
     int digit_count = 0;
 
-    if (number == 0) {
+    if (number == 0)
+    {
         out_str[0] = '0';
         out_str[1] = '\0';
         return;
     }
 
-    while (number > 0 && digit_count < 10) {
-        reversed_digits[digit_count++] = (char)('0' + (number % 10));
+    while (number > 0 && digit_count < 10)
+    {
+        reversed_digits[digit_count++] = (char) ('0' + (number % 10));
         number /= 10;
     }
 
-    for (int i = 0; i < digit_count; i++) {
+    for (int i = 0; i < digit_count; i++)
+    {
         out_str[i] = reversed_digits[digit_count - 1 - i];
     }
     out_str[digit_count] = '\0';
@@ -43,34 +46,42 @@ static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
 {
     *out_count = 0;
 
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0) {
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--help") == 0)
+        {
             print_help(argv[0]);
             return 1;  // signal that help was shown
         }
-        else if (strcmp(argv[i], "--count") == 0) {
-            if (i + 1 >= argc) {
+        else if (strcmp(argv[i], "--count") == 0)
+        {
+            if (i + 1 >= argc)
+            {
                 printf("error: missing value after --count\n");
                 return -1;
             }
             int32_t count_signed = atoi(argv[++i]);
-            if (count_signed < 0) {
+            if (count_signed < 0)
+            {
                 printf("error: count must be >= 0\n");
                 return -1;
             }
-            if (count_signed > MAX_DEPTH) {
+            if (count_signed > MAX_DEPTH)
+            {
                 printf("error: count too large (max %d)\n", MAX_DEPTH);
                 return -1;
             }
-            *out_count = (uint32_t)count_signed;
+            *out_count = (uint32_t) count_signed;
         }
-        else {
+        else
+        {
             printf("error: unknown argument '%s'\n", argv[i]);
             return -1;
         }
     }
 
-    if (*out_count == 0) {
+    if (*out_count == 0)
+    {
         printf("error: missing required --count argument\n");
         return -1;
     }
@@ -91,7 +102,8 @@ int main(int argc, char **argv)
     int current_pid = getpid();
     printf("[pid %d] count=%u\n", current_pid, count);
 
-    if (count == 0) {
+    if (count == 0)
+    {
         printf("[pid %d] leaf reached, exiting.\n", current_pid);
         return 0;
     }

@@ -21,8 +21,8 @@ static pid_t last_pid = -1;
 
 /* command history */
 static char history[HISTORY_MAX][LINE_MAX];
-static int  history_size = 0;
-static int  history_pos  = 0;
+static int history_size = 0;
+static int history_pos = 0;
 
 /* ------------------------------------------------------------------
  * helpers: history

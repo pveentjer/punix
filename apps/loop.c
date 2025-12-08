@@ -64,12 +64,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    uint32_t iterations = (uint32_t)iters_signed;
-    uint32_t indent = (uint32_t)indent_signed;
+    uint32_t iterations = (uint32_t) iters_signed;
+    uint32_t indent = (uint32_t) indent_signed;
 
     char indent_str[MAX_INDENT + 1];
     for (uint32_t i = 0; i < indent; i++)
+    {
         indent_str[i] = ' ';
+    }
     indent_str[indent] = '\0';
 
     int pid = getpid();

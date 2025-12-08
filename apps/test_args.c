@@ -23,12 +23,14 @@ int main(int argc, char **argv)
 
     printf("Program started with %d argument%s.\n", argc, (argc == 1 ? "" : "s"));
 
-    if (argc <= 1) {
+    if (argc <= 1)
+    {
         printf("No arguments provided.\n");
         return 0;
     }
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 0; i < argc; i++)
+    {
         printf("argv[%d] = \"%s\"\n", i, argv[i]);
     }
 

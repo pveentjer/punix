@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "../include/kernel/fcntl.h"
 #include "../include/kernel/libc.h"
+
 #define BUF_SIZE 256
 
 static void print_help(const char *prog)
@@ -20,12 +21,14 @@ static void print_help(const char *prog)
 
 int main(int argc, char **argv)
 {
-    if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+    if (argc == 2 && strcmp(argv[1], "--help") == 0)
+    {
         print_help(argv[0]);
         return 0;
     }
 
-    if (argc > 2) {
+    if (argc > 2)
+    {
         printf("cat: too many arguments\n");
         printf("Try '%s --help' for more information.\n", argv[0]);
         return 1;
@@ -33,13 +36,17 @@ int main(int argc, char **argv)
 
     int fd;
 
-    if (argc == 1) {
+    if (argc == 1)
+    {
         // No file given — read from stdin
         fd = FD_STDIN;
-    } else {
+    }
+    else
+    {
         // Open the given file
         fd = open(argv[1], O_RDONLY, 0);
-        if (fd < 0) {
+        if (fd < 0)
+        {
             printf("cat: cannot open '%s'\n", argv[1]);
             return 1;
         }
@@ -48,11 +55,13 @@ int main(int argc, char **argv)
     char buf[BUF_SIZE];
     ssize_t n;
 
-    while ((n = read(fd, buf, BUF_SIZE)) > 0) {
-        write(FD_STDOUT, buf, (size_t)n);
+    while ((n = read(fd, buf, BUF_SIZE)) > 0)
+    {
+        write(FD_STDOUT, buf, (size_t) n);
     }
 
-    if (fd != FD_STDIN) {
+    if (fd != FD_STDIN)
+    {
         close(fd);
     }
 
