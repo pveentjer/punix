@@ -1,72 +1,42 @@
 #include "../../include/kernel/keyboard.h"
-#include "../../include/kernel/vga.h"
 #include "../../include/kernel/interrupt.h"
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
+/* ------------------------------------------------------------------
+ * I/O ports
+ * ------------------------------------------------------------------ */
 #define KEYBOARD_DATA_PORT 0x60
 #define PIC1_COMMAND       0x20
 #define PIC1_DATA          0x21
 
-static bool shift_pressed = false;
-static bool extended_code = false;  // Track 0xE0 extended prefix
-
-static inline uint8_t inb(uint16_t port)
-{
-    uint8_t ret;
-    asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
-
-static inline void outb(uint16_t port, uint8_t val)
-{
-    asm volatile("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
 /* ------------------------------------------------------------------
- * Simple ring buffer for keyboard characters
+ * Scancode constants (PS/2 Set 1)
  * ------------------------------------------------------------------ */
 
-#define KBD_BUF_SIZE 128              // Must be a power of two
-#define KBD_BUF_MASK (KBD_BUF_SIZE - 1)
+/* Special prefix */
+#define SC_EXTENDED        0xE0
 
-static char kbd_buf[KBD_BUF_SIZE];
-static volatile size_t kbd_head = 0;
-static volatile size_t kbd_tail = 0;
+/* Shift keys */
+#define SC_LSHIFT_PRESS    0x2A
+#define SC_RSHIFT_PRESS    0x36
+#define SC_LSHIFT_RELEASE  0xAA
+#define SC_RSHIFT_RELEASE  0xB6
 
-static void kbd_buffer_put(char c)
-{
-    size_t used = kbd_head - kbd_tail;
+/* Ctrl keys */
+#define SC_CTRL_PRESS      0x1D
+#define SC_CTRL_RELEASE    0x9D
 
-    // If buffer full, drop oldest character
-    if (used >= KBD_BUF_SIZE)
-    {
-        kbd_tail++;
-    }
+/* Alt keys */
+#define SC_ALT_PRESS       0x38
+#define SC_ALT_RELEASE     0xB8
 
-    size_t idx = kbd_head & KBD_BUF_MASK;
-    kbd_buf[idx] = c;
-    kbd_head++;
-}
-
-bool keyboard_has_char(void)
-{
-    return kbd_head != kbd_tail;
-}
-
-char keyboard_get_char(void)
-{
-    // Simple blocking/spin wait until a character is available
-    while (!keyboard_has_char())
-    {
-        // spin
-    }
-
-    size_t idx = kbd_tail & KBD_BUF_MASK;
-    char c = kbd_buf[idx];
-    kbd_tail++;
-    return c;
-}
+/* Arrow keys (with 0xE0 prefix) */
+#define SC_UP              0x48
+#define SC_DOWN            0x50
+#define SC_LEFT            0x4B
+#define SC_RIGHT           0x4D
 
 /* ------------------------------------------------------------------
  * Scancode tables
@@ -87,6 +57,89 @@ static const char scancode_upper[] = {
 };
 
 /* ------------------------------------------------------------------
+ * State
+ * ------------------------------------------------------------------ */
+static bool shift_pressed = false;
+static bool ctrl_pressed  = false;
+static bool alt_pressed   = false;
+static bool extended_code = false;  /* 0xE0 prefix tracker */
+
+/* ------------------------------------------------------------------
+ * Port helpers
+ * ------------------------------------------------------------------ */
+static inline uint8_t inb(uint16_t port)
+{
+    uint8_t ret;
+    asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
+static inline void outb(uint16_t port, uint8_t val)
+{
+    asm volatile("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+
+/* ------------------------------------------------------------------
+ * Keyboard ring buffer (monotonic head/tail)
+ * ------------------------------------------------------------------ */
+
+#define KBD_BUF_SIZE 128
+#define KBD_BUF_MASK (KBD_BUF_SIZE - 1)
+
+static char   kbd_buf[KBD_BUF_SIZE];
+static size_t kbd_head = 0;  /* write position (monotonic) */
+static size_t kbd_tail = 0;  /* read position (monotonic) */
+
+/* Drop NEWEST when full (Linux-style) */
+static void kbd_buffer_put(char c)
+{
+    size_t used = kbd_head - kbd_tail;
+
+    if (used >= KBD_BUF_SIZE)
+    {
+        return; /* drop newest */
+    }
+
+    size_t idx = kbd_head & KBD_BUF_MASK;
+    kbd_buf[idx] = c;
+    kbd_head++;
+}
+
+/**
+ * Read up to maxlen characters into buf.
+ * Returns number of characters copied.
+ * Non-blocking: returns 0 if no characters are available.
+ */
+size_t keyboard_read(char *buf, size_t maxlen)
+{
+    if (!buf || maxlen == 0)
+    {
+        return 0;
+    }
+
+    size_t available = kbd_head - kbd_tail;
+
+    if (available == 0)
+    {
+        return 0;
+    }
+
+    if (available > maxlen)
+    {
+        available = maxlen;
+    }
+
+    for (size_t i = 0; i < available; i++)
+    {
+        size_t idx = (kbd_tail + i) & KBD_BUF_MASK;
+        buf[i] = kbd_buf[idx];
+    }
+
+    kbd_tail += available;
+    return available;
+}
+
+/* ------------------------------------------------------------------
  * Keyboard interrupt handler
  * ------------------------------------------------------------------ */
 
@@ -94,10 +147,8 @@ void keyboard_interrupt_handler(void)
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 
-    /* ------------------------------------------------------------
-     * Handle extended scancodes (0xE0 prefix) for arrow keys
-     * ------------------------------------------------------------ */
-    if (scancode == 0xE0)
+    /* Handle 0xE0 prefix (extended keys) */
+    if (scancode == SC_EXTENDED)
     {
         extended_code = true;
         goto eoi;
@@ -105,67 +156,144 @@ void keyboard_interrupt_handler(void)
 
     if (extended_code)
     {
-        // Handle only key presses (no release: high bit not set)
-        if (!(scancode & 0x80))
+        extended_code = false;
+
+        switch (scancode)
         {
-            switch (scancode)
+            case SC_CTRL_PRESS:
             {
-                case 0x48: // Up arrow: ESC [ A
-                    kbd_buffer_put('\x1b');
-                    kbd_buffer_put('[');
-                    kbd_buffer_put('A');
-                    break;
-                case 0x50: // Down arrow: ESC [ B
-                    kbd_buffer_put('\x1b');
-                    kbd_buffer_put('[');
-                    kbd_buffer_put('B');
-                    break;
-                case 0x4B: // Left arrow: ESC [ D
-                    kbd_buffer_put('\x1b');
-                    kbd_buffer_put('[');
-                    kbd_buffer_put('D');
-                    break;
-                case 0x4D: // Right arrow: ESC [ C
-                    kbd_buffer_put('\x1b');
-                    kbd_buffer_put('[');
-                    kbd_buffer_put('C');
-                    break;
-                default:
-                    // Ignore other extended keys for now
-                    break;
+                ctrl_pressed = true;
+                break;
+            }
+            case SC_CTRL_RELEASE:
+            {
+                ctrl_pressed = false;
+                break;
+            }
+            case SC_ALT_PRESS:
+            {
+                alt_pressed = true;
+                break;
+            }
+            case SC_ALT_RELEASE:
+            {
+                alt_pressed = false;
+                break;
+            }
+            case SC_UP:
+            {
+                kbd_buffer_put('\x1b');
+                kbd_buffer_put('[');
+                kbd_buffer_put('A');
+                break;
+            }
+            case SC_DOWN:
+            {
+                kbd_buffer_put('\x1b');
+                kbd_buffer_put('[');
+                kbd_buffer_put('B');
+                break;
+            }
+            case SC_LEFT:
+            {
+                kbd_buffer_put('\x1b');
+                kbd_buffer_put('[');
+                kbd_buffer_put('D');
+                break;
+            }
+            case SC_RIGHT:
+            {
+                kbd_buffer_put('\x1b');
+                kbd_buffer_put('[');
+                kbd_buffer_put('C');
+                break;
+            }
+            default:
+            {
+                break; /* ignore others */
             }
         }
 
-        extended_code = false;
         goto eoi;
     }
 
-    /* ------------------------------------------------------------
-     * Handle shift keys
-     * ------------------------------------------------------------ */
-    if (scancode == 0x2A || scancode == 0x36)
+    switch (scancode)
     {
-        shift_pressed = true;
-    }
-    else if (scancode == 0xAA || scancode == 0xB6)
-    {
-        shift_pressed = false;
-    }
-        /* ------------------------------------------------------------
-         * Handle regular keys (only key press, not release)
-         * ------------------------------------------------------------ */
-    else if (!(scancode & 0x80) && scancode < sizeof(scancode_lower))
-    {
-        char c = shift_pressed ? scancode_upper[scancode] : scancode_lower[scancode];
-        if (c != 0)
+        /* Shift press/release */
+        case SC_LSHIFT_PRESS:
+        case SC_RSHIFT_PRESS:
         {
-            kbd_buffer_put(c);
+            shift_pressed = true;
+            break;
+        }
+        case SC_LSHIFT_RELEASE:
+        case SC_RSHIFT_RELEASE:
+        {
+            shift_pressed = false;
+            break;
+        }
+
+            /* Ctrl press/release */
+        case SC_CTRL_PRESS:
+        {
+            ctrl_pressed = true;
+            break;
+        }
+        case SC_CTRL_RELEASE:
+        {
+            ctrl_pressed = false;
+            break;
+        }
+
+            /* Alt press/release */
+        case SC_ALT_PRESS:
+        {
+            alt_pressed = true;
+            break;
+        }
+        case SC_ALT_RELEASE:
+        {
+            alt_pressed = false;
+            break;
+        }
+
+        default:
+        {
+            /* Printable range (only key press, not release) */
+            if ((scancode & 0x80) == 0 && scancode < sizeof(scancode_lower))
+            {
+                char c = shift_pressed ? scancode_upper[scancode] : scancode_lower[scancode];
+
+                if (c != 0)
+                {
+                    /* Ctrl mapping: Ctrl+[A–Z/a–z] → 0x01–0x1A */
+                    if (ctrl_pressed)
+                    {
+                        if (c >= 'a' && c <= 'z')
+                        {
+                            c = (char)(c - 'a' + 1);
+                        }
+                        else if (c >= 'A' && c <= 'Z')
+                        {
+                            c = (char)(c - 'A' + 1);
+                        }
+                    }
+
+                    /* Alt mapping: send ESC prefix + character */
+                    if (alt_pressed)
+                    {
+                        kbd_buffer_put('\x1b');
+                    }
+
+                    kbd_buffer_put(c);
+                }
+            }
+            break;
         }
     }
 
     eoi:
-    // Send End Of Interrupt (EOI) to PIC
-    outb(PIC1_COMMAND, 0x20);
+    outb(PIC1_COMMAND, 0x20); /* End of interrupt */
 }
 
 /* ------------------------------------------------------------------
@@ -189,11 +317,9 @@ void keyboard_isr(void)
 
 void keyboard_init(void)
 {
-    // Register keyboard interrupt handler at IRQ1 (vector 0x09)
-    idt_set_gate(0x09, (uint32_t) keyboard_isr, 0x08, 0x8E);
+    idt_set_gate(0x09, (uint32_t)keyboard_isr, 0x08, 0x8E);
 
-    // Enable IRQ1 on PIC
     uint8_t mask = inb(PIC1_DATA);
-    mask &= ~0x02;  // Clear bit 1 (IRQ1)
+    mask &= ~0x02;  /* Enable IRQ1 */
     outb(PIC1_DATA, mask);
 }

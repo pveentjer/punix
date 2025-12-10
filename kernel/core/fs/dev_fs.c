@@ -29,15 +29,7 @@ static ssize_t dev_read(struct file *file, void *buf, size_t count)
         return -1;
     }
 
-    char *cbuf = (char *) buf;
-    size_t read_cnt = 0;
-
-    while (read_cnt < count && keyboard_has_char())
-    {
-        cbuf[read_cnt++] = keyboard_get_char();
-    }
-
-    return (ssize_t) read_cnt;
+    return keyboard_read((char *) buf, count);
 }
 
 static ssize_t dev_write(struct file *file, const void *buf, size_t count)

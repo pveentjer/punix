@@ -1,16 +1,20 @@
-#ifndef KEYBOARD_H
-#define KEYBOARD_H
+#ifndef KERNEL_KEYBOARD_H
+#define KERNEL_KEYBOARD_H
 
-#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdint.h"
-#include "../../../../../usr/lib/gcc/x86_64-redhat-linux/15/include/stdbool.h"
+#include <stddef.h>
 
-/* Initialize the keyboard driver and enable IRQ1 */
+/**
+ * Initialize the keyboard driver and enable keyboard interrupts (IRQ1).
+ */
 void keyboard_init(void);
 
-/* Returns true if at least one character is waiting in the buffer */
-bool keyboard_has_char(void);
+/**
+ * Read up to `maxlen` characters from the keyboard input buffer into `buf`.
+ * Returns the number of characters copied.
+ *
+ * - Non-blocking: returns 0 if no characters are available.
+ * - Handles Shift, Ctrl, and Alt modifiers.
+ */
+size_t keyboard_read(char *buf, size_t maxlen);
 
-/* Blocks (or spins) until a character is available, then returns it */
-char keyboard_get_char(void);
-
-#endif /* KEYBOARD_H */
+#endif /* KERNEL_KEYBOARD_H */
