@@ -74,6 +74,7 @@ set(KERNEL_SOURCES
         kernel/core/fs/fs_util.c
         kernel/core/fs/proc_fs.c
         kernel/core/fs/root_fs.c
+        kernel/core/tty.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})

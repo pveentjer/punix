@@ -5,8 +5,9 @@
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/gdt.h"
-#include "../../include/kernel/keyboard.h"
+#include "../../include/kernel/tty.h"
 #include "../../include/kernel/vfs.h"
+
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -27,8 +28,8 @@ void kmain(void)
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
 
-    kprintf("Init keyboard.\n");
-    keyboard_init();
+    kprintf("TTY keyboard.\n");
+    tty_system_init();
 
     kprintf("Init scheduler.\n");
     sched_init();

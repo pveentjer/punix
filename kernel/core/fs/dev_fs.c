@@ -4,7 +4,7 @@
 #include "kernel/fs_util.h"
 #include "kernel/kutils.h"
 #include "kernel/vga.h"
-#include "kernel/keyboard.h"
+#include "kernel/tty.h"
 #include "kernel/constants.h"
 
 static ssize_t dev_read(struct file *file, void *buf, size_t count)
@@ -29,7 +29,7 @@ static ssize_t dev_read(struct file *file, void *buf, size_t count)
         return -1;
     }
 
-    return keyboard_read((char *) buf, count);
+    return tty_read(&tty0, (char *)buf, count);
 }
 
 static ssize_t dev_write(struct file *file, const void *buf, size_t count)
