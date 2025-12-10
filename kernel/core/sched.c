@@ -1,6 +1,6 @@
 // sched.c
 #include "../../include/kernel/sched.h"
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/elf.h"

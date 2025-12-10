@@ -1,5 +1,5 @@
 #include "../../include/kernel/kutils.h"
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 
 void *k_memcpy(void *dest, const void *src, size_t n)
 {
@@ -130,7 +130,7 @@ size_t k_strlen(const char *s)
 void panic(char *msg)
 {
     kprintf("Kernel Panic!!!\n");
-    screen_println(msg);
+    kprintf(msg);
 
     for (;;)
     {

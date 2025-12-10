@@ -1,5 +1,5 @@
 #include "../../include/kernel/kutils.h"
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 #include "../../include/kernel/elf.h"
 #include "../../include/kernel/kutils.h"  // (you can drop this duplicate if you want)
 

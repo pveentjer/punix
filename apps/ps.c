@@ -2,7 +2,7 @@
 #include "../include/kernel/libc.h"
 #include "../include/kernel/fcntl.h"
 #include "../include/kernel/dirent.h"
-#include "../include/kernel/vga.h"
+#include "../include/kernel/console.h"
 
 #define DBG(row, msg) vga_puts_at((row), (msg), 0x07)
 

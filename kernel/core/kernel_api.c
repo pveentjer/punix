@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include "../../include/kernel/kernel_api.h"
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/keyboard.h"
 #include "../../include/kernel/sched.h"

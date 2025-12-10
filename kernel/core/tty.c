@@ -1,9 +1,9 @@
 #include "../../include/kernel/tty.h"
 #include "../../include/kernel/keyboard.h"
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 
-#define TTY_INPUT_BUF_MASK (TTY_INPUT_BUF_SIZE - 1u)
-
+#define TTY_INPUT_BUF_MASK  (TTY_INPUT_BUF_SIZE  - 1u)
+#define TTY_OUTPUT_BUF_MASK (TTY_OUTPUT_BUF_SIZE - 1u)
 
 struct tty tty0;
 
@@ -14,8 +14,11 @@ void tty_init(struct tty *tty)
         return;
     }
 
-    tty->in_head = 0u;
-    tty->in_tail = 0u;
+    tty->console  = &kconsole;
+    tty->in_head  = 0u;
+    tty->in_tail  = 0u;
+    tty->out_head = 0u;
+    tty->out_tail = 0u;
 }
 
 void tty_input_put(struct tty *tty, char c)
@@ -66,6 +69,54 @@ size_t tty_read(struct tty *tty, char *buf, size_t maxlen)
     tty->in_tail += available;
     return available;
 }
+
+/* ------------------------------------------------------------------
+ * TTY output
+ * ------------------------------------------------------------------ */
+
+size_t tty_write(struct tty *tty, char *buf, size_t maxlen)
+{
+    if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
+    {
+        return 0u;
+    }
+
+    size_t written = 0u;
+
+    while (written < maxlen)
+    {
+        char c = buf[written];
+
+        if (c == '\0')
+        {
+            break;
+        }
+
+        size_t used = tty->out_head - tty->out_tail;
+
+        if (used >= TTY_OUTPUT_BUF_SIZE)
+        {
+            /* Buffer full: drop oldest character. */
+            tty->out_tail++;
+        }
+
+        size_t idx = tty->out_head & TTY_OUTPUT_BUF_MASK;
+        tty->out_buf[idx] = c;
+        tty->out_head++;
+        written++;
+
+        if (tty->console != NULL)
+        {
+            console_put_char(tty->console, c);
+        }
+    }
+
+    return written;
+}
+
+/* ------------------------------------------------------------------
+ * Keyboard handler
+ * ------------------------------------------------------------------ */
 
 static void tty_keyboard_handler(char value, enum keyboard_code code)
 {

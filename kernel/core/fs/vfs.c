@@ -2,7 +2,7 @@
 
 #include "kernel/vfs.h"
 #include "kernel/kutils.h"
-#include "kernel/vga.h"
+#include "kernel/console.h"
 
 #define VFS_RING_MASK (MAX_FILE_CNT - 1)
 

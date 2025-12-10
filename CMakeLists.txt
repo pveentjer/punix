@@ -58,7 +58,7 @@ set(KERNEL_CORE_SOURCES
 )
 
 set(KERNEL_DRIVER_SOURCES
-        ${KERNEL_DIR}/drivers/vga.c
+        ${KERNEL_DIR}/drivers/console.c
         ${KERNEL_DIR}/drivers/keyboard.c
 )
 

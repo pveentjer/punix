@@ -3,7 +3,7 @@
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
 #include "kernel/kutils.h"
-#include "kernel/vga.h"
+#include "kernel/console.h"
 #include "kernel/tty.h"
 #include "kernel/constants.h"
 
@@ -48,13 +48,7 @@ static ssize_t dev_write(struct file *file, const void *buf, size_t count)
         return -1;
     }
 
-    const char *cbuf = (const char *) buf;
-    for (size_t i = 0; i < count; i++)
-    {
-        screen_put_char(cbuf[i]);
-    }
-
-    return (ssize_t) count;
+    return tty_write(&tty0, (char *)buf, count);
 }
 
 static int dev_getdents(struct file *file, struct dirent *buf, unsigned int count)

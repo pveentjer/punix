@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "../../include/kernel/vga.h"
+#include "../../include/kernel/console.h"
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/gdt.h"
@@ -13,7 +13,8 @@
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
-    screen_clear();
+    console_init(&kconsole);
+
     kprintf("PUnix 0.001\n");
 
     kprintf("Init Global Descriptor Table.\n");
@@ -28,14 +29,14 @@ void kmain(void)
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
 
-    kprintf("TTY keyboard.\n");
+    kprintf("Init TTYs.\n");
     tty_system_init();
 
     kprintf("Init scheduler.\n");
     sched_init();
-    
+
     char *argv[] = {"/bin/sh", NULL};
     sched_add_task("/bin/sh", 1, argv);
-    
+
     sched_start();
 }
