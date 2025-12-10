@@ -172,7 +172,7 @@ void screen_println(const char *s)
     screen_put_char('\n');
 }
 
-int screen_printf(const char *fmt, ...)
+int kprintf(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);

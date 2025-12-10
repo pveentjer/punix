@@ -105,7 +105,7 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
     if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
         eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
     {
-        screen_printf("Invalid ELF magic\n");
+        kprintf("Invalid ELF magic\n");
         return false;
     }
 

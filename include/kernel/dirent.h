@@ -2,6 +2,7 @@
 #define DIRENT_H
 
 #include <stdint.h>
+#include "constants.h"
 
 /* ------------------------------------------------------------
  * Directory entry structure (similar to POSIX struct dirent)

@@ -13,24 +13,24 @@ __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     screen_clear();
-    screen_printf("PUnix 0.001\n");
+    kprintf("PUnix 0.001\n");
 
-    screen_printf("Init Global Descriptor Table.\n");
+    kprintf("Init Global Descriptor Table.\n");
     gdt_init();
 
-    screen_printf("Init Interrupt Descriptor Table.\n");
+    kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
-    
-    screen_printf("Enabling interrupts.\n");
+
+    kprintf("Enabling interrupts.\n");
     interrupts_enable();
 
-    screen_printf("Init VFS.\n");
+    kprintf("Init VFS.\n");
     vfs_init(&vfs);
 
-    screen_printf("Init keyboard.\n");
+    kprintf("Init keyboard.\n");
     keyboard_init();
 
-    screen_printf("Init scheduler.\n");
+    kprintf("Init scheduler.\n");
     sched_init();
     
     char *argv[] = {"/bin/sh", NULL};

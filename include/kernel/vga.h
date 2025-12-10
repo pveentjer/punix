@@ -15,7 +15,7 @@ void screen_put_uint64(uint64_t n);
 void screen_print(const char *s);
 void screen_println(const char *s);
 void screen_put_hex8(uint8_t v);
-int screen_printf(const char *fmt, ...);
+int kprintf(const char *fmt, ...);
 
 
 #endif // SCREEN_H

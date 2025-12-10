@@ -89,7 +89,7 @@ void sched_exit(int status)
     {
         sched.current = NULL;
 
-        screen_printf("Halted!\n");
+        kprintf("Halted!\n");
         for (;;)
         {
             __asm__ volatile("hlt");
@@ -113,7 +113,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     const struct embedded_app *app = find_app(filename);
     if (!app)
     {
-        screen_printf("sched_add_task: unknown app '%s'\n", filename);
+        kprintf("sched_add_task: unknown app '%s'\n", filename);
         return -1;
     }
 
@@ -138,7 +138,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
     if (!success)
     {
         task_table_free(&sched.task_table, task);
-        screen_printf("Failed to load the binary\n");
+        kprintf("Failed to load the binary\n");
         return -1;
     }
 

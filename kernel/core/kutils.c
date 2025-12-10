@@ -129,7 +129,7 @@ size_t k_strlen(const char *s)
 
 void panic(char *msg)
 {
-    screen_printf("Kernel Panic!!!\n");
+    kprintf("Kernel Panic!!!\n");
     screen_println(msg);
 
     for (;;)

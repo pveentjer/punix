@@ -9,15 +9,17 @@
 #define PIC1_DATA          0x21
 
 static bool shift_pressed = false;
-static bool extended_code = false;  // NEW: track 0xE0 extended prefix
+static bool extended_code = false;  // Track 0xE0 extended prefix
 
-static inline uint8_t inb(uint16_t port) {
+static inline uint8_t inb(uint16_t port)
+{
     uint8_t ret;
     asm volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
 
-static inline void outb(uint16_t port, uint8_t val) {
+static inline void outb(uint16_t port, uint8_t val)
+{
     asm volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
@@ -25,23 +27,26 @@ static inline void outb(uint16_t port, uint8_t val) {
  * Simple ring buffer for keyboard characters
  * ------------------------------------------------------------------ */
 
-#define KBD_BUF_SIZE 128
+#define KBD_BUF_SIZE 128              // Must be a power of two
+#define KBD_BUF_MASK (KBD_BUF_SIZE - 1)
 
 static char kbd_buf[KBD_BUF_SIZE];
-static volatile size_t kbd_head = 0;  // write index
-static volatile size_t kbd_tail = 0;  // read index
+static volatile size_t kbd_head = 0;
+static volatile size_t kbd_tail = 0;
 
 static void kbd_buffer_put(char c)
 {
-    size_t next_head = (kbd_head + 1) % KBD_BUF_SIZE;
+    size_t used = kbd_head - kbd_tail;
 
-    // If buffer is full, drop the character (simple behavior for now)
-    if (next_head == kbd_tail) {
-        return;
+    // If buffer full, drop oldest character
+    if (used >= KBD_BUF_SIZE)
+    {
+        kbd_tail++;
     }
 
-    kbd_buf[kbd_head] = c;
-    kbd_head = next_head;
+    size_t idx = kbd_head & KBD_BUF_MASK;
+    kbd_buf[idx] = c;
+    kbd_head++;
 }
 
 bool keyboard_has_char(void)
@@ -51,14 +56,15 @@ bool keyboard_has_char(void)
 
 char keyboard_get_char(void)
 {
-    // Simple blocking/spin wait until a character is available.
-    // For now this is fine; later you can integrate with your scheduler.
-    while (!keyboard_has_char()) {
+    // Simple blocking/spin wait until a character is available
+    while (!keyboard_has_char())
+    {
         // spin
     }
 
-    char c = kbd_buf[kbd_tail];
-    kbd_tail = (kbd_tail + 1) % KBD_BUF_SIZE;
+    size_t idx = kbd_tail & KBD_BUF_MASK;
+    char c = kbd_buf[idx];
+    kbd_tail++;
     return c;
 }
 
@@ -80,21 +86,30 @@ static const char scancode_upper[] = {
         'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' '
 };
 
-void keyboard_interrupt_handler(void) {
+/* ------------------------------------------------------------------
+ * Keyboard interrupt handler
+ * ------------------------------------------------------------------ */
+
+void keyboard_interrupt_handler(void)
+{
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 
     /* ------------------------------------------------------------
      * Handle extended scancodes (0xE0 prefix) for arrow keys
      * ------------------------------------------------------------ */
-    if (scancode == 0xE0) {
+    if (scancode == 0xE0)
+    {
         extended_code = true;
         goto eoi;
     }
 
-    if (extended_code) {
+    if (extended_code)
+    {
         // Handle only key presses (no release: high bit not set)
-        if (!(scancode & 0x80)) {
-            switch (scancode) {
+        if (!(scancode & 0x80))
+        {
+            switch (scancode)
+            {
                 case 0x48: // Up arrow: ESC [ A
                     kbd_buffer_put('\x1b');
                     kbd_buffer_put('[');
@@ -105,18 +120,18 @@ void keyboard_interrupt_handler(void) {
                     kbd_buffer_put('[');
                     kbd_buffer_put('B');
                     break;
-                case 0x4B: // Left arrow: ESC [ D (if you want later)
+                case 0x4B: // Left arrow: ESC [ D
                     kbd_buffer_put('\x1b');
                     kbd_buffer_put('[');
                     kbd_buffer_put('D');
                     break;
-                case 0x4D: // Right arrow: ESC [ C (if you want later)
+                case 0x4D: // Right arrow: ESC [ C
                     kbd_buffer_put('\x1b');
                     kbd_buffer_put('[');
                     kbd_buffer_put('C');
                     break;
                 default:
-                    // ignore other extended keys for now
+                    // Ignore other extended keys for now
                     break;
             }
         }
@@ -128,30 +143,38 @@ void keyboard_interrupt_handler(void) {
     /* ------------------------------------------------------------
      * Handle shift keys
      * ------------------------------------------------------------ */
-    if (scancode == 0x2A || scancode == 0x36) {
+    if (scancode == 0x2A || scancode == 0x36)
+    {
         shift_pressed = true;
-    } else if (scancode == 0xAA || scancode == 0xB6) {
+    }
+    else if (scancode == 0xAA || scancode == 0xB6)
+    {
         shift_pressed = false;
     }
         /* ------------------------------------------------------------
          * Handle regular keys (only key press, not release)
          * ------------------------------------------------------------ */
-    else if (!(scancode & 0x80) && scancode < sizeof(scancode_lower)) {
+    else if (!(scancode & 0x80) && scancode < sizeof(scancode_lower))
+    {
         char c = shift_pressed ? scancode_upper[scancode] : scancode_lower[scancode];
-        if (c != 0) {
-            // Instead of printing, buffer the character
+        if (c != 0)
+        {
             kbd_buffer_put(c);
         }
     }
 
     eoi:
-    // Send EOI to PIC
+    // Send End Of Interrupt (EOI) to PIC
     outb(PIC1_COMMAND, 0x20);
 }
 
-// Assembly ISR stub
+/* ------------------------------------------------------------------
+ * Assembly ISR stub
+ * ------------------------------------------------------------------ */
+
 __attribute__((naked))
-void keyboard_isr(void) {
+void keyboard_isr(void)
+{
     asm volatile(
             "pushal\n\t"
             "call keyboard_interrupt_handler\n\t"
@@ -160,9 +183,14 @@ void keyboard_isr(void) {
             );
 }
 
-void keyboard_init(void) {
+/* ------------------------------------------------------------------
+ * Keyboard initialization
+ * ------------------------------------------------------------------ */
+
+void keyboard_init(void)
+{
     // Register keyboard interrupt handler at IRQ1 (vector 0x09)
-    idt_set_gate(0x09, (uint32_t)keyboard_isr, 0x08, 0x8E);
+    idt_set_gate(0x09, (uint32_t) keyboard_isr, 0x08, 0x8E);
 
     // Enable IRQ1 on PIC
     uint8_t mask = inb(PIC1_DATA);
