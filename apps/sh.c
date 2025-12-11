@@ -2,9 +2,6 @@
 #include "../include/kernel/libc.h"
 #include "../include/kernel/fcntl.h"
 #include "../include/kernel/dirent.h"
-#include "../include/kernel/console.h"   // for vga_puts_at
-
-#define DBG(row, msg) vga_puts_at((row), (msg), 0x07)
 
 enum cli_state
 {
