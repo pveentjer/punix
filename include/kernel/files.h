@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include "constants.h"
 #include "dirent.h"
+#include "tty.h"
 
 #define FD_STDIN   0
 #define FD_STDOUT  1
@@ -53,6 +54,7 @@ struct file
     uint8_t ref_count;
     uint64_t pos;
     int fd;
+    struct tty *tty;
     struct fs *fs;
 };
 

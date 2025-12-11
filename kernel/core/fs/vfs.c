@@ -137,6 +137,7 @@ int vfs_open(
         return -1;
     }
 
+    file->tty = NULL;
     file->fd = fd;
     file->pos = 0;
     file->flags = flags;
