@@ -29,7 +29,8 @@ static ssize_t dev_read(struct file *file, void *buf, size_t count)
         return -1;
     }
 
-    return tty_read(&tty0, (char *)buf, count);
+    struct tty *tty = tty_get(0);
+    return tty_read(tty, (char *)buf, count);
 }
 
 static ssize_t dev_write(struct file *file, const void *buf, size_t count)
@@ -48,7 +49,8 @@ static ssize_t dev_write(struct file *file, const void *buf, size_t count)
         return -1;
     }
 
-    return tty_write(&tty0, (char *)buf, count);
+    struct tty *tty = tty_get(0);
+    return tty_write(tty, (char *)buf, count);
 }
 
 static int dev_getdents(struct file *file, struct dirent *buf, unsigned int count)
