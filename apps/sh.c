@@ -12,35 +12,34 @@ enum cli_state
 
 #define LINE_MAX        128
 #define HISTORY_MAX     30
-#define MAX_BIN_ENTRIES 128
 #define MAX_NAME_LEN    64
 
-/* store PID of last created task */
-static pid_t last_pid = -1;
+/* shell PID */
+static pid_t shell_pid = 0;
+
+/* store PID of last background task */
+static pid_t last_bg_pid = -1;
+
+/* last exit status */
+static int last_exit_status = 0;
 
 /* command history */
 static char history[HISTORY_MAX][LINE_MAX];
 static int history_size = 0;
 static int history_pos = 0;
 
-/* cached /bin entries */
-static char bin_entries[MAX_BIN_ENTRIES][MAX_NAME_LEN];
-static int bin_count = 0;
-
 /* ------------------------------------------------------------------
- * Load /bin entries using open/getdents/close
+ * Search /bin for a command
  * ------------------------------------------------------------------ */
-static void load_bin_entries(void)
+static int find_in_bin(const char *name, char *fullpath, size_t fullpath_size)
 {
     int fd = open("/bin", O_RDONLY, 0);
     if (fd < 0)
-    {
-        printf("shell: failed to open /bin\n");
-        return;
-    }
+        return 0;
 
     char buf[4096];
     ssize_t nread;
+    int found = 0;
 
     while ((nread = getdents(fd, (struct dirent *) buf, sizeof(buf))) > 0)
     {
@@ -49,29 +48,40 @@ static void load_bin_entries(void)
         {
             struct dirent *d = (struct dirent *) (buf + offset);
 
-            /* skip . and .. */
-            if (!(d->d_name[0] == '.' &&
-                  (d->d_name[1] == '\0' ||
-                   (d->d_name[1] == '.' && d->d_name[2] == '\0'))))
+            if (strcmp(d->d_name, name) == 0)
             {
-                if (bin_count < MAX_BIN_ENTRIES)
+                const char *prefix = "/bin/";
+                size_t plen = strlen(prefix);
+                size_t nlen = strlen(name);
+
+                size_t to_copy = plen;
+                if (to_copy >= fullpath_size)
+                    to_copy = fullpath_size - 1;
+                memcpy(fullpath, prefix, to_copy);
+
+                if (to_copy < fullpath_size - 1)
                 {
-                    strncpy(bin_entries[bin_count],
-                            d->d_name,
-                            MAX_NAME_LEN - 1);
-                    bin_entries[bin_count][MAX_NAME_LEN - 1] = '\0';
-                    bin_count++;
+                    size_t remaining = fullpath_size - 1 - to_copy;
+                    size_t name_copy = (nlen > remaining) ? remaining : nlen;
+                    memcpy(fullpath + to_copy, name, name_copy);
+                    to_copy += name_copy;
                 }
+                fullpath[to_copy] = '\0';
+
+                found = 1;
+                break;
             }
 
             if (d->d_reclen == 0)
                 break;
             offset += d->d_reclen;
         }
+        if (found)
+            break;
     }
 
     close(fd);
-    printf("Loaded %d programs from /bin\n", bin_count);
+    return found;
 }
 
 /* ------------------------------------------------------------------
@@ -79,7 +89,8 @@ static void load_bin_entries(void)
  * ------------------------------------------------------------------ */
 static void history_add(const char *line)
 {
-    if (line[0] == '\0') return;
+    if (line[0] == '\0')
+        return;
 
     if (history_size < HISTORY_MAX)
     {
@@ -122,9 +133,11 @@ static int handle_escape_sequence(char *line, size_t *len)
 {
     char seq1, seq2;
     ssize_t n1 = read(FD_STDIN, &seq1, 1);
-    if (n1 <= 0) return 0;
+    if (n1 <= 0)
+        return 0;
     ssize_t n2 = read(FD_STDIN, &seq2, 1);
-    if (n2 <= 0) return 0;
+    if (n2 <= 0)
+        return 0;
 
     if (seq1 == '[')
     {
@@ -151,28 +164,14 @@ static int handle_escape_sequence(char *line, size_t *len)
 }
 
 /* ------------------------------------------------------------------
- * check if a program name exists in cached /bin list
- * ------------------------------------------------------------------ */
-static int is_in_bin(const char *name)
-{
-    for (int i = 0; i < bin_count; i++)
-    {
-        if (strcmp(bin_entries[i], name) == 0)
-        {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/* ------------------------------------------------------------------
- * Resolve command name to full path in-place
+ * Resolve command name to full path
  * ------------------------------------------------------------------ */
 static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
 {
     if (!cmd || dst_size == 0)
     {
-        if (dst_size > 0) dst[0] = '\0';
+        if (dst_size > 0)
+            dst[0] = '\0';
         return;
     }
 
@@ -180,39 +179,170 @@ static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
     if (cmd[0] == '/')
     {
         size_t len = strlen(cmd);
-        if (len >= dst_size) len = dst_size - 1;
+        if (len >= dst_size)
+            len = dst_size - 1;
         memcpy(dst, cmd, len);
         dst[len] = '\0';
         return;
     }
 
-    /* try /bin/<cmd> */
-    if (is_in_bin(cmd))
+    /* search /bin */
+    if (find_in_bin(cmd, dst, dst_size))
     {
-        const char *prefix = "/bin/";
-        size_t plen = strlen(prefix);
-        size_t nlen = strlen(cmd);
-
-        size_t to_copy = plen;
-        if (to_copy >= dst_size) to_copy = dst_size - 1;
-        memcpy(dst, prefix, to_copy);
-
-        if (to_copy < dst_size - 1)
-        {
-            size_t remaining = dst_size - 1 - to_copy;
-            size_t name_copy = (nlen > remaining) ? remaining : nlen;
-            memcpy(dst + to_copy, cmd, name_copy);
-            to_copy += name_copy;
-        }
-        dst[to_copy] = '\0';
         return;
     }
 
     /* not found, copy as-is */
     size_t len = strlen(cmd);
-    if (len >= dst_size) len = dst_size - 1;
+    if (len >= dst_size)
+        len = dst_size - 1;
     memcpy(dst, cmd, len);
     dst[len] = '\0';
+}
+
+/* ------------------------------------------------------------------
+ * Convert integer to string
+ * ------------------------------------------------------------------ */
+static void int_to_str(int n, char *buf, int buf_size)
+{
+    int i = 0;
+
+    if (n == 0)
+    {
+        buf[i++] = '0';
+        buf[i] = '\0';
+        return;
+    }
+
+    int is_negative = 0;
+    if (n < 0)
+    {
+        is_negative = 1;
+        n = -n;
+    }
+
+    char tmp[16];
+    int j = 0;
+    while (n > 0 && j < 15)
+    {
+        tmp[j++] = '0' + (n % 10);
+        n /= 10;
+    }
+
+    if (is_negative && i < buf_size - 1)
+        buf[i++] = '-';
+
+    for (int k = j - 1; k >= 0 && i < buf_size - 1; k--)
+    {
+        buf[i++] = tmp[k];
+    }
+    buf[i] = '\0';
+}
+
+/* ------------------------------------------------------------------
+ * Expand variables ($?, $$, $!) in a string
+ * ------------------------------------------------------------------ */
+static void expand_variables(char *str)
+{
+    static char buf[LINE_MAX];
+    char *src = str;
+    char *dst = buf;
+
+    while (*src && (dst - buf) < LINE_MAX - 1)
+    {
+        if (src[0] == '$')
+        {
+            if (src[1] == '?')
+            {
+                /* $? - last exit status */
+                char num[16];
+                int_to_str(last_exit_status, num, sizeof(num));
+
+                for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
+                    *dst++ = *p;
+
+                src += 2;
+            }
+            else if (src[1] == '$')
+            {
+                /* $$ - shell PID */
+                char num[16];
+                int_to_str(shell_pid, num, sizeof(num));
+
+                for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
+                    *dst++ = *p;
+
+                src += 2;
+            }
+            else if (src[1] == '!')
+            {
+                /* $! - last background PID */
+                char num[16];
+                int_to_str(last_bg_pid, num, sizeof(num));
+
+                for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
+                    *dst++ = *p;
+
+                src += 2;
+            }
+            else
+            {
+                *dst++ = *src++;
+            }
+        }
+        else
+        {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
+
+    strcpy(str, buf);
+}
+
+/* ------------------------------------------------------------------
+ * Parse arguments with quote support
+ * Returns number of arguments parsed
+ * ------------------------------------------------------------------ */
+static int parse_arguments(char *line, char **argv, int max_args)
+{
+    static char arg_buf[16][LINE_MAX];
+    int argc = 0;
+    char *src = line;
+
+    while (*src && argc < max_args)
+    {
+        /* skip spaces */
+        while (*src == ' ')
+            src++;
+        if (!*src)
+            break;
+
+        char *dst = arg_buf[argc];
+        int in_quotes = 0;
+
+        /* collect one argument */
+        while (*src)
+        {
+            if (*src == '"')
+            {
+                in_quotes = !in_quotes;
+                src++;
+                continue;
+            }
+
+            if (!in_quotes && *src == ' ')
+                break;
+
+            *dst++ = *src++;
+        }
+
+        *dst = '\0';
+        argv[argc] = arg_buf[argc];
+        argc++;
+    }
+
+    return argc;
 }
 
 /* ------------------------------------------------------------------
@@ -226,7 +356,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    load_bin_entries();
+    shell_pid = getpid();
 
     char line[LINE_MAX];
     size_t len = 0;
@@ -251,11 +381,13 @@ int main(int argc, char **argv)
             {
                 char c;
                 ssize_t n = read(FD_STDIN, &c, 1);
-                if (n <= 0) break;
+                if (n <= 0)
+                    break;
 
                 if (c == 0x1b)
                 { // ESC
-                    if (handle_escape_sequence(line, &len)) break;
+                    if (handle_escape_sequence(line, &len))
+                        break;
                     break;
                 }
 
@@ -294,22 +426,21 @@ int main(int argc, char **argv)
                 }
 
                 history_add(line);
-                cmd_argc = 0;
-                char *p = line;
 
-                while (*p && cmd_argc < 15)
-                {
-                    while (*p == ' ') p++;
-                    if (!*p) break;
-                    cmd_argv[cmd_argc++] = p;
-                    while (*p && *p != ' ') p++;
-                    if (*p) *p++ = '\0';
-                }
+                /* parse with quote support */
+                cmd_argc = parse_arguments(line, cmd_argv, 15);
                 cmd_argv[cmd_argc] = NULL;
+
                 if (cmd_argc == 0)
                 {
                     state = STATE_PROMPT;
                     break;
+                }
+
+                /* expand variables in all arguments */
+                for (int i = 0; i < cmd_argc; i++)
+                {
+                    expand_variables(cmd_argv[i]);
                 }
 
                 /* background: trailing & */
@@ -335,17 +466,28 @@ int main(int argc, char **argv)
                 if (pid < 0)
                 {
                     printf("Failed to create task\n");
+                    last_exit_status = 1;
                 }
                 else
                 {
-                    last_pid = pid;
+                    if (background)
+                    {
+                        last_bg_pid = pid;
+                    }
 
                     if (!background)
                     {
                         int status = 0;
                         pid_t res = waitpid(pid, &status, 0);
                         if (res < 0)
+                        {
                             printf("waitpid failed for pid %d\n", (int) pid);
+                            last_exit_status = 1;
+                        }
+                        else
+                        {
+                            last_exit_status = (status >> 8) & 0xff;
+                        }
                     }
                 }
 
