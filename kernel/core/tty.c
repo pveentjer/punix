@@ -1,6 +1,7 @@
 #include "../../include/kernel/tty.h"
 #include "../../include/kernel/keyboard.h"
 #include "../../include/kernel/console.h"
+#include "kernel/sched.h"
 
 #define TTY_INPUT_BUF_MASK  (TTY_INPUT_BUF_SIZE  - 1u)
 #define TTY_OUTPUT_BUF_MASK (TTY_OUTPUT_BUF_SIZE - 1u)
@@ -37,6 +38,7 @@ static void tty_init(
     tty->out_tail = 0u;
     tty->cursor_pos = 0u;
     tty->console = &kconsole; /* all TTYs share the same physical console */
+    wait_queue_init(&tty->in_wait_queue);
 }
 
 static int tty_is_active(
@@ -68,23 +70,39 @@ void tty_input_put(
     size_t idx = tty->in_head & TTY_INPUT_BUF_MASK;
     tty->in_buf[idx] = c;
     tty->in_head++;
+
+    wakeup(&tty->in_wait_queue);
 }
 
 size_t tty_read(
         struct tty *tty,
-        char *buf, size_t maxlen)
+        char *buf,
+        size_t maxlen)
 {
     if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
     {
         return 0u;
     }
 
-    size_t available = tty->in_head - tty->in_tail;
 
-    if (available == 0u)
+    size_t available = tty->in_head - tty->in_tail;
+    while (available == 0)
     {
-        return 0u;
+        struct task *task = sched_current();
+        task->state = TASK_BLOCKED;
+
+        struct wait_queue_entry entry = {
+                .task = task,
+                .next = NULL,
+        };
+
+        wait_queue_add(&tty->in_wait_queue, &entry);
+
+        sched_schedule();
+
+        available = tty->in_head - tty->in_tail;
     }
+
 
     if (available > maxlen)
     {
@@ -98,7 +116,7 @@ size_t tty_read(
     }
 
     tty->in_tail += available;
-    return available;
+
 }
 
 /* ------------------------------------------------------------------
@@ -148,6 +166,7 @@ size_t tty_write(
             console_put_char(tty->console, c);
         }
     }
+
 
     return written;
 }
@@ -207,7 +226,7 @@ static void tty_redraw(struct tty *tty)
     {
         return;
     }
-    
+
     console_clear(tty->console);
 
     /* Re-play all characters currently stored in the output ring. */

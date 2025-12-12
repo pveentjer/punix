@@ -4,6 +4,8 @@
 #include "../../include/kernel/kutils.h"  // (you can drop this duplicate if you want)
 
 /* ELF binary symbols from objcopy */
+extern unsigned char _binary_swapper_elf_start[];
+extern unsigned char _binary_swapper_elf_end[];
 extern unsigned char _binary_init_elf_start[];
 extern unsigned char _binary_init_elf_end[];
 extern unsigned char _binary_sh_elf_start[];
@@ -26,6 +28,7 @@ extern unsigned char _binary_echo_elf_start[];
 extern unsigned char _binary_echo_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
+        {"/sbin/swapper",    _binary_swapper_elf_start,     _binary_swapper_elf_end},
         {"/sbin/init",       _binary_init_elf_start,        _binary_init_elf_end},
         {"/bin/sh",          _binary_sh_elf_start,          _binary_sh_elf_end},
         {"/bin/loop",        _binary_loop_elf_start,        _binary_loop_elf_end},
@@ -100,7 +103,7 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
  * ELF loader with relocation fixups
  * -------------------------------------------------------------------- */
 
-bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
+int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
 {
     (void) size;
 
@@ -111,7 +114,7 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
         eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
     {
         kprintf("Invalid ELF magic\n");
-        return false;
+        return -1;
     }
 
     const Elf32_Phdr *ph =
@@ -152,5 +155,5 @@ bool elf_load(const void *image, size_t size, uint32_t load_base, struct elf_inf
         out->size = total_copied;
     }
 
-    return true;
+    return 0;
 }

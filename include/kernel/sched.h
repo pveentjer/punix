@@ -12,6 +12,13 @@ typedef uint32_t sigset_t;
 /* forward declaration to avoid circular include */
 struct tty;
 
+enum sched_state
+{
+    TASK_QUEUED,   /* in the run queue, waiting to be scheduled */
+    TASK_RUNNING,  /* currently running on the CPU */
+    TASK_BLOCKED   /* sleeping / waiting for an event */
+};
+
 struct task
 {
     pid_t pid;           // 0
@@ -36,6 +43,8 @@ struct task
     sigset_t pending_signals;
 
     struct tty *ctty;
+
+    enum sched_state state;
 };
 
 /* Task table - must be defined before struct scheduler */
@@ -64,6 +73,7 @@ struct scheduler
 {
     struct task_table task_table;
     struct run_queue run_queue;
+    struct task *swapper;
     struct task *current;
 };
 
@@ -108,10 +118,10 @@ int sched_execve(
         char *const argv[],
         char *const envp[]);
 
-__attribute__((noreturn))
-void sched_start(void);
+void sched_schedule(void);
 
-void sched_yield(void);
+void sched_enqueue(
+        struct task *task);
 
 pid_t sched_getpid(void);
 
@@ -123,6 +133,6 @@ void task_start(
 
 int task_context_switch(
         struct task *current,
-                struct task *next);
+        struct task *next);
 
 #endif // SCHED_H

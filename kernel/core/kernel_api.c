@@ -12,7 +12,7 @@
 
 static ssize_t sys_write(int fd, const char *buf, size_t count)
 {
-    sched_yield();
+    sched_schedule();
 
     if (buf == NULL || count == 0)
     {
@@ -36,7 +36,7 @@ static ssize_t sys_write(int fd, const char *buf, size_t count)
 
 static ssize_t sys_read(int fd, void *buf, size_t count)
 {
-    sched_yield();
+    sched_schedule();
 
     if (buf == NULL || count == 0)
     {
@@ -88,13 +88,13 @@ static int sys_getdents(int fd, struct dirent *buf, unsigned int count)
 
 static pid_t sys_getpid(void)
 {
-    sched_yield();
+    sched_schedule();
     return sched_getpid();
 }
 
 static void sys_yield(void)
 {
-    sched_yield();
+    sched_schedule();
 }
 
 static void sys_exit(int status)
@@ -104,7 +104,7 @@ static void sys_exit(int status)
 
 static pid_t sys_add_task(const char *filename, int argc, char **argv, int tty_id)
 {
-    sched_yield();
+    sched_schedule();
     return sched_add_task(filename, argc, argv, tty_id);
 }
 
@@ -142,7 +142,7 @@ static pid_t sys_waitpid(pid_t pid, int *status, int options)
             return pid;
         }
 
-        sched_yield();
+        sched_schedule();
     }
 }
 

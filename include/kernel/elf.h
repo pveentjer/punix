@@ -55,7 +55,7 @@ struct elf_info {
  * ELF Loader
  * ------------------------------------------------------------ */
 
-bool elf_load(const void *image, size_t size,
+int elf_load(const void *image, size_t size,
               uint32_t load_base, struct elf_info *out);
 
 /* ------------------------------------------------------------

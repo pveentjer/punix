@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include "console.h"
 #include "constants.h"
-
+#include "wait.h"
 
 struct tty
 {
@@ -21,6 +21,8 @@ struct tty
     size_t cursor_pos;
 
     struct console *console;
+
+    struct wait_queue in_wait_queue;
 };
 
 void tty_system_init(void);

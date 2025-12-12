@@ -9,7 +9,16 @@
 
 struct scheduler sched;
 
-int task_context_switch(struct task *current, struct task *next);
+int task_context_switch(
+        struct task *current,
+        struct task *next);
+
+void task_init_context(
+        int argc,
+        char *const *argv,
+        struct task *task,
+        uint32_t main_addr,
+        uint32_t program_size);
 
 /* ---------------- Run queue ---------------- */
 
@@ -55,12 +64,6 @@ struct task *run_queue_poll(struct run_queue *rq)
 
 /* ---------------- Scheduler ---------------- */
 
-void sched_init(void)
-{
-    sched.current = NULL;
-    run_queue_init(&sched.run_queue);
-    task_table_init(&sched.task_table);
-}
 
 struct task *sched_current(void)
 {
@@ -68,11 +71,17 @@ struct task *sched_current(void)
 }
 
 struct task *sched_find_by_pid(
-        pid_t pid){
+        pid_t pid)
+{
 
     return task_table_find_task_by_pid(&sched.task_table, pid);
 }
 
+void sched_enqueue(struct task *task)
+{
+    task->state = TASK_QUEUED;
+    run_queue_push(&sched.run_queue, task);
+}
 
 void sched_exit(int status)
 {
@@ -113,81 +122,43 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
     struct task *current = sched_current();
 
-    int fd_stdin = vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
-    int fd_stdout = vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
-    int fd_stderr = vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
+    vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
+    vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
+    vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
 
-    int status = entry(argc, argv);
-    sched_exit(status);
+    int exit_code = entry(argc, argv);
+    sched_exit(exit_code);
 }
 
-pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
+void task_init_tty(struct task *task, int tty_id)
 {
-    const struct embedded_app *app = find_app(filename);
-    if (!app)
-    {
-        kprintf("sched_add_task: unknown app '%s'\n", filename);
-        return -1;
-    }
-
-    struct task *task = task_table_alloc(&sched.task_table);
-    if (task == NULL)
-    {
-        panic("sched_add_task: too many tasks");
-    }
-
-    k_strcpy(task->name, filename);
-
-    task->pending_signals = 0;
-
-    struct tty *ctty = NULL;
-
     if (tty_id >= 0)
     {
-        if ((size_t)tty_id >= TTY_COUNT)
-        {
-            // todo: task mem leak
-            return -1;  /* invalid TTY id */
-        }
-        ctty = tty_get((size_t)tty_id);
-
-        if (ctty == NULL)
-        {
-            // todo: task mem leak
-            return -1;
-        }
-    }
-    else if (sched.current && sched.current->ctty)
-    {
-        /* inherit parent’s controlling terminal */
-        ctty = sched.current->ctty;
+        task->ctty = tty_get((size_t) tty_id);
     }
     else
     {
-        /* first task / no parent: use current active TTY */
-        ctty = tty_active();
+        if (sched.current && sched.current->ctty)
+        {
+            /* inherit parent’s controlling terminal */
+            task->ctty = sched.current->ctty;
+        }
+        else
+        {
+            /* first task / no parent: use current active TTY */
+            task->ctty = tty_active();
+        }
     }
+}
 
-    task->ctty = ctty;
 
-    const void *image = app->start;
-    size_t image_size = (size_t) (app->end - app->start);
-
-    uint8_t *p = (uint8_t *) image;
-
-    struct elf_info elf_info;
-
-    bool success = elf_load(image, image_size, task->mem_base, &elf_info);
-    if (!success)
-    {
-        task_table_free(&sched.task_table, task);
-        kprintf("Failed to load the binary\n");
-        return -1;
-    }
-
-       uint32_t main_addr = elf_info.entry;
-
-    uint32_t stack_top = align_up(task->mem_base + elf_info.size + 0x1000, 16);
+void task_init_context(int argc,
+                       char *const *argv,
+                       struct task *task,
+                       uint32_t main_addr,
+                       uint32_t program_size)
+{
+    uint32_t stack_top = align_up(task->mem_base + program_size + 0x1000, 16);
 
     char *sp = (char *) stack_top;
 
@@ -197,7 +168,9 @@ pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
     {
         size_t len = 0;
         while (argv[i][len])
-        { len++; }
+        {
+            len++;
+        }
         len++;
 
         sp -= len;
@@ -206,7 +179,6 @@ pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
             sp[j] = argv[i][j];
         }
     }
-
 
     // Align
     sp = (char *) ((uint32_t) sp & ~3);
@@ -226,7 +198,6 @@ pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
     }
     char **new_argv = (char **) sp32;
 
-
     *(--sp32) = (uint32_t) new_argv;
     *(--sp32) = (uint32_t) argc;
     *(--sp32) = main_addr;
@@ -241,11 +212,65 @@ pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
     task->esp = (uint32_t) sp32;
     task->eip = (uint32_t) task_trampoline;
     task->eflags = 0x202;
-    task->parent = sched.current ? sched.current : task;
+}
 
+struct task *task_new(const char *filename, int argc, char **argv, int tty_id)
+{
+    if (tty_id >= (int)TTY_COUNT)
+    {
+        kprintf("task_new: to high tty %d for binary %s\n", tty_id, filename);
+        return NULL;
+    }
+
+    const struct embedded_app *app = find_app(filename);
+    if (!app)
+    {
+        kprintf("task_new: unknown binary '%s'\n", filename);
+        return NULL;
+    }
+
+    struct task *task = task_table_alloc(&sched.task_table);
+    if (task == NULL)
+    {
+        kprintf("task_new: failed to allocate task for %s\n", filename);
+        return NULL;
+    }
+
+    k_strcpy(task->name, filename);
+    task->pending_signals = 0;
+    task->state = TASK_QUEUED;
+    task->parent = sched.current ? sched.current : task;
+    task_init_tty(task, tty_id);
+
+    const void *image = app->start;
+    size_t image_size = (size_t) (app->end - app->start);
+
+    uint8_t *p = (uint8_t *) image;
+
+    struct elf_info elf_info;
+    int res = elf_load(image, image_size, task->mem_base, &elf_info);
+    if (res < 0)
+    {
+        task_table_free(&sched.task_table, task);
+        kprintf("task_new: Failed to load the binary %s\n", filename);
+        return NULL;
+    }
+
+    uint32_t main_addr = elf_info.entry;
+    uint32_t program_size = elf_info.size;
+    task_init_context(argc, argv, task, main_addr, program_size);
+    return task;
+}
+
+pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
+{
+    struct task *task = task_new(filename, argc, argv, tty_id);
+    if (!task)
+    {
+        return -1;
+    }
 
     run_queue_push(&sched.run_queue, task);
-
     return task->pid;
 }
 
@@ -276,35 +301,72 @@ int sched_kill(pid_t pid, int sig)
     return 0;
 }
 
-void sched_start(void)
-{
-    struct task dummy;
-    sched.current = run_queue_poll(&sched.run_queue);
-    if (!sched.current)
-    {
-        panic("sched_start can't start with an empty run_queue\n");
-    }
-
-    task_context_switch(&dummy, sched.current);
-}
 
 pid_t sched_getpid(void)
 {
     return sched.current->pid;
 }
 
-void sched_yield(void)
+void sched_schedule(void)
 {
-    if (sched.run_queue.len == 0)
+    struct task *prev = sched.current;
+    struct task *next = run_queue_poll(&sched.run_queue);
+    if (next == NULL)
     {
-        return;
+        next = sched.swapper;
     }
 
-    struct task *prev = sched.current;
-    run_queue_push(&sched.run_queue, prev);
+    struct task dummy;
 
-    sched.current = run_queue_poll(&sched.run_queue);
-    struct task *next = sched.current;
+    if (prev == NULL)
+    {
+        // There is no task running.
+        prev = &dummy;
+    }
+    else
+    {
+        if (next == sched.swapper)
+        {
+            if (prev->state == TASK_RUNNING)
+            {
+                return;
+            }
+        }
 
+        if (prev->state != TASK_BLOCKED)
+        {
+            prev->state = TASK_QUEUED;
+            if (prev != sched.swapper)
+            {
+                run_queue_push(&sched.run_queue, prev);
+            }
+        }
+    }
+
+    next->state = TASK_RUNNING;
+    sched.current = next;
     task_context_switch(prev, next);
+}
+
+
+void sched_init(void)
+{
+    sched.current = NULL;
+
+    run_queue_init(&sched.run_queue);
+
+    task_table_init(&sched.task_table);
+
+    console_clear(&kconsole);
+    char *argv[] = {"/sbin/swapper", NULL};
+
+    const char *filename = "/sbin/swapper";
+    int argc = 1;
+    int tty_id = 0;
+
+    sched.swapper = task_new(filename, argc, argv, tty_id);
+    if (!sched.swapper)
+    {
+        panic("sched_init: failed to allocate a task for the swapper\n");
+    }
 }

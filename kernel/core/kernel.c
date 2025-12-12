@@ -39,5 +39,5 @@ void kmain(void)
     char *argv[] = {"/sbin/init", NULL};
     sched_add_task("/sbin/init", 1, argv, 0);
 
-    sched_start();
+    sched_schedule();
 }

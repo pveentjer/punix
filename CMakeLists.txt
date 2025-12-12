@@ -75,6 +75,7 @@ set(KERNEL_SOURCES
         kernel/core/fs/proc_fs.c
         kernel/core/fs/root_fs.c
         kernel/core/tty.c
+        kernel/core/wait.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
@@ -145,6 +146,7 @@ add_app(spawn_chain)
 add_app(kill)
 add_app(cat)
 add_app(echo)
+add_app(swapper)
 
 # ------------------------------------------------------------
 # Kernel ELF target
@@ -162,6 +164,7 @@ add_executable(kernel.elf
         ${kill_OBJ}
         ${cat_OBJ}
         ${echo_OBJ}
+        ${swapper_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES
