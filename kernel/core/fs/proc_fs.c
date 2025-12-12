@@ -32,6 +32,7 @@ static void fill_dirent_from_task(
 
 /* ------------------------------------------------------------
  * Fill struct dirent entries for /proc
+ * (PIDs only; /proc/stat is added in proc_getdents)
  * ------------------------------------------------------------ */
 int sched_fill_proc_dirents(
         struct dirent *buf,
@@ -92,6 +93,78 @@ static pid_t proc_path_to_pid(
     return pid;
 }
 
+/* ------------------------------------------------------------
+ * proc_open: validate that the requested /proc path exists
+ * ------------------------------------------------------------ */
+static int proc_open(struct file *file)
+{
+    char *pathname = file->pathname;
+
+    /* Root /proc directory */
+    if (k_strcmp(pathname, "/proc") == 0 ||
+        k_strcmp(pathname, "/proc/") == 0)
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    /* /proc/stat */
+    if (k_strcmp(pathname, "/proc/stat") == 0)
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    /* Per-PID entries */
+    pid_t pid = proc_path_to_pid(pathname);
+    if (pid == PID_NONE)
+    {
+        return -1;
+    }
+
+    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
+    if (!task)
+    {
+        (void) task; // in case you later build without using it
+        return -1;
+    }
+
+    const char *filename = k_strrchr(pathname, '/');
+    if (!filename)
+    {
+        return -1;
+    }
+    filename++;
+
+    /* Directory: /proc/<pid> */
+    if (filename[0] == '\0')
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    /* Files: /proc/<pid>/comm, /proc/<pid>/cmdline */
+    if (k_strcmp(filename, "comm") == 0 ||
+        k_strcmp(filename, "cmdline") == 0)
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    return -1;
+}
+
+static ssize_t read_proc_stat(struct file *file, void *buf, size_t count);
+
+static ssize_t read_proc_pid_comm(struct file *file, void *buf, size_t count, const struct task *task);
+
+static ssize_t read_proc_pid_cmdline(struct file *file, void *buf, size_t count, const struct task *task);
+
+/* ------------------------------------------------------------
+ * proc_read
+ * - /proc/stat      -> scheduler stats (ctxt)
+ * - /proc/<pid>/... -> comm / cmdline
+ * ------------------------------------------------------------ */
 static ssize_t proc_read(
         struct file *file,
         void *buf, size_t count)
@@ -106,6 +179,13 @@ static ssize_t proc_read(
         return 0;
     }
 
+    /* Handle /proc/stat */
+    if (k_strcmp(file->pathname, "/proc/stat") == 0)
+    {
+        return read_proc_stat(file, buf, count);
+    }
+
+    /* Everything else is /proc/<pid>/... */
     pid_t pid = proc_path_to_pid(file->pathname);
     if (pid == PID_NONE)
     {
@@ -127,36 +207,105 @@ static ssize_t proc_read(
 
     if (k_strcmp(filename, "comm") == 0)
     {
-        size_t len = k_strlen(task->name);
-        if (len + 1 > count)
-        {
-            len = count - 1;
-        }
-
-        k_memcpy(buf, task->name, len);
-        ((char *) buf)[len] = '\n';
-
-        ssize_t size = (ssize_t) (len + 1);
-        file->pos += size;
-        return size;
+        return read_proc_pid_comm(file, buf, count, task);
     }
     else if (k_strcmp(filename, "cmdline") == 0)
     {
-        size_t len = k_strlen(task->name);
-        if (len > count)
-        {
-            len = count;
-        }
-
-        k_memcpy(buf, task->name, len);
-
-        file->pos += len;
-        return (ssize_t) len;
+        return read_proc_pid_cmdline(file, buf, count, task);
     }
 
     return -1;
 }
 
+static ssize_t read_proc_pid_cmdline(
+        struct file *file,
+        void *buf,
+        size_t count,
+        const struct task *task)
+{
+    size_t len = k_strlen(task->name);
+    if (len > count)
+    {
+        len = count;
+    }
+
+    k_memcpy(buf, task->name, len);
+
+    file->pos += len;
+    return (ssize_t) len;
+}
+
+static ssize_t read_proc_pid_comm(
+        struct file *file,
+        void *buf, size_t count,
+        const struct task *task)
+{
+    size_t len = k_strlen(task->name);
+    if (len + 1 > count)
+    {
+        len = count - 1;
+    }
+
+    k_memcpy(buf, task->name, len);
+    ((char *) buf)[len] = '\n';
+
+    ssize_t size = (ssize_t) (len + 1);
+    file->pos += size;
+    return size;
+}
+
+static ssize_t read_proc_stat(
+        struct file *file,
+        void *buf,
+        size_t count)
+{
+    struct sched_stat st;
+    sched_stat(&st);
+
+    char num[64];
+    u64_to_str(st.ctxt, num, sizeof(num));
+
+    const char *prefix = "ctxt = ";
+    size_t prefix_len = k_strlen(prefix);
+    size_t num_len = k_strlen(num);
+
+    /* total length including newline */
+    size_t len = prefix_len + num_len + 1;
+    if (len > count)
+    {
+        if (count == 0)
+        {
+            return 0;
+        }
+        len = count;
+    }
+
+    /* copy "ctxt = " */
+    k_memcpy(buf, prefix, prefix_len);
+
+    /* copy number right after */
+    k_memcpy((char *) buf + prefix_len, num, num_len);
+
+    /* append newline */
+    ((char *) buf)[prefix_len + num_len] = '\n';
+
+    ssize_t size = (ssize_t) (prefix_len + num_len + 1);
+    if (size > (ssize_t) count)
+    {
+        size = (ssize_t) count;
+    }
+
+    file->pos += size;
+    return size;
+}
+
+
+/* ------------------------------------------------------------
+ * proc_getdents: list /proc root
+ * - .  ..
+ * - stat
+ * - PIDs
+ * ------------------------------------------------------------ */
 static int proc_getdents(
         struct file *file,
         struct dirent *buf,
@@ -178,6 +327,13 @@ static int proc_getdents(
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
 
+    /* Add /proc/stat as a regular file */
+    if (idx < max_entries)
+    {
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
+    }
+
+    /* Add PIDs */
     if (idx < max_entries)
     {
         unsigned int remaining = max_entries - idx;
@@ -194,9 +350,9 @@ static int proc_getdents(
 }
 
 struct fs proc_fs = {
-        .open = NULL,
-        .close = NULL,
-        .read = proc_read,
-        .write = NULL,
+        .open     = proc_open,
+        .close    = NULL,
+        .read     = proc_read,
+        .write    = NULL,
         .getdents = proc_getdents
 };

@@ -194,7 +194,7 @@ void task_init_context(int argc,
 
 struct task *task_new(const char *filename, int argc, char **argv, int tty_id)
 {
-    if (tty_id >= (int)TTY_COUNT)
+    if (tty_id >= (int) TTY_COUNT)
     {
         kprintf("task_new: to high tty %d for binary %s\n", tty_id, filename);
         return NULL;
@@ -215,6 +215,7 @@ struct task *task_new(const char *filename, int argc, char **argv, int tty_id)
     }
 
     k_strcpy(task->name, filename);
+    task->ctxt = 0;
     task->pending_signals = 0;
     task->state = TASK_QUEUED;
     task->parent = sched.current ? sched.current : task;
@@ -321,16 +322,26 @@ void sched_schedule(void)
         }
     }
 
+
     next->state = TASK_RUNNING;
     sched.current = next;
+    prev->ctxt++;
     task_context_switch(prev, next);
 }
 
 
+void sched_stat(struct sched_stat *stat){
+    if(stat == NULL){
+        return;
+    }
+
+    stat->ctxt = sched.ctxt;
+}
+
 void sched_init(void)
 {
     sched.current = NULL;
-
+    sched.ctxt = 0;
     run_queue_init(&sched.run_queue);
 
     task_table_init(&sched.task_table);

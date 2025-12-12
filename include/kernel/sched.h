@@ -45,6 +45,8 @@ struct task
     struct tty *ctty;
 
     enum sched_state state;
+
+    uint64_t ctxt;
 };
 
 /* Task table - must be defined before struct scheduler */
@@ -71,10 +73,15 @@ struct run_queue
 
 struct scheduler
 {
+    uint64_t ctxt;
     struct task_table task_table;
     struct run_queue run_queue;
     struct task *swapper;
     struct task *current;
+};
+
+struct sched_stat{
+    uint64_t ctxt;
 };
 
 extern struct scheduler sched;
@@ -100,6 +107,8 @@ struct task *sched_find_by_pid(
         pid_t pid);
 
 void sched_init(void);
+
+void sched_stat(struct sched_stat *stat);
 
 pid_t sched_add_task(
         const char *filename,

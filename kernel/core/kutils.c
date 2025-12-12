@@ -152,3 +152,50 @@ void panic(char *msg)
         __asm__ volatile("hlt");
     }
 }
+
+size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
+{
+    char tmp[32];
+    size_t i = 0;
+
+    if (!buf || buf_size == 0)
+    {
+        return 0;
+    }
+
+    if (value == 0)
+    {
+        if (buf_size < 2)
+        {
+            return 0;
+        }
+        buf[0] = '0';
+        buf[1] = '\0';
+        return 1;
+    }
+
+    while (value > 0 && i < sizeof(tmp))
+    {
+        tmp[i++] = (char)('0' + (value % 10u));
+        value /= 10u;
+    }
+
+    if (i == 0)
+    {
+        if (buf_size < 2)
+        {
+            return 0;
+        }
+        buf[0] = '0';
+        buf[1] = '\0';
+        return 1;
+    }
+
+    size_t len = (i < buf_size - 1) ? i : (buf_size - 1);
+    for (size_t j = 0; j < len; j++)
+    {
+        buf[j] = tmp[i - 1 - j];
+    }
+    buf[len] = '\0';
+    return len;
+}
