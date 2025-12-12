@@ -12,7 +12,6 @@
 struct tty_context
 {
     struct tty ttys[TTY_COUNT];
-    size_t active_idx;
     struct tty *active;
 };
 
@@ -183,17 +182,12 @@ static void tty_keyboard_handler(
 
             if (tty_idx < TTY_COUNT)
             {
-                kprintf("Ctrl+Alt+F%u pressed, switching to TTY %u\n",
-                        (unsigned) (tty_idx + 1),
-                        (unsigned) tty_idx);
-
                 tty_activate(tty_idx);
             }
             return;
         }
     }
 }
-
 
 void tty_system_init(void)
 {
@@ -202,10 +196,37 @@ void tty_system_init(void)
         tty_init(&ctx.ttys[i], i);
     }
 
-    ctx.active_idx = 0u;
     ctx.active = &ctx.ttys[0];
 
     keyboard_init(tty_keyboard_handler);
+}
+
+static void tty_redraw(struct tty *tty)
+{
+    if (tty == NULL || tty->console == NULL)
+    {
+        return;
+    }
+    
+    console_clear(tty->console);
+
+    /* Re-play all characters currently stored in the output ring. */
+    size_t used = tty->out_head - tty->out_tail;
+
+    for (size_t i = 0; i < used; i++)
+    {
+        size_t idx = (tty->out_tail + i) & TTY_OUTPUT_BUF_MASK;
+        char c = tty->out_buf[idx];
+
+        /* This updates the *physical* cursor and scrolls as needed. */
+        console_put_char(tty->console, c);
+    }
+
+    /* Logical cursor position is already tty->out_head; if you want to
+     * explicitly sync, you can keep this, but it's redundant:
+     *
+     * tty->cursor_pos = tty->out_head;
+     */
 }
 
 void tty_activate(size_t idx)
@@ -215,16 +236,9 @@ void tty_activate(size_t idx)
         return;
     }
 
-    ctx.active_idx = idx;
     ctx.active = &ctx.ttys[idx];
 
-    if (ctx.active->console != NULL)
-    {
-        /* For now, just clear the console when switching.
-         * Later you can redraw from ctx.active->out_buf.
-         */
-        console_clear(ctx.active->console);
-    }
+    tty_redraw(ctx.active);
 }
 
 struct tty *tty_active(void)
