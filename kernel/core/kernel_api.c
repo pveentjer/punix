@@ -130,7 +130,20 @@ static int sys_nice(int inc)
 
 static pid_t sys_waitpid(pid_t pid, int *status, int options)
 {
-    return -ENOSYS;
+    // todo: because completed tasks aren't kept around, there
+    // is currently no way to determine if a task has completed
+    // or doesn't exist.
+    while (true)
+    {
+        struct task *task = sched_find_by_pid(pid);
+
+        if (task == NULL)
+        {
+            return pid;
+        }
+
+        sched_yield();
+    }
 }
 
 
@@ -152,5 +165,6 @@ const struct kernel_api kernel_api_instance = {
         .sys_nice       = sys_nice,
         .sys_open       = sys_open,
         .sys_close      = sys_close,
-        .sys_getdents   = sys_getdents
+        .sys_getdents   = sys_getdents,
+        .sys_waitpid    = sys_waitpid,
 };

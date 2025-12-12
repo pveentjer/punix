@@ -67,6 +67,13 @@ struct task *sched_current(void)
     return sched.current;
 }
 
+struct task *sched_find_by_pid(
+        pid_t pid){
+
+    return task_table_find_task_by_pid(&sched.task_table, pid);
+}
+
+
 void sched_exit(int status)
 {
 

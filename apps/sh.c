@@ -303,6 +303,23 @@ int main(int argc, char **argv)
                     break;
                 }
 
+                /* background: trailing & */
+                int background = 0;
+                if (cmd_argc > 0 &&
+                    strcmp(cmd_argv[cmd_argc - 1], "&") == 0)
+                {
+                    background = 1;
+                    cmd_argv[cmd_argc - 1] = NULL;
+                    cmd_argc--;
+
+                    if (cmd_argc == 0)
+                    {
+                        /* line was just "&" */
+                        state = STATE_PROMPT;
+                        break;
+                    }
+                }
+
                 /* built-in: echo */
                 if (strcmp(cmd_argv[0], "echo") == 0)
                 {
@@ -316,8 +333,10 @@ int main(int argc, char **argv)
                         {
                             if (strcmp(cmd_argv[i], "$!") == 0)
                             {
-                                if (last_pid < 0) printf("no last pid");
-                                else printf("%d", last_pid);
+                                if (last_pid < 0)
+                                    printf("no last pid");
+                                else
+                                    printf("%d", last_pid);
                             }
                             else
                             {
@@ -343,9 +362,24 @@ int main(int argc, char **argv)
 
                 pid_t pid = sched_add_task(filename, cmd_argc, cmd_argv, -1);
                 if (pid < 0)
+                {
                     printf("Failed to create task\n");
+                }
                 else
+                {
                     last_pid = pid;
+
+                    if (!background)
+                    {
+                        int status = 0;
+                        pid_t rc = waitpid(pid, &status, 0);
+                        if (rc < 0)
+                        {
+                            printf("waitpid failed for pid %d\n", (int)pid);
+                        }
+                        /* you can later inspect/print status */
+                    }
+                }
 
                 state = STATE_PROMPT;
                 break;

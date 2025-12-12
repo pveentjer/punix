@@ -74,26 +74,39 @@ struct task *task_table_find_task_by_pid(
         const struct task_table *task_table,
         const pid_t pid);
 
-void task_table_init(struct task_table *task_table);
+void task_table_init(
+        struct task_table *task_table);
 
-struct task *task_table_alloc(struct task_table *task_table);
+struct task *task_table_alloc(
+        struct task_table *task_table);
 
 void task_table_free(
         struct task_table *task_table,
         struct task *task);
 
-/* Scheduler functions */
 struct task *sched_current(void);
+
+struct task *sched_find_by_pid(
+        pid_t pid);
 
 void sched_init(void);
 
-pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id);
+pid_t sched_add_task(
+        const char *filename,
+        int argc,
+        char **argv,
+        int tty_id);
 
 pid_t sched_fork(void);
 
-int sched_kill(pid_t pid, int sig);
+int sched_kill(
+        pid_t pid,
+        int sig);
 
-int sched_execve(const char *pathname, char *const argv[], char *const envp[]);
+int sched_execve(
+        const char *pathname,
+        char *const argv[],
+        char *const envp[]);
 
 __attribute__((noreturn))
 void sched_start(void);
@@ -105,8 +118,11 @@ pid_t sched_getpid(void);
 void sched_exit(int status);
 
 /* asm functions */
-void task_start(struct task *t);
+void task_start(
+        struct task *t);
 
-int task_context_switch(struct task *current, struct task *next);
+int task_context_switch(
+        struct task *current,
+                struct task *next);
 
 #endif // SCHED_H
