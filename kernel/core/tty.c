@@ -12,7 +12,7 @@
 struct tty_context
 {
     struct tty ttys[TTY_COUNT];
-    size_t     active_idx;
+    size_t active_idx;
     struct tty *active;
 };
 
@@ -22,23 +22,26 @@ static struct tty_context ctx;
  * Internal helpers
  * ------------------------------------------------------------------ */
 
-static void tty_init(struct tty *tty, size_t idx)
+static void tty_init(
+        struct tty *tty,
+        size_t idx)
 {
     if (!tty)
     {
         return;
     }
 
-    tty->idx        = idx;
-    tty->in_head    = 0u;
-    tty->in_tail    = 0u;
-    tty->out_head   = 0u;
-    tty->out_tail   = 0u;
+    tty->idx = idx;
+    tty->in_head = 0u;
+    tty->in_tail = 0u;
+    tty->out_head = 0u;
+    tty->out_tail = 0u;
     tty->cursor_pos = 0u;
-    tty->console    = &kconsole; /* all TTYs share the same physical console */
+    tty->console = &kconsole; /* all TTYs share the same physical console */
 }
 
-static int tty_is_active(const struct tty *tty)
+static int tty_is_active(
+        const struct tty *tty)
 {
     return (tty != NULL) && (tty == ctx.active);
 }
@@ -47,7 +50,8 @@ static int tty_is_active(const struct tty *tty)
  * TTY input
  * ------------------------------------------------------------------ */
 
-void tty_input_put(struct tty *tty, char c)
+void tty_input_put(
+        struct tty *tty, char c)
 {
     if (tty == NULL)
     {
@@ -67,7 +71,9 @@ void tty_input_put(struct tty *tty, char c)
     tty->in_head++;
 }
 
-size_t tty_read(struct tty *tty, char *buf, size_t maxlen)
+size_t tty_read(
+        struct tty *tty,
+        char *buf, size_t maxlen)
 {
     if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
     {
@@ -100,7 +106,10 @@ size_t tty_read(struct tty *tty, char *buf, size_t maxlen)
  * TTY output
  * ------------------------------------------------------------------ */
 
-size_t tty_write(struct tty *tty, const char *buf, size_t maxlen)
+size_t tty_write(
+        struct tty *tty,
+        const char *buf,
+        size_t maxlen)
 {
     if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
     {
@@ -148,7 +157,12 @@ size_t tty_write(struct tty *tty, const char *buf, size_t maxlen)
  * Keyboard handler
  * ------------------------------------------------------------------ */
 
-static void tty_keyboard_handler(char value, enum keyboard_code code)
+static void tty_keyboard_handler(
+        char value,
+        enum keyboard_code code,
+        bool ctrl,
+        bool alt,
+        bool shift)
 {
     struct tty *active = tty_active();
 
@@ -159,85 +173,23 @@ static void tty_keyboard_handler(char value, enum keyboard_code code)
         return;
     }
 
-    /* Non-printable / special key: handle function keys for TTY switching. */
-    switch (code)
+    if (alt)
     {
-        case KEY_F1:
+        // no check for ctrl because when running virtualized, the host should not
+        // be triggered to switch tty. So when running virtualized, use alt-fn
+        if (code >= KEY_F1 && code <= KEY_F12)
         {
-            kprintf("Ctrl+Alt+F1 pressed\n");
-            tty_activate(0u);
-            break;
-        }
-        case KEY_F2:
-        {
-            kprintf("Ctrl+Alt+F2 pressed\n");
-            tty_activate(1u);
-            break;
-        }
-        case KEY_F3:
-        {
-            kprintf("Ctrl+Alt+F3 pressed\n");
-            tty_activate(2u);
-            break;
-        }
-        case KEY_F4:
-        {
-            kprintf("Ctrl+Alt+F4 pressed\n");
-            tty_activate(3u);
-            break;
-        }
-        case KEY_F5:
-        {
-            kprintf("Ctrl+Alt+F5 pressed\n");
-            tty_activate(4u);
-            break;
-        }
-        case KEY_F6:
-        {
-            kprintf("Ctrl+Alt+F6 pressed\n");
-            tty_activate(5u);
-            break;
-        }
-        case KEY_F7:
-        {
-            kprintf("Ctrl+Alt+F7 pressed\n");
-            tty_activate(6u);
-            break;
-        }
-        case KEY_F8:
-        {
-            kprintf("Ctrl+Alt+F8 pressed\n");
-            tty_activate(7u);
-            break;
-        }
-        case KEY_F9:
-        {
-            kprintf("Ctrl+Alt+F9 pressed\n");
-            tty_activate(8u);
-            break;
-        }
-        case KEY_F10:
-        {
-            kprintf("Ctrl+Alt+F10 pressed\n");
-            tty_activate(9u);
-            break;
-        }
-        case KEY_F11:
-        {
-            kprintf("Ctrl+Alt+F11 pressed\n");
-            tty_activate(10u);
-            break;
-        }
-        case KEY_F12:
-        {
-            kprintf("Ctrl+Alt+F12 pressed\n");
-            tty_activate(11u);
-            break;
-        }
-        default:
-        {
-            /* ignore for now */
-            break;
+            size_t tty_idx = (size_t) (code - KEY_F1);
+
+            if (tty_idx < TTY_COUNT)
+            {
+                kprintf("Ctrl+Alt+F%u pressed, switching to TTY %u\n",
+                        (unsigned) (tty_idx + 1),
+                        (unsigned) tty_idx);
+
+                tty_activate(tty_idx);
+            }
+            return;
         }
     }
 }
@@ -251,7 +203,7 @@ void tty_system_init(void)
     }
 
     ctx.active_idx = 0u;
-    ctx.active     = &ctx.ttys[0];
+    ctx.active = &ctx.ttys[0];
 
     keyboard_init(tty_keyboard_handler);
 }
@@ -264,7 +216,7 @@ void tty_activate(size_t idx)
     }
 
     ctx.active_idx = idx;
-    ctx.active     = &ctx.ttys[idx];
+    ctx.active = &ctx.ttys[idx];
 
     if (ctx.active->console != NULL)
     {
