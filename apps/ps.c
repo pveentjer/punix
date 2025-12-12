@@ -87,7 +87,7 @@ int main(int argc, char **argv)
                     strcpy(comm, "?");
                 }
 
-                printf("%-5s %s\n", de->d_name, comm);
+                printf("%s %s\n", de->d_name, comm);
             }
 
             if (de->d_reclen == 0)
