@@ -326,6 +326,7 @@ void sched_schedule(void)
     next->state = TASK_RUNNING;
     sched.current = next;
     prev->ctxt++;
+    sched.ctxt++;
     task_context_switch(prev, next);
 }
 
