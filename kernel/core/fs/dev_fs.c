@@ -6,6 +6,7 @@
 #include "kernel/console.h"
 #include "kernel/tty.h"
 #include "kernel/constants.h"
+#include "kernel/sched.h"   // <-- NEEDED so we can use sched_current()
 
 static ssize_t dev_read(
         struct file *file,
@@ -34,7 +35,7 @@ static ssize_t dev_write(
         return 0;
     }
 
-    return tty_write(file->tty, (char *) buf, count);
+    return tty_write(file->tty, (const char *) buf, count);
 }
 
 static int dev_getdents(
@@ -47,6 +48,7 @@ static int dev_getdents(
         return 0;
     }
 
+    /* Only one page of entries; subsequent calls return 0. */
     if (file->pos > 0)
     {
         return 0;
@@ -55,13 +57,31 @@ static int dev_getdents(
     unsigned int max_entries = count / sizeof(struct dirent);
     unsigned int idx = 0;
 
-    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
-    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
-    fs_add_entry(buf, max_entries, &idx, FD_STDIN, DT_CHR, "stdin");
+    fs_add_entry(buf, max_entries, &idx, 1,        DT_DIR, ".");
+    fs_add_entry(buf, max_entries, &idx, 2,        DT_DIR, "..");
+
+    fs_add_entry(buf, max_entries, &idx, FD_STDIN,  DT_CHR, "stdin");
     fs_add_entry(buf, max_entries, &idx, FD_STDOUT, DT_CHR, "stdout");
     fs_add_entry(buf, max_entries, &idx, FD_STDERR, DT_CHR, "stderr");
 
-    int size = (int) (idx * sizeof(struct dirent));
+    for (size_t i = 0; i < TTY_COUNT; i++)
+    {
+        if (idx >= max_entries)
+        {
+            break;
+        }
+
+        char num_buf[8];
+        char name_buf[16];
+
+        k_strcpy(name_buf, "tty");
+        k_itoa((int)i, num_buf);
+        k_strcat(name_buf, num_buf);
+
+        fs_add_entry(buf, max_entries, &idx, (int)(100 + i), DT_CHR, name_buf);
+    }
+
+    int size = (int)(idx * sizeof(struct dirent));
     file->pos += size;
     return size;
 }
@@ -84,15 +104,54 @@ int dev_open(
         name++;
     }
 
+    /* NEEDED CHANGE: bind std* to the task's controlling TTY (ctty) */
     if ((k_strcmp(name, "stdin") == 0) ||
         (k_strcmp(name, "stdout") == 0) ||
         (k_strcmp(name, "stderr") == 0))
     {
-        file->tty = tty_active();
+        struct task *curr = sched_current();
+
+        if (curr && curr->ctty)
+        {
+            file->tty = curr->ctty;
+        }
+        else
+        {
+            file->tty = tty_active();  // fallback (e.g. early boot)
+        }
+
+        return 0;
     }
 
+    if (k_strncmp(name, "tty", 3) == 0)
+    {
+        const char *p = name + 3;
+        if (*p == '\0')
+        {
+            return -1;
+        }
 
-    return 0;
+        int idx = 0;
+        while (*p)
+        {
+            if (*p < '0' || *p > '9')
+            {
+                return -1;
+            }
+            idx = idx * 10 + (*p - '0');
+            p++;
+        }
+
+        if (idx < 0 || (size_t)idx >= TTY_COUNT)
+        {
+            return -1;
+        }
+
+        file->tty = tty_get((size_t)idx);
+        return 0;
+    }
+
+    return -1;
 }
 
 struct fs dev_fs = {

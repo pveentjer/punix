@@ -19,7 +19,7 @@ typedef int pid_t;
 
 pid_t getpid(void);
 
-pid_t sched_add_task(const char *filename, int argc, char **argv);
+pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id);
 pid_t fork(void);
 int execve(const char *pathname, char *const argv[], char *const envp[]);
 

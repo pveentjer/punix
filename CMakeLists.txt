@@ -135,6 +135,7 @@ endfunction()
 # ------------------------------------------------------------
 # Build user apps
 # ------------------------------------------------------------
+add_app(init)
 add_app(sh)
 add_app(ls)
 add_app(ps)
@@ -150,6 +151,7 @@ add_app(cat)
 add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
         ${BUILD_DIR}/sched_x86.o
+        ${init_OBJ}
         ${sh_OBJ}
         ${ls_OBJ}
         ${ps_OBJ}

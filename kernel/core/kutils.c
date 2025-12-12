@@ -52,6 +52,21 @@ int k_strncmp(const char *s1, const char *s2, size_t n)
     return 0;
 }
 
+char *k_strcat(char *dest, const char *src)
+{
+    char *d = dest;
+
+    // Move d to the end of the existing string
+    while (*d)
+        d++;
+
+    // Copy characters from src (including '\0')
+    while ((*d++ = *src++))
+        ;
+
+    return dest;
+}
+
 char *k_strcpy(char *dest, const char *src)
 {
     char *d = dest;

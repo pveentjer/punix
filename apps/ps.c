@@ -300,7 +300,7 @@ int main(int argc, char **argv)
                 char fullpath[LINE_MAX];
                 build_bin_path(fullpath, sizeof(fullpath), cmd_argv[0]);
 
-                pid_t pid = sched_add_task(fullpath, cmd_argc, cmd_argv);
+                pid_t pid = sched_add_task(fullpath, cmd_argc, cmd_argv, -1);
                 if (pid < 0)
                 {
                     printf("Failed to create task\n");

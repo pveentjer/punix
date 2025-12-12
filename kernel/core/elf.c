@@ -4,6 +4,8 @@
 #include "../../include/kernel/kutils.h"  // (you can drop this duplicate if you want)
 
 /* ELF binary symbols from objcopy */
+extern unsigned char _binary_init_elf_start[];
+extern unsigned char _binary_init_elf_end[];
 extern unsigned char _binary_sh_elf_start[];
 extern unsigned char _binary_sh_elf_end[];
 extern unsigned char _binary_loop_elf_start[];
@@ -23,6 +25,7 @@ extern unsigned char _binary_cat_elf_end[];
 
 
 const struct embedded_app embedded_apps[] = {
+        {"/sbin/init",       _binary_init_elf_start,        _binary_init_elf_end},
         {"/bin/sh",          _binary_sh_elf_start,          _binary_sh_elf_end},
         {"/bin/loop",        _binary_loop_elf_start,        _binary_loop_elf_end},
         {"/bin/ps",          _binary_ps_elf_start,          _binary_ps_elf_end},

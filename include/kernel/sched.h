@@ -9,6 +9,9 @@
 typedef int pid_t;
 typedef uint32_t sigset_t;
 
+/* forward declaration to avoid circular include */
+struct tty;
+
 struct task
 {
     pid_t pid;           // 0
@@ -31,6 +34,8 @@ struct task
     struct files files;
 
     sigset_t pending_signals;
+
+    struct tty *ctty;
 };
 
 /* Task table - must be defined before struct scheduler */
@@ -82,7 +87,7 @@ struct task *sched_current(void);
 
 void sched_init(void);
 
-pid_t sched_add_task(const char *filename, int argc, char **argv);
+pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id);
 
 pid_t sched_fork(void);
 

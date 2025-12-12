@@ -15,13 +15,9 @@
 #define KEYBOARD_IRQ_VECTOR  0x09
 #define KEYBOARD_IRQ_MASK    (1u << 1)
 
-/* ------------------------------------------------------------------
- * Scancode constants (PS/2 Set 1)
- * ------------------------------------------------------------------ */
 #define SC_EXTENDED               0xE0
 #define SCANCODE_RELEASE_MASK     0x80
 
-/* Modifiers */
 #define SC_LSHIFT                 0x2A
 #define SC_RSHIFT                 0x36
 
@@ -29,17 +25,14 @@
 
 #define SC_LALT                   0x38
 
-/* Extended (0xE0-prefixed) modifiers */
 #define SC_RCTRL                  0x1D
 #define SC_RALT                   0x38
 
-/* Arrow keys (extended) */
 #define SC_ARROW_UP               0x48
 #define SC_ARROW_DOWN             0x50
 #define SC_ARROW_LEFT             0x4B
 #define SC_ARROW_RIGHT            0x4D
 
-/* Function keys (non-extended) */
 #define SC_F1                     0x3B
 #define SC_F2                     0x3C
 #define SC_F3                     0x3D
@@ -346,7 +339,7 @@ void keyboard_interrupt_handler(void)
 }
 
 /* ------------------------------------------------------------------
- * ISR stub (assembly wrapper)
+ * ISR stub
  * ------------------------------------------------------------------ */
 __attribute__((naked))
 void keyboard_isr(void)

@@ -300,9 +300,9 @@ pid_t waitpid(pid_t pid, int *status, int options)
     return kapi()->sys_waitpid(pid, status, options);
 }
 
-pid_t sched_add_task(const char *filename, int argc, char **argv)
+pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
 {
-    return kapi()->sys_add_task(filename, argc, argv);
+    return kapi()->sys_add_task(filename, argc, argv, tty_id);
 }
 
 pid_t fork(void)

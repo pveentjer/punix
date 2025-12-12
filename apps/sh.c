@@ -341,7 +341,7 @@ int main(int argc, char **argv)
                     filename = fullpath;
                 }
 
-                pid_t pid = sched_add_task(filename, cmd_argc, cmd_argv);
+                pid_t pid = sched_add_task(filename, cmd_argc, cmd_argv, -1);
                 if (pid < 0)
                     printf("Failed to create task\n");
                 else

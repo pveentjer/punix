@@ -120,7 +120,7 @@ int main(int argc, char **argv)
     printf("[pid %d] scheduling child %s --count %s\n",
            current_pid, argv[0], next_count_str);
 
-    sched_add_task(argv[0], 3, child_args);
+    sched_add_task(argv[0], 3, child_args, -1);
 
     printf("[pid %d] spawned child, exiting.\n", current_pid);
     return 0;

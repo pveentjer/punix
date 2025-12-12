@@ -29,7 +29,7 @@ struct kernel_api
                       char *const argv[],
                       char *const envp[]);
 
-    pid_t (*sys_add_task)(const char *filename, int argc, char **argv);
+    pid_t (*sys_add_task)(const char *filename, int argc, char **argv, int tty_id);
 
     pid_t (*sys_waitpid)(pid_t pid, int *status, int options);
 

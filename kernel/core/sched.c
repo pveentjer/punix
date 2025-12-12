@@ -104,11 +104,17 @@ void sched_exit(int status)
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
+    struct task *current = sched_current();
+
+    int fd_stdin = vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
+    int fd_stdout = vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
+    int fd_stderr = vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
+
     int status = entry(argc, argv);
     sched_exit(status);
 }
 
-pid_t sched_add_task(const char *filename, int argc, char **argv)
+pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
 {
     const struct embedded_app *app = find_app(filename);
     if (!app)
@@ -127,6 +133,36 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
 
     task->pending_signals = 0;
 
+    struct tty *ctty = NULL;
+
+    if (tty_id >= 0)
+    {
+        if ((size_t)tty_id >= TTY_COUNT)
+        {
+            // todo: task mem leak
+            return -1;  /* invalid TTY id */
+        }
+        ctty = tty_get((size_t)tty_id);
+
+        if (ctty == NULL)
+        {
+            // todo: task mem leak
+            return -1;
+        }
+    }
+    else if (sched.current && sched.current->ctty)
+    {
+        /* inherit parent’s controlling terminal */
+        ctty = sched.current->ctty;
+    }
+    else
+    {
+        /* first task / no parent: use current active TTY */
+        ctty = tty_active();
+    }
+
+    task->ctty = ctty;
+
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
 
@@ -142,15 +178,7 @@ pid_t sched_add_task(const char *filename, int argc, char **argv)
         return -1;
     }
 
-    int fd_stdin = vfs_open(&vfs, task, "/dev/stdin", O_RDONLY, 0);
-    int fd_stdout = vfs_open(&vfs, task, "/dev/stdout", O_WRONLY, 0);
-    int fd_stderr = vfs_open(&vfs, task, "/dev/stderr", O_WRONLY, 0);
-
-    struct file *f_stdin = files_find_by_fd(&task->files, fd_stdin);
-    struct file *f_stdout = files_find_by_fd(&task->files, fd_stdout);
-    struct file *f_stderr = files_find_by_fd(&task->files, fd_stderr);
-
-    uint32_t main_addr = elf_info.entry;
+       uint32_t main_addr = elf_info.entry;
 
     uint32_t stack_top = align_up(task->mem_base + elf_info.size + 0x1000, 16);
 
