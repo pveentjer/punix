@@ -88,33 +88,12 @@ void sched_exit(int status)
     struct task *current = sched.current;
     if (current == NULL)
     {
-        panic("exit failed because there is no current task.\n");
+        panic("sched_exit:exit failed because there is no current task.\n");
     }
-
-    // A copy of the current needs to be made because it is needed
-    // for the context switch at the end, but we want to return the
-    // struct to the slots before that.
-    struct task copy_current = *current;
 
     task_table_free(&sched.task_table, current);
-
-    struct task *next = run_queue_poll(&sched.run_queue);
-
-    if (next == NULL)
-    {
-        sched.current = NULL;
-
-        kprintf("Halted!\n");
-        for (;;)
-        {
-            __asm__ volatile("hlt");
-        }
-    }
-    else
-    {
-        sched.current = next;
-        task_context_switch(&copy_current, next);
-    }
+    sched.current = NULL;
+    sched_schedule();
 }
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
