@@ -148,8 +148,9 @@ int vfs_open(
     // Call filesystem-specific open if it exists
     if (fs->open != NULL)
     {
-        int result = fs->open(file);
-        if (result < 0)
+        int rc = fs->open(file);
+
+        if (rc < 0)
         {
             files_free_fd(&task->files, fd);
             vfs_free_file(vfs, file);

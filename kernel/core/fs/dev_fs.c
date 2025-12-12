@@ -6,7 +6,7 @@
 #include "kernel/console.h"
 #include "kernel/tty.h"
 #include "kernel/constants.h"
-#include "kernel/sched.h"   // <-- NEEDED so we can use sched_current()
+#include "kernel/sched.h"
 
 static ssize_t dev_read(
         struct file *file,
@@ -57,10 +57,10 @@ static int dev_getdents(
     unsigned int max_entries = count / sizeof(struct dirent);
     unsigned int idx = 0;
 
-    fs_add_entry(buf, max_entries, &idx, 1,        DT_DIR, ".");
-    fs_add_entry(buf, max_entries, &idx, 2,        DT_DIR, "..");
+    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
+    fs_add_entry(buf, max_entries, &idx, 2, DT_DIR, "..");
 
-    fs_add_entry(buf, max_entries, &idx, FD_STDIN,  DT_CHR, "stdin");
+    fs_add_entry(buf, max_entries, &idx, FD_STDIN, DT_CHR, "stdin");
     fs_add_entry(buf, max_entries, &idx, FD_STDOUT, DT_CHR, "stdout");
     fs_add_entry(buf, max_entries, &idx, FD_STDERR, DT_CHR, "stderr");
 
@@ -75,13 +75,13 @@ static int dev_getdents(
         char name_buf[16];
 
         k_strcpy(name_buf, "tty");
-        k_itoa((int)i, num_buf);
+        k_itoa((int) i, num_buf);
         k_strcat(name_buf, num_buf);
 
-        fs_add_entry(buf, max_entries, &idx, (int)(100 + i), DT_CHR, name_buf);
+        fs_add_entry(buf, max_entries, &idx, (int) (100 + i), DT_CHR, name_buf);
     }
 
-    int size = (int)(idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
     file->pos += size;
     return size;
 }
@@ -92,6 +92,12 @@ int dev_open(
     if ((file == NULL) || (file->pathname == NULL))
     {
         return -1;
+    }
+
+    if ((k_strcmp(file->pathname, "/dev") == 0) ||
+        (k_strcmp(file->pathname, "/dev/") == 0))
+    {
+        return 0;
     }
 
     const char *name = k_strrchr(file->pathname, '/');
@@ -142,12 +148,12 @@ int dev_open(
             p++;
         }
 
-        if (idx < 0 || (size_t)idx >= TTY_COUNT)
+        if (idx < 0 || (size_t) idx >= TTY_COUNT)
         {
             return -1;
         }
 
-        file->tty = tty_get((size_t)idx);
+        file->tty = tty_get((size_t) idx);
         return 0;
     }
 
