@@ -85,7 +85,6 @@ void sched_enqueue(struct task *task)
 
 void sched_exit(int status)
 {
-
     struct task *current = sched.current;
     if (current == NULL)
     {

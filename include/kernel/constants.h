@@ -37,7 +37,7 @@
 #define INT_MAX  2147483647
 #define INT_MIN (-INT_MAX - 1)
 
-#define TTY_COUNT             2u
+#define TTY_COUNT             5u
 #define TTY_INPUT_BUF_SIZE    256u
 #define TTY_OUTPUT_BUF_SIZE   4096u
 
