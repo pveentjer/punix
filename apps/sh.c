@@ -39,7 +39,7 @@ static void load_bin_entries(void)
         return;
     }
 
-    char buf[512];
+    char buf[4096];
     ssize_t nread;
 
     while ((nread = getdents(fd, (struct dirent *) buf, sizeof(buf))) > 0)
@@ -65,16 +65,12 @@ static void load_bin_entries(void)
             }
 
             if (d->d_reclen == 0)
-            {
-                /* kernel bug guard; avoid infinite loop */
                 break;
-            }
             offset += d->d_reclen;
         }
     }
 
     close(fd);
-
     printf("Loaded %d programs from /bin\n", bin_count);
 }
 
@@ -162,46 +158,61 @@ static int is_in_bin(const char *name)
     for (int i = 0; i < bin_count; i++)
     {
         if (strcmp(bin_entries[i], name) == 0)
+        {
             return 1;
+        }
     }
     return 0;
 }
 
 /* ------------------------------------------------------------------
- * Build "/bin/<name>" into dst without snprintf
- * dst_size includes space for terminating NUL.
+ * Resolve command name to full path in-place
  * ------------------------------------------------------------------ */
-static void build_bin_path(char *dst, size_t dst_size, const char *name)
+static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
 {
-    const char *prefix = "/bin/";
-    size_t plen = strlen(prefix);
-    size_t nlen = strlen(name);
-
-    if (dst_size == 0)
+    if (!cmd || dst_size == 0)
     {
+        if (dst_size > 0) dst[0] = '\0';
         return;
     }
 
-    /* copy prefix */
-    size_t to_copy = plen;
-    if (to_copy >= dst_size)
+    /* if cmd starts with '/', already absolute */
+    if (cmd[0] == '/')
     {
-        to_copy = dst_size - 1;
-    }
-    memcpy(dst, prefix, to_copy);
-
-    size_t pos = to_copy;
-
-    /* copy name (possibly truncated) */
-    if (pos < dst_size - 1)
-    {
-        size_t remaining = dst_size - 1 - pos;
-        size_t name_copy = (nlen > remaining) ? remaining : nlen;
-        memcpy(dst + pos, name, name_copy);
-        pos += name_copy;
+        size_t len = strlen(cmd);
+        if (len >= dst_size) len = dst_size - 1;
+        memcpy(dst, cmd, len);
+        dst[len] = '\0';
+        return;
     }
 
-    dst[pos] = '\0';
+    /* try /bin/<cmd> */
+    if (is_in_bin(cmd))
+    {
+        const char *prefix = "/bin/";
+        size_t plen = strlen(prefix);
+        size_t nlen = strlen(cmd);
+
+        size_t to_copy = plen;
+        if (to_copy >= dst_size) to_copy = dst_size - 1;
+        memcpy(dst, prefix, to_copy);
+
+        if (to_copy < dst_size - 1)
+        {
+            size_t remaining = dst_size - 1 - to_copy;
+            size_t name_copy = (nlen > remaining) ? remaining : nlen;
+            memcpy(dst + to_copy, cmd, name_copy);
+            to_copy += name_copy;
+        }
+        dst[to_copy] = '\0';
+        return;
+    }
+
+    /* not found, copy as-is */
+    size_t len = strlen(cmd);
+    if (len >= dst_size) len = dst_size - 1;
+    memcpy(dst, cmd, len);
+    dst[len] = '\0';
 }
 
 /* ------------------------------------------------------------------
@@ -215,7 +226,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-//    load_bin_entries();
+    load_bin_entries();
 
     char line[LINE_MAX];
     size_t len = 0;
@@ -288,12 +299,10 @@ int main(int argc, char **argv)
 
                 while (*p && cmd_argc < 15)
                 {
-                    while (*p == ' ')
-                    { p++; }
+                    while (*p == ' ') p++;
                     if (!*p) break;
                     cmd_argv[cmd_argc++] = p;
-                    while (*p && *p != ' ')
-                    { p++; }
+                    while (*p && *p != ' ') p++;
                     if (*p) *p++ = '\0';
                 }
                 cmd_argv[cmd_argc] = NULL;
@@ -305,8 +314,7 @@ int main(int argc, char **argv)
 
                 /* background: trailing & */
                 int background = 0;
-                if (cmd_argc > 0 &&
-                    strcmp(cmd_argv[cmd_argc - 1], "&") == 0)
+                if (cmd_argc > 0 && strcmp(cmd_argv[cmd_argc - 1], "&") == 0)
                 {
                     background = 1;
                     cmd_argv[cmd_argc - 1] = NULL;
@@ -314,53 +322,16 @@ int main(int argc, char **argv)
 
                     if (cmd_argc == 0)
                     {
-                        /* line was just "&" */
                         state = STATE_PROMPT;
                         break;
                     }
                 }
 
-                /* built-in: echo */
-                if (strcmp(cmd_argv[0], "echo") == 0)
-                {
-                    if (cmd_argc == 1)
-                    {
-                        printf("\n");
-                    }
-                    else
-                    {
-                        for (int i = 1; i < cmd_argc; i++)
-                        {
-                            if (strcmp(cmd_argv[i], "$!") == 0)
-                            {
-                                if (last_pid < 0)
-                                    printf("no last pid");
-                                else
-                                    printf("%d", last_pid);
-                            }
-                            else
-                            {
-                                printf("%s", cmd_argv[i]);
-                            }
-                            if (i < cmd_argc - 1) printf(" ");
-                        }
-                        printf("\n");
-                    }
-                    state = STATE_PROMPT;
-                    break;
-                }
+                /* resolve command to full path */
+                static char fullpath[LINE_MAX];
+                resolve_full_path(fullpath, sizeof(fullpath), cmd_argv[0]);
 
-                /* external command */
-                const char *filename = cmd_argv[0];
-                char fullpath[LINE_MAX];
-
-                if (is_in_bin(filename))
-                {
-                    build_bin_path(fullpath, sizeof(fullpath), filename);
-                    filename = fullpath;
-                }
-
-                pid_t pid = sched_add_task(filename, cmd_argc, cmd_argv, -1);
+                pid_t pid = sched_add_task(fullpath, cmd_argc, cmd_argv, -1);
                 if (pid < 0)
                 {
                     printf("Failed to create task\n");
@@ -374,10 +345,7 @@ int main(int argc, char **argv)
                         int status = 0;
                         pid_t res = waitpid(pid, &status, 0);
                         if (res < 0)
-                        {
-                            printf("waitpid failed for pid %d\n", (int)pid);
-                        }
-                        /* you can later inspect/print status */
+                            printf("waitpid failed for pid %d\n", (int) pid);
                     }
                 }
 

@@ -144,6 +144,7 @@ add_app(test_args)
 add_app(spawn_chain)
 add_app(kill)
 add_app(cat)
+add_app(echo)
 
 # ------------------------------------------------------------
 # Kernel ELF target
@@ -160,6 +161,7 @@ add_executable(kernel.elf
         ${spawn_chain_OBJ}
         ${kill_OBJ}
         ${cat_OBJ}
+        ${echo_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

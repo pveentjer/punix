@@ -22,7 +22,8 @@ extern unsigned char _binary_ls_elf_start[];
 extern unsigned char _binary_ls_elf_end[];
 extern unsigned char _binary_cat_elf_start[];
 extern unsigned char _binary_cat_elf_end[];
-
+extern unsigned char _binary_echo_elf_start[];
+extern unsigned char _binary_echo_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
         {"/sbin/init",       _binary_init_elf_start,        _binary_init_elf_end},
@@ -34,6 +35,7 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/kill",        _binary_kill_elf_start,        _binary_kill_elf_end},
         {"/bin/ls",          _binary_ls_elf_start,          _binary_ls_elf_end},
         {"/bin/cat",         _binary_cat_elf_start,         _binary_cat_elf_end},
+        {"/bin/echo",        _binary_echo_elf_start,        _binary_echo_elf_end},
 };
 
 const size_t embedded_app_count =
