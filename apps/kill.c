@@ -135,8 +135,8 @@ int main(int argc, char **argv)
             continue;
         }
 
-        int rc = kill(pid, sig);
-        if (rc < 0)
+        int res = kill(pid, sig);
+        if (res < 0)
         {
             printf("kill: failed to send signal %d to pid %d\n", sig, pid);
             exit_status = 1;

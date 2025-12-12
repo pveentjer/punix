@@ -372,8 +372,8 @@ int main(int argc, char **argv)
                     if (!background)
                     {
                         int status = 0;
-                        pid_t rc = waitpid(pid, &status, 0);
-                        if (rc < 0)
+                        pid_t res = waitpid(pid, &status, 0);
+                        if (res < 0)
                         {
                             printf("waitpid failed for pid %d\n", (int)pid);
                         }

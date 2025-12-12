@@ -92,12 +92,16 @@ static int32_t parse_named_args(int argc, char **argv, uint32_t *out_count)
 int main(int argc, char **argv)
 {
     uint32_t count = 0;
-    int rc = parse_named_args(argc, argv, &count);
+    int res = parse_named_args(argc, argv, &count);
 
-    if (rc > 0)  // help shown
+    if (res > 0)
+    {
         return 0;
-    if (rc < 0)
+    }
+    else if (res < 0)
+    {
         return 1;
+    }
 
     int current_pid = getpid();
     printf("[pid %d] count=%u\n", current_pid, count);
