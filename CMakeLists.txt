@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Munix C ASM)
+project(PUnix C ASM)
 
 # ------------------------------------------------------------
 # Tool detection
