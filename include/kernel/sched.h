@@ -47,6 +47,8 @@ struct task
     enum sched_state state;
 
     uint64_t ctxt;
+
+    uint32_t brk;
 };
 
 /* Task table - must be defined before struct scheduler */

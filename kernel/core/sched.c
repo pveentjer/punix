@@ -14,7 +14,6 @@ int task_context_switch(
         struct task *next);
 
 
-
 /* ---------------- Run queue ---------------- */
 
 void run_queue_init(struct run_queue *rq)
@@ -129,134 +128,123 @@ void task_init_tty(struct task *task, int tty_id)
 }
 
 
-void task_init_context(char *const *argv,
-                       char *const *envp,
-                       struct task *task,
-                       uint32_t main_addr,
-                       uint32_t environ_addr,
-                       uint32_t program_size)
+/* ------------------------------------------------------------
+ * task_init_args
+ *
+ * Copies argv[] into the process heap starting at task->brk.
+ * ------------------------------------------------------------ */
+static char **task_init_args(struct task *task, char **argv, int *argc_out)
 {
-    uint32_t stack_top = align_up(task->mem_base + program_size + 0x1000, 16);
-    char *sp = (char *) stack_top;
-
-    /* ------------------------------------------------------------
-     * 1. Count arguments and environment entries
-     * ------------------------------------------------------------ */
     int argc = 0;
-    while (argv && argv[argc] != NULL) {
+    while (argv && argv[argc] != NULL)
+    {
         argc++;
     }
 
+    /* Reserve space for argv pointer array */
+    char **heap_argv = (char **) task->brk;
+    task->brk += sizeof(char *) * (argc + 1);
+
+    /* Copy each string */
+    for (int i = 0; i < argc; i++)
+    {
+        size_t len = k_strlen(argv[i]) + 1;  // include '\0'
+        char *dst = (char *) task->brk;
+        k_memcpy(dst, argv[i], len);
+        heap_argv[i] = dst;
+        task->brk += len;
+    }
+
+    heap_argv[argc] = NULL;
+
+    if (argc_out)
+    {
+        *argc_out = argc;
+    }
+
+    return heap_argv;
+}
+
+/* ------------------------------------------------------------
+ * task_init_env
+ *
+ * Copies envp[] into the process heap starting at task->brk and
+ * sets the ELF 'environ' symbol if present.
+ * ------------------------------------------------------------ */
+static char **task_init_env(struct task *task,
+                            char **envp,
+                            uint32_t environ_addr)
+{
     int envc = 0;
-    while (envp && envp[envc] != NULL) {
+    while (envp && envp[envc] != NULL)
+    {
         envc++;
     }
 
-    /* ------------------------------------------------------------
-     * 2. Copy argument strings and environment strings
-     * ------------------------------------------------------------ */
-    // Copy environment strings first (so they end up above argv strings)
-    for (int i = envc - 1; i >= 0; i--) {
-        size_t len = 0;
-        while (envp[i][len]) {
-            len++;
-        }
-        len++; // include '\0'
+    /* Reserve space for envp pointer array */
+    char **heap_envp = (char **) task->brk;
+    task->brk += sizeof(char *) * (envc + 1);
 
-        sp -= len;
-        for (size_t j = 0; j < len; j++) {
-            sp[j] = envp[i][j];
-        }
+    /* Copy each string */
+    for (int i = 0; i < envc; i++)
+    {
+        size_t len = k_strlen(envp[i]) + 1;  // include '\0'
+        char *dst = (char *) task->brk;
+        k_memcpy(dst, envp[i], len);
+        heap_envp[i] = dst;
+        task->brk += len;
     }
 
-    // Then copy argv strings
-    for (int i = argc - 1; i >= 0; i--) {
-        size_t len = 0;
-        while (argv[i][len]) {
-            len++;
-        }
-        len++; // include '\0'
+    heap_envp[envc] = NULL;
 
-        sp -= len;
-        for (size_t j = 0; j < len; j++) {
-            sp[j] = argv[i][j];
-        }
-    }
-
-    // Align stack down to 4 bytes
-    sp = (char *)((uint32_t)sp & ~3u);
-    uint32_t *sp32 = (uint32_t *)sp;
-
-    /* ------------------------------------------------------------
-     * 3. Build envp[] array (NULL-terminated)
-     * ------------------------------------------------------------ */
-    *(--sp32) = 0;  // NULL terminator
-
-    char *str_ptr = (char *)stack_top;
-    for (int i = envc - 1; i >= 0; i--) {
-        size_t len = 0;
-        while (envp[i][len]) {
-            len++;
-        }
-        len++;
-        str_ptr -= len;
-        *(--sp32) = (uint32_t)str_ptr;
-    }
-    char **new_envp = (char **)sp32;
-
-    /* ------------------------------------------------------------
-     * 4. Build argv[] array (NULL-terminated)
-     * ------------------------------------------------------------ */
-    *(--sp32) = 0;  // NULL terminator
-
-    // Continue walking downward through argv region
-    for (int i = argc - 1; i >= 0; i--) {
-        size_t len = 0;
-        while (argv[i][len]) {
-            len++;
-        }
-        len++;
-        str_ptr -= len;
-        *(--sp32) = (uint32_t)str_ptr;
-    }
-    char **new_argv = (char **)sp32;
-
-    // set the environ global variable
+    /* Initialize program's global 'environ' if present */
     if (environ_addr != 0)
     {
-        // Convert relative offset to absolute memory address
-        uint32_t absolute_environ_addr = task->mem_base + environ_addr;
-
-        char ***environ_ptr = (char ***)absolute_environ_addr;
-        *environ_ptr = new_envp;
+        uint32_t absoluteEnvironAddr = task->mem_base + environ_addr;
+        char ***environPtr = (char ***) absoluteEnvironAddr;
+        *environPtr = heap_envp;
     }
 
-    /* ------------------------------------------------------------
-     * 5. Push initial frame for task_trampoline
-     * ------------------------------------------------------------ */
-    *(--sp32) = (uint32_t)new_envp;   // envp
-    *(--sp32) = (uint32_t)new_argv;   // argv
-    *(--sp32) = (uint32_t)argc;       // argc
-    *(--sp32) = main_addr;            // program entry
-    *(--sp32) = 0;                    // dummy
-    *(--sp32) = (uint32_t)task_trampoline;  // return address
-    *(--sp32) = 0x202;                // EFLAGS IF=1
-    *(--sp32) = 0;                    // EAX
-    *(--sp32) = 0;                    // ECX
-    *(--sp32) = 0;                    // EDX
-    *(--sp32) = 0;                    // EBX
+    return heap_envp;
+}
 
-    task->esp = (uint32_t)sp32;
-    task->eip = (uint32_t)task_trampoline;
+/* ------------------------------------------------------------
+ * prepare_initial_stack
+ * ------------------------------------------------------------ */
+static void prepare_initial_stack(struct task *task,
+                                  uint32_t stackTop,
+                                  uint32_t main_addr,
+                                  int argc,
+                                  char **heap_argv,
+                                  char **heap_envp)
+{
+    uint32_t *sp32 = (uint32_t *) stackTop;
+
+    *(--sp32) = (uint32_t) heap_envp;        // envp
+    *(--sp32) = (uint32_t) heap_argv;        // argv
+    *(--sp32) = (uint32_t) argc;             // argc
+    *(--sp32) = main_addr;                   // program entry
+    *(--sp32) = 0;                           // dummy
+    *(--sp32) = (uint32_t) task_trampoline;  // return address
+    *(--sp32) = 0x202;                       // EFLAGS IF=1
+    *(--sp32) = 0;                           // EAX
+    *(--sp32) = 0;                           // ECX
+    *(--sp32) = 0;                           // EDX
+    *(--sp32) = 0;                           // EBX
+
+    task->esp = (uint32_t) sp32;
+    task->eip = (uint32_t) task_trampoline;
     task->eflags = 0x202;
 }
 
-
+/* ------------------------------------------------------------
+ * task_new
+ * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
     if (tty_id >= (int) TTY_COUNT)
     {
-        kprintf("task_new: to high tty %d for binary %s\n", tty_id, filename);
+        kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
         return NULL;
     }
 
@@ -268,7 +256,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     }
 
     struct task *task = task_table_alloc(&sched.task_table);
-    if (task == NULL)
+    if (!task)
     {
         kprintf("task_new: failed to allocate task for %s\n", filename);
         return NULL;
@@ -281,14 +269,12 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->parent = sched.current ? sched.current : task;
     task_init_tty(task, tty_id);
 
+    /* Load ELF */
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
 
-    uint8_t *p = (uint8_t *) image;
-
     struct elf_info elf_info;
-    int res = elf_load(image, image_size, task->mem_base, &elf_info);
-    if (res < 0)
+    if (elf_load(image, image_size, task->mem_base, &elf_info) < 0)
     {
         task_table_free(&sched.task_table, task);
         kprintf("task_new: Failed to load the binary %s\n", filename);
@@ -296,13 +282,32 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     }
 
     uint32_t main_addr = elf_info.entry;
-    uint32_t program_size = elf_info.size;
     uint32_t environ_addr = elf_info.environ_addr;
-    task_init_context(argv, envp, task, main_addr, environ_addr, program_size);
+
+    uint32_t region_end = task->mem_base + PROCESS_SIZE;
+    uint32_t stackTop = align_down(region_end, 16);
+
+    uint32_t program_end = task->mem_base + elf_info.max_offset;
+    task->brk = align_up(program_end, 16);
+
+    if (task->brk >= stackTop)
+    {
+        kprintf("task_new: not enough space between program and stack for %s\n",
+                filename);
+        task_table_free(&sched.task_table, task);
+        return NULL;
+    }
+
+    int argc = 0;
+    char **heap_argv = task_init_args(task, argv, &argc);
+    char **heap_envp = task_init_env(task, envp, environ_addr);
+
+    prepare_initial_stack(task, stackTop, main_addr, argc, heap_argv, heap_envp);
+
     return task;
 }
 
-pid_t sched_add_task(const char *filename, int tty_id, char **argv,char **envp)
+pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
     struct task *task = task_new(filename, tty_id, argv, envp);
     if (!task)
