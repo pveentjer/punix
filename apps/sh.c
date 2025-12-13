@@ -3,6 +3,8 @@
 #include "../include/kernel/fcntl.h"
 #include "../include/kernel/dirent.h"
 
+extern char **environ;
+
 enum cli_state
 {
     STATE_PROMPT,
@@ -13,6 +15,9 @@ enum cli_state
 #define LINE_MAX        128
 #define HISTORY_MAX     30
 #define MAX_NAME_LEN    64
+#define MAX_VARS        64
+#define MAX_VAR_NAME    64
+#define MAX_VAR_VALUE   256
 
 /* shell PID */
 static pid_t shell_pid = 0;
@@ -27,6 +32,128 @@ static int last_exit_status = 0;
 static char history[HISTORY_MAX][LINE_MAX];
 static int history_size = 0;
 static int history_pos = 0;
+
+/* shell variables */
+struct shell_var {
+    char name[MAX_VAR_NAME];
+    char value[MAX_VAR_VALUE];
+    int exported;  /* 1 if should be in environment */
+};
+
+static struct shell_var variables[MAX_VARS];
+static int var_count = 0;
+
+/* ------------------------------------------------------------------
+ * Variable management
+ * ------------------------------------------------------------------ */
+static int find_variable(const char *name)
+{
+    for (int i = 0; i < var_count; i++)
+    {
+        if (strcmp(variables[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+static void set_variable(const char *name, const char *value, int exported)
+{
+    int idx = find_variable(name);
+
+    if (idx >= 0)
+    {
+        /* update existing */
+        strncpy(variables[idx].value, value, MAX_VAR_VALUE - 1);
+        variables[idx].value[MAX_VAR_VALUE - 1] = '\0';
+        if (exported)
+            variables[idx].exported = 1;
+    }
+    else
+    {
+        /* add new */
+        if (var_count >= MAX_VARS)
+        {
+            printf("Too many variables\n");
+            return;
+        }
+
+        strncpy(variables[var_count].name, name, MAX_VAR_NAME - 1);
+        variables[var_count].name[MAX_VAR_NAME - 1] = '\0';
+        strncpy(variables[var_count].value, value, MAX_VAR_VALUE - 1);
+        variables[var_count].value[MAX_VAR_VALUE - 1] = '\0';
+        variables[var_count].exported = exported;
+        var_count++;
+    }
+}
+
+static const char *get_variable(const char *name)
+{
+    int idx = find_variable(name);
+    if (idx >= 0)
+        return variables[idx].value;
+    return NULL;
+}
+
+static void unset_variable(const char *name)
+{
+    int idx = find_variable(name);
+    if (idx >= 0)
+    {
+        /* shift remaining variables down */
+        for (int i = idx; i < var_count - 1; i++)
+        {
+            variables[i] = variables[i + 1];
+        }
+        var_count--;
+    }
+}
+
+static void export_variable(const char *name)
+{
+    int idx = find_variable(name);
+    if (idx >= 0)
+    {
+        variables[idx].exported = 1;
+    }
+}
+
+/* ------------------------------------------------------------------
+ * Build environment array for child processes
+ * ------------------------------------------------------------------ */
+static char *envp_storage[MAX_VARS + 1];
+static char envp_strings[MAX_VARS][MAX_VAR_NAME + MAX_VAR_VALUE + 2];
+
+static char **build_environment(void)
+{
+    int env_idx = 0;
+
+    for (int i = 0; i < var_count && env_idx < MAX_VARS; i++)
+    {
+        if (variables[i].exported)
+        {
+            /* format: NAME=VALUE */
+            int offset = 0;
+            const char *name = variables[i].name;
+            const char *value = variables[i].value;
+
+            while (*name && offset < MAX_VAR_NAME + MAX_VAR_VALUE)
+                envp_strings[env_idx][offset++] = *name++;
+
+            if (offset < MAX_VAR_NAME + MAX_VAR_VALUE)
+                envp_strings[env_idx][offset++] = '=';
+
+            while (*value && offset < MAX_VAR_NAME + MAX_VAR_VALUE)
+                envp_strings[env_idx][offset++] = *value++;
+
+            envp_strings[env_idx][offset] = '\0';
+            envp_storage[env_idx] = envp_strings[env_idx];
+            env_idx++;
+        }
+    }
+
+    envp_storage[env_idx] = NULL;
+    return envp_storage;
+}
 
 /* ------------------------------------------------------------------
  * Search /bin for a command
@@ -240,7 +367,7 @@ static void int_to_str(int n, char *buf, int buf_size)
 }
 
 /* ------------------------------------------------------------------
- * Expand variables ($?, $$, $!) in a string
+ * Expand variables ($VAR, $?, $$, $!) in a string
  * ------------------------------------------------------------------ */
 static void expand_variables(char *str)
 {
@@ -284,6 +411,33 @@ static void expand_variables(char *str)
                     *dst++ = *p;
 
                 src += 2;
+            }
+            else if ((src[1] >= 'A' && src[1] <= 'Z') ||
+                     (src[1] >= 'a' && src[1] <= 'z') ||
+                     src[1] == '_')
+            {
+                /* $VAR - variable expansion */
+                char varname[MAX_VAR_NAME];
+                int vlen = 0;
+                src++; /* skip $ */
+
+                while ((*src >= 'A' && *src <= 'Z') ||
+                       (*src >= 'a' && *src <= 'z') ||
+                       (*src >= '0' && *src <= '9') ||
+                       *src == '_')
+                {
+                    if (vlen < MAX_VAR_NAME - 1)
+                        varname[vlen++] = *src;
+                    src++;
+                }
+                varname[vlen] = '\0';
+
+                const char *value = get_variable(varname);
+                if (value)
+                {
+                    for (const char *p = value; *p && (dst - buf) < LINE_MAX - 1; p++)
+                        *dst++ = *p;
+                }
             }
             else
             {
@@ -346,6 +500,203 @@ static int parse_arguments(char *line, char **argv, int max_args)
 }
 
 /* ------------------------------------------------------------------
+ * Check if line is a variable assignment (VAR=value)
+ * Returns 1 if assignment, 0 otherwise
+ * ------------------------------------------------------------------ */
+static int parse_assignment(const char *arg, char *name, char *value)
+{
+    const char *eq = strchr(arg, '=');
+    if (!eq || eq == arg)
+        return 0;
+
+    /* check that everything before = is a valid variable name */
+    for (const char *p = arg; p < eq; p++)
+    {
+        if (!((*p >= 'A' && *p <= 'Z') ||
+              (*p >= 'a' && *p <= 'z') ||
+              (*p >= '0' && *p <= '9') ||
+              *p == '_'))
+        {
+            return 0;
+        }
+
+        /* first char can't be a digit */
+        if (p == arg && *p >= '0' && *p <= '9')
+            return 0;
+    }
+
+    /* extract name and value */
+    int nlen = eq - arg;
+    if (nlen >= MAX_VAR_NAME)
+        nlen = MAX_VAR_NAME - 1;
+    memcpy(name, arg, nlen);
+    name[nlen] = '\0';
+
+    const char *val_start = eq + 1;
+    int vlen = strlen(val_start);
+    if (vlen >= MAX_VAR_VALUE)
+        vlen = MAX_VAR_VALUE - 1;
+    memcpy(value, val_start, vlen);
+    value[vlen] = '\0';
+
+    return 1;
+}
+
+/* ------------------------------------------------------------------
+ * Load environment variables from parent process
+ * ------------------------------------------------------------------ */
+static void load_environment(char **envp)
+{
+    if (!envp)
+        return;
+
+    for (int i = 0; envp[i] != NULL && var_count < MAX_VARS; i++)
+    {
+        char *env_entry = envp[i];
+        char *eq = strchr(env_entry, '=');
+
+        if (!eq || eq == env_entry)
+            continue;
+
+        char name[MAX_VAR_NAME];
+        char value[MAX_VAR_VALUE];
+
+        /* extract name */
+        int nlen = eq - env_entry;
+        if (nlen >= MAX_VAR_NAME)
+            nlen = MAX_VAR_NAME - 1;
+        memcpy(name, env_entry, nlen);
+        name[nlen] = '\0';
+
+        /* extract value */
+        const char *val_start = eq + 1;
+        int vlen = strlen(val_start);
+        if (vlen >= MAX_VAR_VALUE)
+            vlen = MAX_VAR_VALUE - 1;
+        memcpy(value, val_start, vlen);
+        value[vlen] = '\0';
+
+        /* add as exported variable */
+        set_variable(name, value, 1);
+    }
+}
+
+/* ------------------------------------------------------------------
+ * Built-in commands
+ * ------------------------------------------------------------------ */
+static int handle_builtin(int argc, char **argv)
+{
+    if (strcmp(argv[0], "set") == 0)
+    {
+        /* show all variables */
+        for (int i = 0; i < var_count; i++)
+        {
+            printf("%s=%s", variables[i].name, variables[i].value);
+            if (variables[i].exported)
+                printf(" [exported]");
+            printf("\n");
+        }
+        last_exit_status = 0;
+        return 1;
+    }
+
+    if (strcmp(argv[0], "env") == 0 || strcmp(argv[0], "printenv") == 0)
+    {
+        /* show exported variables only */
+        if (argc > 1)
+        {
+            /* printenv VAR - show specific variable */
+            const char *value = get_variable(argv[1]);
+            if (value)
+            {
+                int idx = find_variable(argv[1]);
+                if (idx >= 0 && variables[idx].exported)
+                {
+                    printf("%s\n", value);
+                    last_exit_status = 0;
+                }
+                else
+                {
+                    last_exit_status = 1;
+                }
+            }
+            else
+            {
+                last_exit_status = 1;
+            }
+        }
+        else
+        {
+            /* show all exported */
+            for (int i = 0; i < var_count; i++)
+            {
+                if (variables[i].exported)
+                {
+                    printf("%s=%s\n", variables[i].name, variables[i].value);
+                }
+            }
+            last_exit_status = 0;
+        }
+        return 1;
+    }
+
+    if (strcmp(argv[0], "export") == 0)
+    {
+        if (argc < 2)
+        {
+            /* export with no args shows exported variables */
+            for (int i = 0; i < var_count; i++)
+            {
+                if (variables[i].exported)
+                {
+                    printf("export %s=%s\n", variables[i].name, variables[i].value);
+                }
+            }
+            last_exit_status = 0;
+            return 1;
+        }
+
+        for (int i = 1; i < argc; i++)
+        {
+            char name[MAX_VAR_NAME];
+            char value[MAX_VAR_VALUE];
+
+            if (parse_assignment(argv[i], name, value))
+            {
+                /* export VAR=value */
+                set_variable(name, value, 1);
+            }
+            else
+            {
+                /* export VAR - mark existing variable as exported */
+                export_variable(argv[i]);
+            }
+        }
+        last_exit_status = 0;
+        return 1;
+    }
+
+    if (strcmp(argv[0], "unset") == 0)
+    {
+        if (argc < 2)
+        {
+            printf("unset: missing variable name\n");
+            last_exit_status = 1;
+            return 1;
+        }
+
+        for (int i = 1; i < argc; i++)
+        {
+            unset_variable(argv[i]);
+        }
+        last_exit_status = 0;
+        return 1;
+    }
+
+    return 0; /* not a builtin */
+}
+
+/* ------------------------------------------------------------------
  * main shell
  * ------------------------------------------------------------------ */
 int main(int argc, char **argv)
@@ -357,6 +708,17 @@ int main(int argc, char **argv)
     }
 
     shell_pid = getpid();
+
+    /* load environment variables from parent */
+    load_environment(environ);
+
+    /* set default variables if not already set */
+    if (find_variable("PATH") < 0)
+        set_variable("PATH", "/bin", 1);
+    if (find_variable("HOME") < 0)
+        set_variable("HOME", "/", 1);
+    if (find_variable("SHELL") < 0)
+        set_variable("SHELL", "/bin/shell", 1);
 
     char line[LINE_MAX];
     size_t len = 0;
@@ -437,6 +799,43 @@ int main(int argc, char **argv)
                     break;
                 }
 
+                /* check for variable assignments before expanding */
+                int first_non_assignment = 0;
+                for (int i = 0; i < cmd_argc; i++)
+                {
+                    char name[MAX_VAR_NAME];
+                    char value[MAX_VAR_VALUE];
+
+                    if (parse_assignment(cmd_argv[i], name, value))
+                    {
+                        set_variable(name, value, 0);
+                        first_non_assignment = i + 1;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                /* if entire line was assignments, we're done */
+                if (first_non_assignment >= cmd_argc)
+                {
+                    last_exit_status = 0;
+                    state = STATE_PROMPT;
+                    break;
+                }
+
+                /* shift argv to remove assignments */
+                if (first_non_assignment > 0)
+                {
+                    for (int i = 0; i < cmd_argc - first_non_assignment; i++)
+                    {
+                        cmd_argv[i] = cmd_argv[i + first_non_assignment];
+                    }
+                    cmd_argc -= first_non_assignment;
+                    cmd_argv[cmd_argc] = NULL;
+                }
+
                 /* expand variables in all arguments */
                 for (int i = 0; i < cmd_argc; i++)
                 {
@@ -458,11 +857,20 @@ int main(int argc, char **argv)
                     }
                 }
 
+                /* check for built-in commands */
+                if (handle_builtin(cmd_argc, cmd_argv))
+                {
+                    state = STATE_PROMPT;
+                    break;
+                }
+
                 /* resolve command to full path */
                 static char fullpath[LINE_MAX];
                 resolve_full_path(fullpath, sizeof(fullpath), cmd_argv[0]);
 
-                pid_t pid = sched_add_task(fullpath, cmd_argc, cmd_argv, -1);
+                char **child_envp = build_environment();
+
+                pid_t pid = sched_add_task(fullpath, -1, cmd_argv, child_envp);
                 if (pid < 0)
                 {
                     printf("Failed to create task\n");

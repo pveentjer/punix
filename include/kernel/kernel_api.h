@@ -25,11 +25,9 @@ struct kernel_api
 
     int (*sys_nice)(int inc);
 
-    int (*sys_execve)(const char *pathname,
-                      char *const argv[],
-                      char *const envp[]);
+    int (*sys_execve)(const char *pathname,char *const argv[],char *const envp[]);
 
-    pid_t (*sys_add_task)(const char *filename, int argc, char **argv, int tty_id);
+    pid_t (*sys_add_task)(const char *filename, int tty_id, char **argv, char **envp);
 
     pid_t (*sys_waitpid)(pid_t pid, int *status, int options);
 

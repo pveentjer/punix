@@ -84,7 +84,6 @@ size_t tty_read(
         return 0u;
     }
 
-
     size_t available = tty->in_head - tty->in_tail;
 
     while (available == 0)

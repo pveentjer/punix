@@ -102,10 +102,14 @@ static void sys_exit(int status)
     sched_exit(status);
 }
 
-static pid_t sys_add_task(const char *filename, int argc, char **argv, int tty_id)
+static pid_t sys_add_task(
+        const char *filename,
+        int tty_id,
+        char **argv,
+        char **envp)
 {
     sched_schedule();
-    return sched_add_task(filename, argc, argv, tty_id);
+    return sched_add_task(filename, tty_id, argv, envp);
 }
 
 static pid_t sys_fork(void)

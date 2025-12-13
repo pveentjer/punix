@@ -26,6 +26,8 @@ extern unsigned char _binary_cat_elf_start[];
 extern unsigned char _binary_cat_elf_end[];
 extern unsigned char _binary_echo_elf_start[];
 extern unsigned char _binary_echo_elf_end[];
+extern unsigned char _binary_print_env_elf_start[];
+extern unsigned char _binary_print_env_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
         {"/sbin/swapper",    _binary_swapper_elf_start,     _binary_swapper_elf_end},
@@ -39,6 +41,7 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/ls",          _binary_ls_elf_start,          _binary_ls_elf_end},
         {"/bin/cat",         _binary_cat_elf_start,         _binary_cat_elf_end},
         {"/bin/echo",        _binary_echo_elf_start,        _binary_echo_elf_end},
+        {"/bin/print_env",   _binary_print_env_elf_start,   _binary_print_env_elf_end},
 };
 
 const size_t embedded_app_count =
@@ -62,9 +65,9 @@ static void fill_dirent_from_app(struct dirent *de,
                                  const struct embedded_app *app,
                                  uint32_t ino)
 {
-    de->d_ino    = ino;
+    de->d_ino = ino;
     de->d_reclen = (uint16_t) sizeof(struct dirent);
-    de->d_type   = DT_REG;
+    de->d_type = DT_REG;
 
     /* Strip any leading path: "/bin/ls" -> "ls" */
     const char *name = app->name;
@@ -92,15 +95,15 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
     for (size_t i = 0; i < embedded_app_count && idx < max_entries; ++i)
     {
         fill_dirent_from_app(&buf[idx], &embedded_apps[i],
-                             (uint32_t)(i + 1));  // fake inode
+                             (uint32_t) (i + 1));  // fake inode
         idx++;
     }
 
-    return (int)idx;
+    return (int) idx;
 }
 
 /* --------------------------------------------------------------------
- * ELF loader with relocation fixups
+ * ELF loader with relocation fixups and symbol table parsing
  * -------------------------------------------------------------------- */
 
 int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
@@ -153,6 +156,58 @@ int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info
         out->entry = load_base + eh->e_entry;
         out->max_offset = max_end;       // still in "process space"
         out->size = total_copied;
+        out->environ_addr = 0;  // default to 0 if not found
+    }
+
+    // Parse symbol table to find 'environ'
+    if (eh->e_shoff != 0 && eh->e_shnum > 0 && out)
+    {
+        const Elf32_Shdr *sh = (const Elf32_Shdr *) ((uintptr_t) image + eh->e_shoff);
+
+        const Elf32_Shdr *symtab = NULL;
+        const Elf32_Shdr *strtab = NULL;
+
+        // Find symbol table and its associated string table
+        for (int i = 0; i < eh->e_shnum; i++)
+        {
+            if (sh[i].sh_type == SHT_SYMTAB)
+            {
+                symtab = &sh[i];
+                // sh_link points to the string table for this symbol table
+                if (sh[i].sh_link < eh->e_shnum)
+                {
+                    strtab = &sh[sh[i].sh_link];
+                }
+                break;
+            }
+        }
+
+        // If we found both symbol table and string table, search for 'environ'
+        if (symtab && strtab && symtab->sh_entsize >= sizeof(Elf32_Sym))
+        {
+            const Elf32_Sym *symbols =
+                    (const Elf32_Sym *) ((uintptr_t) image + symtab->sh_offset);
+            const char *strings =
+                    (const char *) ((uintptr_t) image + strtab->sh_offset);
+
+            uint32_t sym_count = symtab->sh_size / symtab->sh_entsize;
+
+            for (uint32_t i = 0; i < sym_count; i++)
+            {
+                // Check if symbol name index is valid
+                if (symbols[i].st_name < strtab->sh_size)
+                {
+                    const char *sym_name = strings + symbols[i].st_name;
+
+                    if (k_strcmp(sym_name, "environ") == 0)
+                    {
+                        // Found it! Calculate absolute address
+                        out->environ_addr = symbols[i].st_value;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     return 0;

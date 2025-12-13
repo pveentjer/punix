@@ -121,10 +121,14 @@ int main(int argc, char **argv)
             NULL
     };
 
+    char *child_envp[] = {
+            NULL
+    };
+
     printf("[pid %d] scheduling child %s --count %s\n",
            current_pid, argv[0], next_count_str);
 
-    sched_add_task(argv[0], 3, child_args, -1);
+    sched_add_task(argv[0], -1, child_args, child_envp);
 
     printf("[pid %d] spawned child, exiting.\n", current_pid);
     return 0;

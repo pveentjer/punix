@@ -13,12 +13,7 @@ int task_context_switch(
         struct task *current,
         struct task *next);
 
-void task_init_context(
-        int argc,
-        char *const *argv,
-        struct task *task,
-        uint32_t main_addr,
-        uint32_t program_size);
+
 
 /* ---------------- Run queue ---------------- */
 
@@ -134,69 +129,130 @@ void task_init_tty(struct task *task, int tty_id)
 }
 
 
-void task_init_context(int argc,
-                       char *const *argv,
+void task_init_context(char *const *argv,
+                       char *const *envp,
                        struct task *task,
                        uint32_t main_addr,
+                       uint32_t environ_addr,
                        uint32_t program_size)
 {
     uint32_t stack_top = align_up(task->mem_base + program_size + 0x1000, 16);
-
     char *sp = (char *) stack_top;
 
-    // Copy strings onto stack, remember start position
-    char *strings_start = sp;
-    for (int i = argc - 1; i >= 0; i--)
-    {
+    /* ------------------------------------------------------------
+     * 1. Count arguments and environment entries
+     * ------------------------------------------------------------ */
+    int argc = 0;
+    while (argv && argv[argc] != NULL) {
+        argc++;
+    }
+
+    int envc = 0;
+    while (envp && envp[envc] != NULL) {
+        envc++;
+    }
+
+    /* ------------------------------------------------------------
+     * 2. Copy argument strings and environment strings
+     * ------------------------------------------------------------ */
+    // Copy environment strings first (so they end up above argv strings)
+    for (int i = envc - 1; i >= 0; i--) {
         size_t len = 0;
-        while (argv[i][len])
-        {
+        while (envp[i][len]) {
             len++;
         }
-        len++;
+        len++; // include '\0'
 
         sp -= len;
-        for (size_t j = 0; j < len; j++)
-        {
+        for (size_t j = 0; j < len; j++) {
+            sp[j] = envp[i][j];
+        }
+    }
+
+    // Then copy argv strings
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = 0;
+        while (argv[i][len]) {
+            len++;
+        }
+        len++; // include '\0'
+
+        sp -= len;
+        for (size_t j = 0; j < len; j++) {
             sp[j] = argv[i][j];
         }
     }
 
-    // Align
-    sp = (char *) ((uint32_t) sp & ~3);
-    uint32_t *sp32 = (uint32_t *) sp;
+    // Align stack down to 4 bytes
+    sp = (char *)((uint32_t)sp & ~3u);
+    uint32_t *sp32 = (uint32_t *)sp;
 
-    // Build argv slots - walk through strings again
-    *(--sp32) = 0;
-    char *str_ptr = (char *) stack_top;
-    for (int i = argc - 1; i >= 0; i--)
-    {
+    /* ------------------------------------------------------------
+     * 3. Build envp[] array (NULL-terminated)
+     * ------------------------------------------------------------ */
+    *(--sp32) = 0;  // NULL terminator
+
+    char *str_ptr = (char *)stack_top;
+    for (int i = envc - 1; i >= 0; i--) {
         size_t len = 0;
-        while (argv[i][len])
-        { len++; }
+        while (envp[i][len]) {
+            len++;
+        }
         len++;
         str_ptr -= len;
-        *(--sp32) = (uint32_t) str_ptr;
+        *(--sp32) = (uint32_t)str_ptr;
     }
-    char **new_argv = (char **) sp32;
+    char **new_envp = (char **)sp32;
 
-    *(--sp32) = (uint32_t) new_argv;
-    *(--sp32) = (uint32_t) argc;
-    *(--sp32) = main_addr;
-    *(--sp32) = 0;
-    *(--sp32) = (uint32_t) task_trampoline;
-    *(--sp32) = 0x202;
-    *(--sp32) = 0;
-    *(--sp32) = 0;
-    *(--sp32) = 0;
-    *(--sp32) = 0;
+    /* ------------------------------------------------------------
+     * 4. Build argv[] array (NULL-terminated)
+     * ------------------------------------------------------------ */
+    *(--sp32) = 0;  // NULL terminator
 
-    task->esp = (uint32_t) sp32;
-    task->eip = (uint32_t) task_trampoline;
+    // Continue walking downward through argv region
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = 0;
+        while (argv[i][len]) {
+            len++;
+        }
+        len++;
+        str_ptr -= len;
+        *(--sp32) = (uint32_t)str_ptr;
+    }
+    char **new_argv = (char **)sp32;
+
+    // set the environ global variable
+    if (environ_addr != 0)
+    {
+        // Convert relative offset to absolute memory address
+        uint32_t absolute_environ_addr = task->mem_base + environ_addr;
+
+        char ***environ_ptr = (char ***)absolute_environ_addr;
+        *environ_ptr = new_envp;
+    }
+
+    /* ------------------------------------------------------------
+     * 5. Push initial frame for task_trampoline
+     * ------------------------------------------------------------ */
+    *(--sp32) = (uint32_t)new_envp;   // envp
+    *(--sp32) = (uint32_t)new_argv;   // argv
+    *(--sp32) = (uint32_t)argc;       // argc
+    *(--sp32) = main_addr;            // program entry
+    *(--sp32) = 0;                    // dummy
+    *(--sp32) = (uint32_t)task_trampoline;  // return address
+    *(--sp32) = 0x202;                // EFLAGS IF=1
+    *(--sp32) = 0;                    // EAX
+    *(--sp32) = 0;                    // ECX
+    *(--sp32) = 0;                    // EDX
+    *(--sp32) = 0;                    // EBX
+
+    task->esp = (uint32_t)sp32;
+    task->eip = (uint32_t)task_trampoline;
     task->eflags = 0x202;
 }
 
-struct task *task_new(const char *filename, int argc, char **argv, int tty_id)
+
+struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
     if (tty_id >= (int) TTY_COUNT)
     {
@@ -241,13 +297,14 @@ struct task *task_new(const char *filename, int argc, char **argv, int tty_id)
 
     uint32_t main_addr = elf_info.entry;
     uint32_t program_size = elf_info.size;
-    task_init_context(argc, argv, task, main_addr, program_size);
+    uint32_t environ_addr = elf_info.environ_addr;
+    task_init_context(argv, envp, task, main_addr, environ_addr, program_size);
     return task;
 }
 
-pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
+pid_t sched_add_task(const char *filename, int tty_id, char **argv,char **envp)
 {
-    struct task *task = task_new(filename, argc, argv, tty_id);
+    struct task *task = task_new(filename, tty_id, argv, envp);
     if (!task)
     {
         return -1;
@@ -355,12 +412,12 @@ void sched_init(void)
 
     console_clear(&kconsole);
     char *argv[] = {"/sbin/swapper", NULL};
+    char *envp[] = {NULL};
 
     const char *filename = "/sbin/swapper";
-    int argc = 1;
     int tty_id = 0;
 
-    sched.swapper = task_new(filename, argc, argv, tty_id);
+    sched.swapper = task_new(filename, tty_id, argv, envp);
     if (!sched.swapper)
     {
         panic("sched_init: failed to allocate a task for the swapper\n");

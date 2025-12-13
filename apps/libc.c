@@ -34,7 +34,36 @@ size_t strlen(const char *s)
 }
 
 
-#include <stddef.h>
+char **environ = NULL;
+
+char *getenv(const char *name)
+{
+    if (name == NULL || *name == '\0' || strchr(name, '=') != NULL)
+    {
+        return NULL;
+    }
+
+    size_t len = strlen(name);
+
+    for (char **env = environ; *env != NULL; env++)
+    {
+        if (strncmp(*env, name, len) == 0 && (*env)[len] == '=')
+        {
+            return *env + len + 1;
+        }
+    }
+
+    return NULL;
+}
+
+char *strchr(const char *s, int c) {
+    while (*s != (char)c) {
+        if (*s == '\0')
+            return NULL;
+        s++;
+    }
+    return (char *)s;
+}
 
 char *strncpy(char *dest, const char *src, size_t n)
 {
@@ -60,12 +89,14 @@ char *strcat(char *dest, const char *src)
     char *d = dest;
 
     /* Move to the end of dest */
-    while (*d) {
+    while (*d)
+    {
         d++;
     }
 
     /* Copy src including the null terminator */
-    while ((*d++ = *src++) != '\0') {
+    while ((*d++ = *src++) != '\0')
+    {
         /* empty */
     }
 
@@ -317,9 +348,9 @@ pid_t waitpid(pid_t pid, int *status, int options)
     return kapi()->sys_waitpid(pid, status, options);
 }
 
-pid_t sched_add_task(const char *filename, int argc, char **argv, int tty_id)
+pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
-    return kapi()->sys_add_task(filename, argc, argv, tty_id);
+    return kapi()->sys_add_task(filename, tty_id, argv, envp);
 }
 
 pid_t fork(void)
