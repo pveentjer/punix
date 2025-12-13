@@ -206,6 +206,39 @@ static void tty_keyboard_handler(
             return;
         }
     }
+
+    /* Map arrow keys to ANSI escape sequences so user programs (shell)
+    * see them as ESC [ A/B/C/D.
+    */
+    switch (code)
+    {
+        case KEY_UP:
+            tty_input_put(active, 0x1b); // ESC
+            tty_input_put(active, '[');
+            tty_input_put(active, 'A');
+            return;
+
+        case KEY_DOWN:
+            tty_input_put(active, 0x1b);
+            tty_input_put(active, '[');
+            tty_input_put(active, 'B');
+            return;
+
+        case KEY_RIGHT:
+            tty_input_put(active, 0x1b);
+            tty_input_put(active, '[');
+            tty_input_put(active, 'C');
+            return;
+
+        case KEY_LEFT:
+            tty_input_put(active, 0x1b);
+            tty_input_put(active, '[');
+            tty_input_put(active, 'D');
+            return;
+
+        default:
+            break;
+    }
 }
 
 void tty_system_init(void)
