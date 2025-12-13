@@ -158,7 +158,7 @@ int sys_brk(void *addr)
         return -1;
     }
 
-    uint32_t new_brk = (uint32_t)addr;
+    uint32_t new_brk = (uint32_t) addr;
 
     if (new_brk >= task->mem_end)
     {
@@ -169,6 +169,12 @@ int sys_brk(void *addr)
     return 0;
 }
 
+
+int sys_chdir(const char *path){
+    sched_schedule();
+
+    return -ENOSYS;
+}
 
 /* ------------------------------------------------------------
  * Exported API instance in its own section
@@ -191,4 +197,5 @@ const struct kernel_api kernel_api_instance = {
         .sys_getdents   = sys_getdents,
         .sys_waitpid    = sys_waitpid,
         .sys_brk        = sys_brk,
+        .sys_chdir      = sys_chdir,
 };

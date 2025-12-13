@@ -38,6 +38,8 @@ struct kernel_api
     int (*sys_getdents)(int fd, struct dirent *buf, unsigned int count);
 
     int (*sys_brk)(void *addr);
+
+    int (*sys_chdir)(const char *path);
 };
 
 /* 1 MiB base where the kernel header lives */

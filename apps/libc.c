@@ -380,6 +380,11 @@ int getdents(int fd, struct dirent *buf, unsigned int count)
     return kapi()->sys_getdents(fd, buf, count);
 }
 
+int chdir(const char *path)
+{
+    return kapi()->sys_chdir(path);
+}
+
 // This value is initialized by the kernel
 void *__curbrk = 0;
 

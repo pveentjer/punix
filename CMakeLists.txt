@@ -149,6 +149,7 @@ add_app(echo)
 add_app(swapper)
 add_app(print_env)
 add_app(tty)
+add_app(cd)
 
 # ------------------------------------------------------------
 # Kernel ELF target
@@ -169,6 +170,7 @@ add_executable(kernel.elf
         ${swapper_OBJ}
         ${print_env_OBJ}
         ${tty_OBJ}
+        ${cd_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

@@ -41,6 +41,8 @@ void *sys_sbrk(intptr_t increment);
 
 int sys_brk(void *addr);
 
+int chdir(const char *path);
+
 void *memcpy(void *dest, const void *src, size_t n);
 
 // libc helpers
