@@ -47,7 +47,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    struct dirent entries[64];
+    struct dirent entries[256];
 
     /* Our current kernel getdents always returns the full listing each time,
        so we only call it once. */

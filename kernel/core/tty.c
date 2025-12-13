@@ -86,6 +86,7 @@ size_t tty_read(
 
 
     size_t available = tty->in_head - tty->in_tail;
+
     while (available == 0)
     {
         struct task *task = sched_current();

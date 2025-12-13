@@ -91,7 +91,11 @@ void sched_exit(int status)
         panic("sched_exit:exit failed because there is no current task.\n");
     }
 
-    task_table_free(&sched.task_table, current);
+    if (current != sched.swapper)
+    {
+        task_table_free(&sched.task_table, current);
+    }
+
     sched.current = NULL;
     sched_schedule();
 }
@@ -331,8 +335,10 @@ void sched_schedule(void)
 }
 
 
-void sched_stat(struct sched_stat *stat){
-    if(stat == NULL){
+void sched_stat(struct sched_stat *stat)
+{
+    if (stat == NULL)
+    {
         return;
     }
 
