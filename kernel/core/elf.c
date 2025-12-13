@@ -185,7 +185,7 @@ int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info
             }
         }
 
-        // If we found both symbol table and string table, search for 'environ'
+        // If we found both symbol table and string table, search for 'environ' and '__curbrk'
         if (symtab && strtab && symtab->sh_entsize >= sizeof(Elf32_Sym))
         {
             const Elf32_Sym *symbols =
@@ -204,9 +204,11 @@ int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info
 
                     if (k_strcmp(sym_name, "environ") == 0)
                     {
-                        // Found it! Calculate absolute address
                         out->environ_addr = symbols[i].st_value;
-                        break;
+                    }
+                    else if (k_strcmp(sym_name, "__curbrk") == 0)
+                    {
+                        out->curbrk_addr = symbols[i].st_value;
                     }
                 }
             }

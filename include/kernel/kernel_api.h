@@ -25,7 +25,7 @@ struct kernel_api
 
     int (*sys_nice)(int inc);
 
-    int (*sys_execve)(const char *pathname,char *const argv[],char *const envp[]);
+    int (*sys_execve)(const char *pathname, char *const argv[], char *const envp[]);
 
     pid_t (*sys_add_task)(const char *filename, int tty_id, char **argv, char **envp);
 
@@ -36,6 +36,8 @@ struct kernel_api
     int (*sys_close)(int fd);
 
     int (*sys_getdents)(int fd, struct dirent *buf, unsigned int count);
+
+    int (*sys_brk)(void *addr);
 };
 
 /* 1 MiB base where the kernel header lives */

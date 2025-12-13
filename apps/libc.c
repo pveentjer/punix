@@ -56,13 +56,15 @@ char *getenv(const char *name)
     return NULL;
 }
 
-char *strchr(const char *s, int c) {
-    while (*s != (char)c) {
+char *strchr(const char *s, int c)
+{
+    while (*s != (char) c)
+    {
         if (*s == '\0')
             return NULL;
         s++;
     }
-    return (char *)s;
+    return (char *) s;
 }
 
 char *strncpy(char *dest, const char *src, size_t n)
@@ -376,4 +378,33 @@ int close(int fd)
 int getdents(int fd, struct dirent *buf, unsigned int count)
 {
     return kapi()->sys_getdents(fd, buf, count);
+}
+
+// This value is initialized by the kernel
+void *__curbrk = 0;
+
+int brk(void *addr)
+{
+    return kapi()->sys_brk(addr);
+}
+
+void *sbrk(intptr_t increment)
+{
+    void *old_brk = __curbrk;
+
+    if (increment != 0)
+    {
+        void *new_brk = (char *) old_brk + increment;
+
+        if (kapi()->sys_brk(new_brk) == 0)
+        {
+            __curbrk = new_brk;
+        }
+        else
+        {
+            return (void *) -1;
+        }
+    }
+
+    return old_brk;
 }

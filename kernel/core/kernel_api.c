@@ -150,6 +150,25 @@ static pid_t sys_waitpid(pid_t pid, int *status, int options)
     }
 }
 
+int sys_brk(void *addr)
+{
+    struct task *task = sched_current();
+    if (!task)
+    {
+        return -1;
+    }
+
+    uint32_t new_brk = (uint32_t)addr;
+
+    if (new_brk >= task->mem_end)
+    {
+        return -1;
+    }
+
+    task->brk = new_brk;
+    return 0;
+}
+
 
 /* ------------------------------------------------------------
  * Exported API instance in its own section
@@ -171,4 +190,5 @@ const struct kernel_api kernel_api_instance = {
         .sys_close      = sys_close,
         .sys_getdents   = sys_getdents,
         .sys_waitpid    = sys_waitpid,
+        .sys_brk        = sys_brk,
 };

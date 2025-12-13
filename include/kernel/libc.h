@@ -37,6 +37,10 @@ int nice(int inc);
 
 pid_t waitpid(pid_t pid, int *status, int options);
 
+void *sys_sbrk(intptr_t increment);
+
+int sys_brk(void *addr);
+
 void *memcpy(void *dest, const void *src, size_t n);
 
 // libc helpers

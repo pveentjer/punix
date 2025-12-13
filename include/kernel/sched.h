@@ -34,9 +34,13 @@ struct task
     struct task *next;   // 24 (after padding)
     struct task *parent; // 28
 
-    uint32_t mem_base;         // 32
+    // The start of the process memory (inclusive)
+    uint32_t mem_start;         // 32
 
-    char name[MAX_FILENAME_LEN]; // 36+
+    // The end of the process memory (exclusive)
+    uint32_t mem_end;
+
+    char name[MAX_FILENAME_LEN];
 
     struct files files;
 

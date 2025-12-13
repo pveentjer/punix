@@ -200,7 +200,7 @@ static char **task_init_env(struct task *task,
     /* Initialize program's global 'environ' if present */
     if (environ_addr != 0)
     {
-        uint32_t absoluteEnvironAddr = task->mem_base + environ_addr;
+        uint32_t absoluteEnvironAddr = task->mem_start + environ_addr;
         char ***environPtr = (char ***) absoluteEnvironAddr;
         *environPtr = heap_envp;
     }
@@ -274,7 +274,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     size_t image_size = (size_t) (app->end - app->start);
 
     struct elf_info elf_info;
-    if (elf_load(image, image_size, task->mem_base, &elf_info) < 0)
+    if (elf_load(image, image_size, task->mem_start, &elf_info) < 0)
     {
         task_table_free(&sched.task_table, task);
         kprintf("task_new: Failed to load the binary %s\n", filename);
@@ -284,10 +284,10 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     uint32_t main_addr = elf_info.entry;
     uint32_t environ_addr = elf_info.environ_addr;
 
-    uint32_t region_end = task->mem_base + PROCESS_SIZE;
+    uint32_t region_end = task->mem_start + PROCESS_SIZE;
     uint32_t stackTop = align_down(region_end, 16);
 
-    uint32_t program_end = task->mem_base + elf_info.max_offset;
+    uint32_t program_end = task->mem_start + elf_info.max_offset;
     task->brk = align_up(program_end, 16);
 
     if (task->brk >= stackTop)
@@ -301,6 +301,13 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     int argc = 0;
     char **heap_argv = task_init_args(task, argv, &argc);
     char **heap_envp = task_init_env(task, envp, environ_addr);
+
+    if (elf_info.curbrk_addr != 0)
+    {
+        uint32_t absoluteCurbrkAddr = task->mem_start + elf_info.curbrk_addr;
+        char **curbrk_ptr = (char **) absoluteCurbrkAddr;
+        *curbrk_ptr = (char *) task->brk;
+    }
 
     prepare_initial_stack(task, stackTop, main_addr, argc, heap_argv, heap_envp);
 

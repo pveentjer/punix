@@ -78,7 +78,7 @@ void gdt_init(void)
 
 /* ------------------------------------------------------------
  * Allocate a per-process stack/data segment.
- * base = process mem_base, size = region size (e.g. 1 MiB)
+ * base = process mem_start, size = region size (e.g. 1 MiB)
  * Returns selector to store in task->ss
  * ------------------------------------------------------------ */
 uint16_t gdt_alloc_stack_segment(uint32_t base, uint32_t size)

@@ -84,6 +84,7 @@ struct elf_info {
     uint32_t max_offset;     // highest p_vaddr + p_memsz in ELF
     uint32_t size;           // total bytes copied (optional)
     uint32_t environ_addr;   // address of environ variable (0 if not found)
+    uint32_t curbrk_addr;    // address of __curbrk variable (0 if not found)
 };
 
 
