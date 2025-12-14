@@ -172,8 +172,6 @@ int sys_brk(void *addr)
 
 int sys_chdir(const char *path)
 {
-    kprintf("sys_chdir %s\n", path);
-
     sched_schedule();
 
     if (path == NULL)
@@ -187,28 +185,23 @@ int sys_chdir(const char *path)
         return -1;
     }
 
-    /* For now only support absolute paths */
-    if (path[0] != '/')
-    {
-        return -1;
-    }
+    char resolved[MAX_FILENAME_LEN];
 
-    /* Optional: verify the path exists by opening it */
-    int fd = vfs_open(&vfs, current, path, 0, 0);
+    // Use VFS to resolve relative or absolute paths against current->cwd
+    vfs_resolve_path(current->cwd, path, resolved, sizeof(resolved));
+
+
+    // Optional check: try opening it (helps confirm existence)
+    int fd = vfs_open(&vfs, current, resolved, 0, 0);
     if (fd < 0)
     {
         return -1;
     }
     vfs_close(&vfs, current, fd);
 
-    /* Copy into task->cwd with bounds check */
-    size_t i = 0;
-    while (i + 1 < sizeof current->cwd && path[i] != '\0')
-    {
-        current->cwd[i] = path[i];
-        i++;
-    }
-    current->cwd[i] = '\0';
+    // Copy the resolved path into task->cwd safely
+    k_strncpy(current->cwd, resolved, sizeof(current->cwd));
+    current->cwd[sizeof(current->cwd) - 1] = '\0';
 
     return 0;
 }
@@ -230,8 +223,6 @@ char *sys_getcwd(char *buf, size_t size)
     }
 
     const char *src = current->cwd;
-
-    kprintf("sys_getcwd %s\n",current->cwd);
 
     /* Fallback if cwd is empty */
     if (src[0] == '\0')

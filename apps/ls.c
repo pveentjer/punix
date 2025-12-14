@@ -20,7 +20,7 @@ static void print_help(const char *prog)
 
 int main(int argc, char **argv)
 {
-    const char *path = "/";
+    const char *path = ".";
 
     if (argc == 2 && strcmp(argv[1], "--help") == 0)
     {
