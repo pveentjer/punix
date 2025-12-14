@@ -24,6 +24,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(BOOT_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/boot)
 set(KERNEL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
 set(APPS_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/apps)
+set(LIBS_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/libs)
 set(BUILD_DIR  ${CMAKE_CURRENT_BINARY_DIR})
 
 # ------------------------------------------------------------
@@ -99,7 +100,7 @@ add_custom_command(
 function(add_app name)
     add_executable(${name}.elf
             ${APPS_DIR}/${name}.c
-            ${APPS_DIR}/libc.c
+            ${LIBS_DIR}/libc.c
     )
 
     target_compile_options(${name}.elf PRIVATE
