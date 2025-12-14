@@ -268,6 +268,15 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->parent = sched.current ? sched.current : task;
     task_init_tty(task, tty_id);
 
+    if (task->parent)
+    {
+        k_strcpy(task->cwd, "/");
+    }
+    else
+    {
+        k_strcpy(task->cwd, sched.current->cwd);
+    }
+
     /* Load ELF */
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
