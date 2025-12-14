@@ -3,7 +3,7 @@ BITS 32
 
 section .text
 
-global task_context_switch
+global ctx_switch
 
 %define OFF_EIP  4
 %define OFF_ESP  8
@@ -11,9 +11,9 @@ global task_context_switch
              ; jump to task entry
 
 
-; int task_context_switch(struct task *prev, struct task *next);
+; int ctx_switch(struct task *prev, struct task *next);
 ; Switch from prev to next task
-task_context_switch:
+ctx_switch:
     ; Save callee-saved registers and flags
     pushfd
     push ebp

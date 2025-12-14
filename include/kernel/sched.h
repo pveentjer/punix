@@ -127,6 +127,6 @@ pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
-int task_context_switch(struct task *current, struct task *next);
+int ctx_switch(struct task *current, struct task *next);
 
 #endif // SCHED_H

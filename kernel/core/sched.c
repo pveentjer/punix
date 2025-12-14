@@ -9,7 +9,7 @@
 
 struct scheduler sched;
 
-int task_context_switch(
+int ctx_switch(
         struct task *current,
         struct task *next);
 
@@ -400,7 +400,7 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
-    task_context_switch(prev, next);
+    ctx_switch(prev, next);
 }
 
 
