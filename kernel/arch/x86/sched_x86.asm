@@ -4,7 +4,6 @@ BITS 32
 section .text
 
 global task_context_switch
-global task_prepare_new
 
 %define OFF_EIP  4
 %define OFF_ESP  8

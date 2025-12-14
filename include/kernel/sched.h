@@ -127,9 +127,6 @@ pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
-/* asm functions */
-void task_start(struct task *t);
-
 int task_context_switch(struct task *current, struct task *next);
 
 #endif // SCHED_H
