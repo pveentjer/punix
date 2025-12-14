@@ -106,12 +106,17 @@ function(add_app name)
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
             -fPIE
+            -fno-asynchronous-unwind-tables  # Remove .eh_frame
     )
 
     # Link as a PIE (no fixed -Ttext here)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
             -pie
+            -Wl,-z,max-page-size=0x1         # Disable page alignment padding
+            -Wl,-z,common-page-size=0x1      # Disable common page padding
+            -Wl,--build-id=none              # Remove build notes
+            -Wl,--strip-all                  # Strip debug symbols
     )
 
     set_target_properties(${name}.elf PROPERTIES
