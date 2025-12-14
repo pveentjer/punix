@@ -5,11 +5,9 @@ section .text
 
 global ctx_switch
 
-%define OFF_EIP  4
-%define OFF_ESP  8
-%define OFF_EBP 12
-             ; jump to task entry
-
+%define OFF_EIP  0
+%define OFF_ESP  4
+%define OFF_EBP  8
 
 ; int ctx_switch(struct task *prev, struct task *next);
 ; Switch from prev to next task

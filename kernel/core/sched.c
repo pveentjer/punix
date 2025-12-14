@@ -212,13 +212,13 @@ static char **task_init_env(struct task *task,
  * prepare_initial_stack
  * ------------------------------------------------------------ */
 static void prepare_initial_stack(struct task *task,
-                                  uint32_t stackTop,
+                                  uint32_t stack_top,
                                   uint32_t main_addr,
                                   int argc,
                                   char **heap_argv,
                                   char **heap_envp)
 {
-    uint32_t *sp32 = (uint32_t *) stackTop;
+    uint32_t *sp32 = (uint32_t *) stack_top;
 
     *(--sp32) = (uint32_t) heap_envp;        // envp
     *(--sp32) = (uint32_t) heap_argv;        // argv

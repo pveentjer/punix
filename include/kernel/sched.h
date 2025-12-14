@@ -21,21 +21,20 @@ enum sched_state
 
 struct task
 {
-    pid_t pid;           // 0
+    uint32_t eip;        // 0
+    uint32_t esp;        // 4
+    uint32_t ebp;        // 8
+    uint32_t eflags;     // 12
 
-    uint32_t eip;        // 4
-    uint32_t esp;        // 8
-    uint32_t ebp;        // 12
-    uint32_t eflags;     // 16
+    uint16_t ss;         // 16: stack segment selector
+    uint16_t _pad;       // 20: padding for alignment
 
-    uint16_t ss;         // 20: stack segment selector
-    uint16_t _pad;       // 22: padding for alignment
-
-    struct task *next;   // 24 (after padding)
-    struct task *parent; // 28
+    pid_t pid;
+    struct task *next;
+    struct task *parent;
 
     // The start of the process memory (inclusive)
-    uint32_t mem_start;         // 32
+    uint32_t mem_start;
 
     // The end of the process memory (exclusive)
     uint32_t mem_end;
