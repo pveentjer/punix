@@ -14,8 +14,6 @@ extern unsigned char _binary_loop_elf_start[];
 extern unsigned char _binary_loop_elf_end[];
 extern unsigned char _binary_ps_elf_start[];
 extern unsigned char _binary_ps_elf_end[];
-extern unsigned char _binary_test_args_elf_start[];
-extern unsigned char _binary_test_args_elf_end[];
 extern unsigned char _binary_spawn_chain_elf_start[];
 extern unsigned char _binary_spawn_chain_elf_end[];
 extern unsigned char _binary_kill_elf_start[];
@@ -39,7 +37,6 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/sh",          _binary_sh_elf_start,          _binary_sh_elf_end},
         {"/bin/loop",        _binary_loop_elf_start,        _binary_loop_elf_end},
         {"/bin/ps",          _binary_ps_elf_start,          _binary_ps_elf_end},
-        {"/bin/test_args",   _binary_test_args_elf_start,   _binary_test_args_elf_end},
         {"/bin/spawn_chain", _binary_spawn_chain_elf_start, _binary_spawn_chain_elf_end},
         {"/bin/kill",        _binary_kill_elf_start,        _binary_kill_elf_end},
         {"/bin/ls",          _binary_ls_elf_start,          _binary_ls_elf_end},
