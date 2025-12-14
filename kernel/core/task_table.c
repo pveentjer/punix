@@ -22,7 +22,9 @@ void task_table_init(struct task_table *task_table)
         slot->generation = 0;
 
         struct task *task = &slot->task;
+
         k_memset(task, 0, sizeof(struct task));
+
         task->pid = PID_NONE;
         task->mem_start = PROCESS_BASE + slot_idx * PROCESS_SIZE;
         task->mem_end = task->mem_start + PROCESS_SIZE;

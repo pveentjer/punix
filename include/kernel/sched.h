@@ -19,8 +19,7 @@ enum sched_state
     TASK_BLOCKED   /* sleeping / waiting for an event */
 };
 
-struct task
-{
+struct cpu_ctx{
     uint32_t eip;        // 0
     uint32_t esp;        // 4
     uint32_t ebp;        // 8
@@ -28,6 +27,12 @@ struct task
 
     uint16_t ss;         // 16: stack segment selector
     uint16_t _pad;       // 20: padding for alignment
+
+};
+
+struct task
+{
+    struct cpu_ctx cpu_ctx;
 
     pid_t pid;
     struct task *next;
@@ -126,6 +131,6 @@ pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
-int ctx_switch(struct task *current, struct task *next);
+int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
 #endif // SCHED_H

@@ -9,9 +9,7 @@
 
 struct scheduler sched;
 
-int ctx_switch(
-        struct task *current,
-        struct task *next);
+int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
 
 /* ---------------- Run queue ---------------- */
@@ -232,9 +230,10 @@ static void prepare_initial_stack(struct task *task,
     *(--sp32) = 0;                           // EDX
     *(--sp32) = 0;                           // EBX
 
-    task->esp = (uint32_t) sp32;
-    task->eip = (uint32_t) task_trampoline;
-    task->eflags = 0x202;
+    struct cpu_ctx *cpu_ctx = &task->cpu_ctx;
+    cpu_ctx->esp = (uint32_t) sp32;
+    cpu_ctx->eip = (uint32_t) task_trampoline;
+    cpu_ctx->eflags = 0x202;
 }
 
 /* ------------------------------------------------------------
@@ -400,7 +399,7 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
-    ctx_switch(prev, next);
+    ctx_switch(&prev->cpu_ctx, &next->cpu_ctx);
 }
 
 
