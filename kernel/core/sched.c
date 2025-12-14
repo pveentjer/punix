@@ -318,7 +318,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
 void task_init_cwd(struct task *task)
 {
-    if (task->parent)
+    if (task->parent == task)
     {
         k_strcpy(task->cwd, "/");
     }
