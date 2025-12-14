@@ -12,6 +12,8 @@ struct scheduler sched;
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
 
+void task_init_cwd(struct task *task);
+
 /* ---------------- Run queue ---------------- */
 
 void run_queue_init(struct run_queue *rq)
@@ -267,15 +269,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->state = TASK_QUEUED;
     task->parent = sched.current ? sched.current : task;
     task_init_tty(task, tty_id);
-
-    if (task->parent)
-    {
-        k_strcpy(task->cwd, "/");
-    }
-    else
-    {
-        k_strcpy(task->cwd, sched.current->cwd);
-    }
+    task_init_cwd(task);
 
     /* Load ELF */
     const void *image = app->start;
@@ -320,6 +314,18 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     prepare_initial_stack(task, stackTop, main_addr, argc, heap_argv, heap_envp);
 
     return task;
+}
+
+void task_init_cwd(struct task *task)
+{
+    if (task->parent)
+    {
+        k_strcpy(task->cwd, "/");
+    }
+    else
+    {
+        k_strcpy(task->cwd, sched.current->cwd);
+    }
 }
 
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
