@@ -3,6 +3,10 @@ To check out musl
 git submodule add git://git.musl-libc.org/musl musl
 git submodule update --init --recursive
 
+First time build:
+
+cmake -B build
+
 To build and run the kernel
 
 cmake --build build --target clean && cmake --build build --target run
