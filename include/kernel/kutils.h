@@ -20,6 +20,8 @@ char *k_strcat(char *dest, const char *src);
 
 char* k_strcpy(char *dest, const char *src);
 
+char *k_strncpy(char *dest, const char *src, size_t n);
+
 char *k_strrchr(const char *str, int c);
 
 void k_itoa(int value, char *str);
