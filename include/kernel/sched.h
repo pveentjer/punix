@@ -9,7 +9,6 @@
 typedef int pid_t;
 typedef uint32_t sigset_t;
 
-/* forward declaration to avoid circular include */
 struct tty;
 
 enum sched_state
@@ -24,10 +23,7 @@ struct cpu_ctx{
     uint32_t esp;        // 4
     uint32_t ebp;        // 8
     uint32_t eflags;     // 12
-
     uint16_t ss;         // 16: stack segment selector
-    uint16_t _pad;       // 20: padding for alignment
-
 };
 
 struct task
@@ -54,6 +50,7 @@ struct task
 
     enum sched_state state;
 
+    // The number of context switches.
     uint64_t ctxt;
 
     uint32_t brk;

@@ -9,8 +9,8 @@ global ctx_switch
 %define OFF_ESP  4
 %define OFF_EBP  8
 
-; int ctx_switch(struct task *prev, struct task *next);
-; Switch from prev to next task
+; int ctx_switch(struct cpu_ctx *prev, struct cpu_ctx *next);
+; Switch from prev to next cpu_ctx
 ctx_switch:
     ; Save callee-saved registers and flags
     pushfd
