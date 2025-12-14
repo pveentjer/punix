@@ -102,25 +102,34 @@ function(add_app name)
             ${APPS_DIR}/libc.c
     )
 
-    # Compile as 32-bit, freestanding, *position-independent* code
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
             -fPIE
-            -fno-asynchronous-unwind-tables  # Remove .eh_frame
+            -fno-asynchronous-unwind-tables
     )
 
-    # Link as a PIE (no fixed -Ttext here)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
             -pie
-            -Wl,-z,max-page-size=0x1         # Disable page alignment padding
-            -Wl,-z,common-page-size=0x1      # Disable common page padding
-            -Wl,--build-id=none              # Remove build notes
-            -Wl,--strip-all                  # Strip debug symbols
+            -Wl,-z,max-page-size=0x1
+            -Wl,-z,common-page-size=0x1
+            -Wl,--build-id=none
+            -Wl,--strip-all
+            -Wl,--no-dynamic-linker
+            -nostartfiles
     )
 
     set_target_properties(${name}.elf PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR}
+    )
+
+    # Strip section headers and unnecessary sections after build
+    add_custom_command(TARGET ${name}.elf POST_BUILD
+            COMMAND ${CMAKE_STRIP} --strip-all ${BUILD_DIR}/${name}.elf
+            COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.comment ${BUILD_DIR}/${name}.elf
+            COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.note.gnu.property ${BUILD_DIR}/${name}.elf
+            COMMAND ${OBJCOPY_EXECUTABLE} -R .shstrtab -R .strtab ${BUILD_DIR}/${name}.elf
+            COMMENT "Stripping ${name}.elf"
     )
 
     add_custom_command(
