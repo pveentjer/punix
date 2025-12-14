@@ -34,6 +34,8 @@ struct task
     struct task *next;
     struct task *parent;
 
+    char cwd[MAX_FILENAME_LEN];
+
     // The start of the process memory (inclusive)
     uint32_t mem_start;
 
