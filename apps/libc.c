@@ -385,6 +385,11 @@ int chdir(const char *path)
     return kapi()->sys_chdir(path);
 }
 
+char *getcwd(char *buf, size_t size)
+{
+    return kapi()->sys_getcwd(buf, size);
+}
+
 // This value is initialized by the kernel
 void *__curbrk = 0;
 

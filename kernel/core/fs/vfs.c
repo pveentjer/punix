@@ -4,7 +4,8 @@
 #include "kernel/kutils.h"
 #include "kernel/console.h"
 
-#define VFS_RING_MASK (MAX_FILE_CNT - 1)
+#define VFS_RING_MASK     (MAX_FILE_CNT - 1)
+#define VFS_MAX_SEGMENTS  64
 
 // External filesystem declarations
 extern struct fs root_fs;
@@ -106,6 +107,252 @@ void vfs_free_file(
     vfs->free_tail++;
 }
 
+/* ------------------------------------------------------------
+ * Path normalization
+ *
+ * Input: absolute path or best-effort string in 'path'
+ * Output: normalized absolute path in-place:
+ *   - ensures leading '/'
+ *   - collapses multiple '/'
+ *   - resolves '.' and '..'
+ *   - strips trailing '/' except for root
+ * ------------------------------------------------------------ */
+static void vfs_normalize_path(
+        char *path,
+        size_t buf_size)
+{
+    if (!path || buf_size == 0)
+    {
+        return;
+    }
+
+    if (path[0] == '\0')
+    {
+        path[0] = '/';
+        if (buf_size > 1)
+        {
+            path[1] = '\0';
+        }
+        return;
+    }
+
+    /* Ensure leading '/' */
+    if (path[0] != '/')
+    {
+        size_t len = k_strlen(path);
+        if (len + 1 >= buf_size)
+        {
+            if (buf_size < 2)
+            {
+                return;
+            }
+            len = buf_size - 2;
+        }
+
+        /* Shift right by one, including '\0' */
+        for (size_t i = len + 1; i > 0; i--)
+        {
+            path[i] = path[i - 1];
+        }
+        path[0] = '/';
+        /* string already null-terminated by the shift */
+    }
+
+    struct segment
+    {
+        int start;
+        int len;
+    };
+
+    struct segment segs[VFS_MAX_SEGMENTS];
+    int seg_count = 0;
+
+    size_t len = k_strlen(path);
+    int i = 0;
+
+    while (i < (int) len)
+    {
+        /* Skip consecutive '/' */
+        while (i < (int) len && path[i] == '/')
+        {
+            i++;
+        }
+
+        int start = i;
+        while (i < (int) len && path[i] != '/')
+        {
+            i++;
+        }
+
+        int comp_len = i - start;
+        if (comp_len == 0)
+        {
+            continue;
+        }
+
+        /* Single '.' -> skip */
+        if (comp_len == 1 && path[start] == '.')
+        {
+            continue;
+        }
+
+        /* '..' -> pop previous segment if any */
+        if (comp_len == 2 && path[start] == '.' && path[start + 1] == '.')
+        {
+            if (seg_count > 0)
+            {
+                seg_count--;
+            }
+            /* if at root, stay at root */
+            continue;
+        }
+
+        if (seg_count < VFS_MAX_SEGMENTS)
+        {
+            segs[seg_count].start = start;
+            segs[seg_count].len = comp_len;
+            seg_count++;
+        }
+    }
+
+    /* Rebuild normalized path */
+    int pos = 0;
+
+    if (seg_count == 0)
+    {
+        /* Just root */
+        path[0] = '/';
+        if (buf_size > 1)
+        {
+            path[1] = '\0';
+        }
+        return;
+    }
+
+    path[pos++] = '/';
+
+    for (int s = 0; s < seg_count; s++)
+    {
+        if (pos + segs[s].len + 1 >= (int) buf_size)
+        {
+            int allowed = (int) buf_size - pos - 2;
+            if (allowed <= 0)
+            {
+                break;
+            }
+            segs[s].len = allowed;
+        }
+
+        k_memcpy(path + pos, path + segs[s].start, (size_t) segs[s].len);
+        pos += segs[s].len;
+
+        if (s != seg_count - 1)
+        {
+            if (pos + 1 >= (int) buf_size)
+            {
+                break;
+            }
+            path[pos++] = '/';
+        }
+    }
+
+    if (pos >= (int) buf_size)
+    {
+        pos = (int) buf_size - 1;
+    }
+    path[pos] = '\0';
+}
+
+/* ------------------------------------------------------------
+ * Path resolution:
+ *   - combine task->cwd and pathname
+ *   - normalize the resulting absolute path
+ * ------------------------------------------------------------ */
+void vfs_resolve_path(
+        const char *cwd,
+        const char *pathname,
+        char *resolved,
+        size_t resolved_size)
+{
+    if (!resolved || resolved_size == 0)
+    {
+        return;
+    }
+
+    /* Empty path -> cwd or "/" */
+    if (!pathname || pathname[0] == '\0')
+    {
+        if (cwd[0] != '\0')
+        {
+            k_strncpy(resolved, cwd, resolved_size);
+            resolved[resolved_size - 1] = '\0';
+        }
+        else
+        {
+            resolved[0] = '/';
+            if (resolved_size > 1)
+            {
+                resolved[1] = '\0';
+            }
+        }
+        vfs_normalize_path(resolved, resolved_size);
+        return;
+    }
+
+    /* Already absolute */
+    if (pathname[0] == '/')
+    {
+        k_strncpy(resolved, pathname, resolved_size);
+        resolved[resolved_size - 1] = '\0';
+        vfs_normalize_path(resolved, resolved_size);
+        return;
+    }
+
+    /* Relative: prepend CWD (or "/") */
+    if (cwd[0] != '\0')
+    {
+        k_strncpy(resolved, cwd, resolved_size);
+        resolved[resolved_size - 1] = '\0';
+    }
+    else
+    {
+        resolved[0] = '/';
+        if (resolved_size > 1)
+        {
+            resolved[1] = '\0';
+        }
+    }
+
+    size_t len = k_strlen(resolved);
+
+    if (len == 0)
+    {
+        resolved[0] = '/';
+        if (resolved_size > 1)
+        {
+            resolved[1] = '\0';
+        }
+        len = 1;
+    }
+
+    /* Add separator if needed */
+    if (len < resolved_size - 1 && resolved[len - 1] != '/')
+    {
+        resolved[len++] = '/';
+        resolved[len] = '\0';
+    }
+
+    /* Append relative pathname */
+    if (len < resolved_size - 1)
+    {
+        k_strncpy(resolved + len, pathname, resolved_size - len);
+        resolved[resolved_size - 1] = '\0';
+    }
+
+    /* Normalize final absolute path */
+    vfs_normalize_path(resolved, resolved_size);
+}
+
 int vfs_open(
         struct vfs *vfs,
         struct task *task,
@@ -113,7 +360,10 @@ int vfs_open(
         int flags,
         int mode)
 {
-    struct fs *fs = path_to_fs(pathname);
+    char resolved_path[MAX_FILENAME_LEN];
+    vfs_resolve_path(task->cwd, pathname, resolved_path, sizeof(resolved_path));
+
+    struct fs *fs = path_to_fs(resolved_path);
     if (fs == NULL)
     {
         return -1;
@@ -143,7 +393,7 @@ int vfs_open(
     file->flags = flags;
     file->mode = mode;
     file->fs = fs;
-    k_strcpy(file->pathname, pathname);
+    k_strcpy(file->pathname, resolved_path);
 
     // Call filesystem-specific open if it exists
     if (fs->open != NULL)
@@ -170,7 +420,6 @@ int vfs_close(
     {
         return -1;
     }
-
 
     struct file *file = files_find_by_fd(&task->files, fd);
     if (file == NULL)

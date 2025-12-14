@@ -43,6 +43,8 @@ int sys_brk(void *addr);
 
 int chdir(const char *path);
 
+char *getcwd(char *buf, size_t size);
+
 void *memcpy(void *dest, const void *src, size_t n);
 
 // libc helpers

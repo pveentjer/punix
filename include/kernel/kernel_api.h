@@ -40,6 +40,8 @@ struct kernel_api
     int (*sys_brk)(void *addr);
 
     int (*sys_chdir)(const char *path);
+
+    char* (*sys_getcwd)(char *buf, size_t size);
 };
 
 /* 1 MiB base where the kernel header lives */

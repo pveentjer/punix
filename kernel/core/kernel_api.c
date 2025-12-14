@@ -170,11 +170,89 @@ int sys_brk(void *addr)
 }
 
 
-int sys_chdir(const char *path){
+int sys_chdir(const char *path)
+{
     sched_schedule();
 
-    return -ENOSYS;
+    if (path == NULL)
+    {
+        return -1;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    /* For now only support absolute paths */
+    if (path[0] != '/')
+    {
+        return -1;
+    }
+
+    /* Optional: verify the path exists by opening it */
+    int fd = vfs_open(&vfs, current, path, 0, 0);
+    if (fd < 0)
+    {
+        return -1;
+    }
+    vfs_close(&vfs, current, fd);
+
+    /* Copy into task->cwd with bounds check */
+    size_t i = 0;
+    while (i + 1 < sizeof current->cwd && path[i] != '\0')
+    {
+        current->cwd[i] = path[i];
+        i++;
+    }
+    current->cwd[i] = '\0';
+
+    return 0;
 }
+
+char *sys_getcwd(char *buf, size_t size)
+{
+    sched_schedule();
+
+    if (buf == NULL || size == 0)
+    {
+        return NULL;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        buf[0] = '\0';
+        return NULL;
+    }
+
+    const char *src = current->cwd;
+
+    /* Fallback if cwd is empty */
+    if (src[0] == '\0')
+    {
+        src = "/";
+    }
+
+    size_t i = 0;
+    while (i + 1 < size && src[i] != '\0')
+    {
+        buf[i] = src[i];
+        i++;
+    }
+
+    if (src[i] != '\0')
+    {
+        /* buffer too small */
+        buf[0] = '\0';
+        return NULL;
+    }
+
+    buf[i] = '\0';
+    return buf;
+}
+
 
 /* ------------------------------------------------------------
  * Exported API instance in its own section
@@ -198,4 +276,5 @@ const struct kernel_api kernel_api_instance = {
         .sys_waitpid    = sys_waitpid,
         .sys_brk        = sys_brk,
         .sys_chdir      = sys_chdir,
+        .sys_getcwd     = sys_getcwd,
 };

@@ -25,6 +25,12 @@ extern struct vfs vfs;
  * API
  * ------------------------------------------------------------------ */
 
+void vfs_resolve_path(
+        const char *cwd,
+        const char *pathname,
+        char *resolved,
+        size_t resolved_size);
+
 void vfs_init(
         struct vfs *vfs);
 
