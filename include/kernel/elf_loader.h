@@ -1,5 +1,5 @@
-#ifndef ELF_H
-#define ELF_H
+#ifndef ELF_LOADER_H
+#define ELF_LOADER_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -113,4 +113,4 @@ const struct embedded_app *find_app(const char *name);
 
 int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries);
 
-#endif // ELF_H
+#endif // ELF_LOADER_H

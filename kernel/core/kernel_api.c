@@ -6,7 +6,7 @@
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/libc.h"
 #include "../../include/kernel/dirent.h"
-#include "../../include/kernel/elf.h"
+#include "../../include/kernel/elf_loader.h"
 #include "../../include/kernel/vfs.h"
 
 
@@ -172,6 +172,8 @@ int sys_brk(void *addr)
 
 int sys_chdir(const char *path)
 {
+    kprintf("sys_chdir %s\n", path);
+
     sched_schedule();
 
     if (path == NULL)
@@ -228,6 +230,8 @@ char *sys_getcwd(char *buf, size_t size)
     }
 
     const char *src = current->cwd;
+
+    kprintf("sys_getcwd %s\n",current->cwd);
 
     /* Fallback if cwd is empty */
     if (src[0] == '\0')

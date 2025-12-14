@@ -3,7 +3,7 @@
 #include "../../include/kernel/console.h"
 #include "../../include/kernel/interrupt.h"
 #include "../../include/kernel/kutils.h"
-#include "../../include/kernel/elf.h"
+#include "../../include/kernel/elf_loader.h"
 #include "../../include/kernel/constants.h"
 #include "../../include/kernel/vfs.h"
 

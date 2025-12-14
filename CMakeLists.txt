@@ -54,7 +54,7 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/interrupt.c
         ${KERNEL_DIR}/core/kernel_api.c
         ${KERNEL_DIR}/core/kutils.c
-        ${KERNEL_DIR}/core/elf.c
+        ${KERNEL_DIR}/core/elf_loader.c
 )
 
 set(KERNEL_DRIVER_SOURCES

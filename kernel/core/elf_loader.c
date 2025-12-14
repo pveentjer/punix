@@ -1,6 +1,6 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/console.h"
-#include "../../include/kernel/elf.h"
+#include "../../include/kernel/elf_loader.h"
 #include "../../include/kernel/kutils.h"  // (you can drop this duplicate if you want)
 
 /* ELF binary symbols from objcopy */

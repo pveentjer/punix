@@ -2,7 +2,7 @@
 
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
-#include "kernel/elf.h"
+#include "kernel/elf_loader.h"
 #include "kernel/kutils.h"  /* k_strcmp, k_strrchr, etc */
 
 /* find_app is provided by the ELF / embedded app layer. */
