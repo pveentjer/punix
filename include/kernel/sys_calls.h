@@ -1,5 +1,5 @@
-#ifndef KERNEL_API_H
-#define KERNEL_API_H
+#ifndef SYS_CALLS_H
+#define SYS_CALLS_H
 
 #include <stddef.h>
 #include "dirent.h"
@@ -7,7 +7,7 @@
 typedef long ssize_t;
 typedef int pid_t;
 
-struct kernel_api
+struct sys_calls
 {
     ssize_t (*sys_write)(int fd, const char *buf, size_t count);
 
@@ -46,14 +46,14 @@ struct kernel_api
 
 /* 1 MiB base where the kernel header lives */
 #define MB(x)               ((x) * 1024u * 1024u)
-#define KERNEL_HEADER_ADDR  MB(1)
+#define SYS_CALLS_HDR_ADDR  MB(1)
 
 /* First word in the header: pointer to kernel_api_instance */
-#define KERNEL_API_PTR_ADDR ((struct kernel_api * const *)KERNEL_HEADER_ADDR)
+#define SYS_CALLS_PTR_ADDR ((struct sys_calls * const *)SYS_CALLS_HDR_ADDR)
 
-static inline struct kernel_api *kapi(void)
+static inline struct sys_calls *sys(void)
 {
-    return *KERNEL_API_PTR_ADDR;
+    return *SYS_CALLS_PTR_ADDR;
 }
 
-#endif /* KERNEL_API_H */
+#endif /* SYS_CALLS_H */

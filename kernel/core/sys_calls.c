@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../../include/kernel/kernel_api.h"
+#include "../../include/kernel/sys_calls.h"
 #include "../../include/kernel/console.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/keyboard.h"
@@ -110,8 +110,8 @@ char *sys_getcwd(char *buf, size_t size)
  * Exported API instance in its own section
  * (make sure other function pointers are set elsewhere or add them here)
  * ------------------------------------------------------------ */
-__attribute__((section(".kernel_api"), used))
-const struct kernel_api kernel_api_instance = {
+__attribute__((section(".sys_calls"), used))
+const struct sys_calls kernel_api_instance = {
         .sys_write      = sys_write,
         .sys_read       = sys_read,
         .sys_getpid     = sys_getpid,

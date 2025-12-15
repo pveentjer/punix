@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include "kernel/libc.h"
-#include "kernel/kernel_api.h"
+#include "kernel/sys_calls.h"
 
 
 void delay(uint32_t count)
@@ -312,82 +312,82 @@ int strcmp(const char *s1, const char *s2)
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
-    return kapi()->sys_write(fd, buf, count);
+    return sys()->sys_write(fd, buf, count);
 }
 
 ssize_t read(int fd, void *buf, size_t count)
 {
-    return kapi()->sys_read(fd, buf, count);
+    return sys()->sys_read(fd, buf, count);
 }
 
 pid_t getpid(void)
 {
-    return kapi()->sys_getpid();
+    return sys()->sys_getpid();
 }
 
 void sched_yield(void)
 {
-    kapi()->sys_yield();
+    sys()->sys_yield();
 }
 
 void exit(int status)
 {
-    kapi()->sys_exit(status);
+    sys()->sys_exit(status);
 }
 
 int kill(pid_t pid, int sig)
 {
-    return kapi()->sys_kill(pid, sig);
+    return sys()->sys_kill(pid, sig);
 }
 
 int nice(int inc)
 {
-    return kapi()->sys_nice(inc);
+    return sys()->sys_nice(inc);
 }
 
 pid_t waitpid(pid_t pid, int *status, int options)
 {
-    return kapi()->sys_waitpid(pid, status, options);
+    return sys()->sys_waitpid(pid, status, options);
 }
 
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
-    return kapi()->sys_add_task(filename, tty_id, argv, envp);
+    return sys()->sys_add_task(filename, tty_id, argv, envp);
 }
 
 pid_t fork(void)
 {
-    return kapi()->sys_fork();
+    return sys()->sys_fork();
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    return kapi()->sys_execve(pathname, argv, envp);
+    return sys()->sys_execve(pathname, argv, envp);
 }
 
 int open(const char *pathname, int flags, int mode)
 {
-    return kapi()->sys_open(pathname, flags, mode);
+    return sys()->sys_open(pathname, flags, mode);
 }
 
 int close(int fd)
 {
-    return kapi()->sys_close(fd);
+    return sys()->sys_close(fd);
 }
 
 int getdents(int fd, struct dirent *buf, unsigned int count)
 {
-    return kapi()->sys_getdents(fd, buf, count);
+    return sys()->sys_getdents(fd, buf, count);
 }
 
 int chdir(const char *path)
 {
-    return kapi()->sys_chdir(path);
+    return sys()->sys_chdir(path);
 }
 
 char *getcwd(char *buf, size_t size)
 {
-    return kapi()->sys_getcwd(buf, size);
+    return sys()->sys_getcwd(buf, size);
 }
 
 // This value is initialized by the kernel
@@ -395,7 +395,7 @@ void *__curbrk = 0;
 
 int brk(void *addr)
 {
-    return kapi()->sys_brk(addr);
+    return sys()->sys_brk(addr);
 }
 
 void *sbrk(intptr_t increment)
@@ -406,7 +406,7 @@ void *sbrk(intptr_t increment)
     {
         void *new_brk = (char *) old_brk + increment;
 
-        if (kapi()->sys_brk(new_brk) == 0)
+        if (sys()->sys_brk(new_brk) == 0)
         {
             __curbrk = new_brk;
         }

@@ -18,7 +18,7 @@ org 0x7E00
 ;     sectors 1–2 : loader
 ;     sector 3 : kernel.bin start
 ; ------------------------------------------------------------------------
-%define KERNEL_HEADER_ADDR MB(1)              ; final run address (1 MiB)
+%define SYS_CALLS_HDR_ADDR MB(1)              ; final run address (1 MiB)
 %define KERNEL_LOAD_TEMP   KB(64)             ; we temporary load the kernel at addres 64KB
 %define KERNEL_SECTORS     512                ; the kernel can now be up to 256 KB
 %define KERNEL_SIZE_BYTES  (KERNEL_SECTORS * 512)
@@ -246,12 +246,12 @@ pm_start:
 
     ; copy kernel from temp to 1 MiB
     mov esi, KERNEL_LOAD_TEMP
-    mov edi, KERNEL_HEADER_ADDR
+    mov edi, SYS_CALLS_HDR_ADDR
     mov ecx, KERNEL_SIZE_BYTES / 4
     rep movsd
 
     ; jump to kernel entry at [1M + 4]
-    mov eax, [KERNEL_HEADER_ADDR + 4]
+    mov eax, [SYS_CALLS_HDR_ADDR + 4]
     jmp eax
 
 ; ========================================================================
