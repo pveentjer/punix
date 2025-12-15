@@ -9,39 +9,39 @@ typedef int pid_t;
 
 struct sys_calls
 {
-    ssize_t (*sys_write)(int fd, const char *buf, size_t count);
+    ssize_t (*write)(int fd, const char *buf, size_t count);
 
-    ssize_t (*sys_read)(int fd, void *buf, size_t count);
+    ssize_t (*read)(int fd, void *buf, size_t count);
 
-    pid_t (*sys_getpid)(void);
+    pid_t (*getpid)(void);
 
-    void (*sys_yield)(void);
+    void (*sched_yield)(void);
 
-    void (*sys_exit)(int status);
+    void (*exit)(int status);
 
-    int (*sys_kill)(pid_t pid, int sig);
+    int (*kill)(pid_t pid, int sig);
 
-    pid_t (*sys_fork)(void);
+    pid_t (*fork)(void);
 
-    int (*sys_nice)(int inc);
+    int (*nice)(int inc);
 
-    int (*sys_execve)(const char *pathname, char *const argv[], char *const envp[]);
+    int (*execve)(const char *pathname, char *const argv[], char *const envp[]);
 
-    pid_t (*sys_add_task)(const char *filename, int tty_id, char **argv, char **envp);
+    pid_t (*add_task)(const char *filename, int tty_id, char **argv, char **envp);
 
-    pid_t (*sys_waitpid)(pid_t pid, int *status, int options);
+    pid_t (*waitpid)(pid_t pid, int *status, int options);
 
-    int (*sys_open)(const char *pathname, int flags, int mode);
+    int (*open)(const char *pathname, int flags, int mode);
 
-    int (*sys_close)(int fd);
+    int (*close)(int fd);
 
-    int (*sys_getdents)(int fd, struct dirent *buf, unsigned int count);
+    int (*getdents)(int fd, struct dirent *buf, unsigned int count);
 
-    int (*sys_brk)(void *addr);
+    int (*brk)(void *addr);
 
-    int (*sys_chdir)(const char *path);
+    int (*chdir)(const char *path);
 
-    char* (*sys_getcwd)(char *buf, size_t size);
+    char* (*getcwd)(char *buf, size_t size);
 };
 
 /* 1 MiB base where the kernel header lives */

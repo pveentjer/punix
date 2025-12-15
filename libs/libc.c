@@ -313,7 +313,7 @@ int strcmp(const char *s1, const char *s2)
 ssize_t write(int fd, const void *buf, size_t count)
 {
     sys_enter_kernel_mode();
-    ssize_t res = sys()->sys_write(fd, buf, count);
+    ssize_t res = sys()->write(fd, buf, count);
     sys_leave_kernel_mode();
     return res;
 }
@@ -321,7 +321,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 ssize_t read(int fd, void *buf, size_t count)
 {
     sys_enter_kernel_mode();
-    ssize_t res = sys()->sys_read(fd, buf, count);
+    ssize_t res = sys()->read(fd, buf, count);
     sys_leave_kernel_mode();
     return res;
 }
@@ -329,7 +329,7 @@ ssize_t read(int fd, void *buf, size_t count)
 pid_t getpid(void)
 {
     sys_enter_kernel_mode();
-    pid_t res = sys()->sys_getpid();
+    pid_t res = sys()->getpid();
     sys_leave_kernel_mode();
     return res;
 }
@@ -337,21 +337,21 @@ pid_t getpid(void)
 void sched_yield(void)
 {
     sys_enter_kernel_mode();
-    sys()->sys_yield();
+    sys()->sched_yield();
     sys_leave_kernel_mode();
 }
 
 void exit(int status)
 {
     sys_enter_kernel_mode();
-    sys()->sys_exit(status);
+    sys()->exit(status);
     sys_leave_kernel_mode();
 }
 
 int kill(pid_t pid, int sig)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_kill(pid, sig);
+    int res = sys()->kill(pid, sig);
     sys_leave_kernel_mode();
     return res;
 }
@@ -359,7 +359,7 @@ int kill(pid_t pid, int sig)
 int nice(int inc)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_nice(inc);
+    int res = sys()->nice(inc);
     sys_leave_kernel_mode();
     return res;
 }
@@ -367,7 +367,7 @@ int nice(int inc)
 pid_t waitpid(pid_t pid, int *status, int options)
 {
     sys_enter_kernel_mode();
-    pid_t res = sys()->sys_waitpid(pid, status, options);
+    pid_t res = sys()->waitpid(pid, status, options);
     sys_leave_kernel_mode();
     return res;
 }
@@ -375,7 +375,7 @@ pid_t waitpid(pid_t pid, int *status, int options)
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
     sys_enter_kernel_mode();
-    pid_t res = sys()->sys_add_task(filename, tty_id, argv, envp);
+    pid_t res = sys()->add_task(filename, tty_id, argv, envp);
     sys_leave_kernel_mode();
     return res;
 }
@@ -383,7 +383,7 @@ pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 pid_t fork(void)
 {
     sys_enter_kernel_mode();
-    pid_t res = sys()->sys_fork();
+    pid_t res = sys()->fork();
     sys_leave_kernel_mode();
     return res;
 }
@@ -391,7 +391,7 @@ pid_t fork(void)
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_execve(pathname, argv, envp);
+    int res = sys()->execve(pathname, argv, envp);
     sys_leave_kernel_mode();
     return res;
 }
@@ -399,7 +399,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[])
 int open(const char *pathname, int flags, int mode)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_open(pathname, flags, mode);
+    int res = sys()->open(pathname, flags, mode);
     sys_leave_kernel_mode();
     return res;
 }
@@ -407,7 +407,7 @@ int open(const char *pathname, int flags, int mode)
 int close(int fd)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_close(fd);
+    int res = sys()->close(fd);
     sys_leave_kernel_mode();
     return res;
 }
@@ -415,7 +415,7 @@ int close(int fd)
 int getdents(int fd, struct dirent *buf, unsigned int count)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_getdents(fd, buf, count);
+    int res = sys()->getdents(fd, buf, count);
     sys_leave_kernel_mode();
     return res;
 }
@@ -423,7 +423,7 @@ int getdents(int fd, struct dirent *buf, unsigned int count)
 int chdir(const char *path)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_chdir(path);
+    int res = sys()->chdir(path);
     sys_leave_kernel_mode();
     return res;
 }
@@ -431,7 +431,7 @@ int chdir(const char *path)
 char *getcwd(char *buf, size_t size)
 {
     sys_enter_kernel_mode();
-    char *res = sys()->sys_getcwd(buf, size);
+    char *res = sys()->getcwd(buf, size);
     sys_leave_kernel_mode();
     return res;
 }
@@ -442,7 +442,7 @@ void *__curbrk = 0;
 int brk(void *addr)
 {
     sys_enter_kernel_mode();
-    int res = sys()->sys_brk(addr);
+    int res = sys()->brk(addr);
     sys_leave_kernel_mode();
     return res;
 }
@@ -456,7 +456,7 @@ void *sbrk(intptr_t increment)
         void *new_brk = (char *) old_brk + increment;
 
         sys_enter_kernel_mode();
-        int rc = sys()->sys_brk(new_brk);
+        int rc = sys()->brk(new_brk);
         sys_leave_kernel_mode();
 
         if (rc == 0)

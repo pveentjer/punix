@@ -45,7 +45,7 @@ static pid_t sys_getpid(void)
     return sched_getpid();
 }
 
-static void sys_yield(void)
+static void sys_sched_yield(void)
 {
     sched_schedule();
 }
@@ -107,21 +107,21 @@ static char *sys_getcwd(char *buf, size_t size)
 
 __attribute__((section(".sys_calls"), used))
 const struct sys_calls sys_call_instance = {
-        .sys_write      = sys_write,
-        .sys_read       = sys_read,
-        .sys_getpid     = sys_getpid,
-        .sys_yield      = sys_yield,
-        .sys_exit       = sys_exit,
-        .sys_execve     = sys_execve,
-        .sys_fork       = sys_fork,
-        .sys_kill       = sys_kill,
-        .sys_add_task   = sys_add_task,
-        .sys_nice       = sys_nice,
-        .sys_open       = sys_open,
-        .sys_close      = sys_close,
-        .sys_getdents   = sys_getdents,
-        .sys_waitpid    = sys_waitpid,
-        .sys_brk        = sys_brk,
-        .sys_chdir      = sys_chdir,
-        .sys_getcwd     = sys_getcwd,
+        .write              = sys_write,
+        .read               = sys_read,
+        .getpid             = sys_getpid,
+        .sched_yield        = sys_sched_yield,
+        .exit               = sys_exit,
+        .execve             = sys_execve,
+        .fork               = sys_fork,
+        .kill               = sys_kill,
+        .add_task           = sys_add_task,
+        .nice               = sys_nice,
+        .open               = sys_open,
+        .close              = sys_close,
+        .getdents           = sys_getdents,
+        .waitpid            = sys_waitpid,
+        .brk                = sys_brk,
+        .chdir              = sys_chdir,
+        .getcwd             = sys_getcwd,
 };
