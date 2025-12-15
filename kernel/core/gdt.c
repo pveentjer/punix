@@ -1,9 +1,32 @@
 // kernel/gdt.c
 #include <stdint.h>
 #include "../include/kernel/gdt.h"
-#include "../include/kernel/kutils.h"   // for panic(), if you have it
+#include "../include/kernel/kutils.h"   // for panic(), if available
 
-#define GDT_MAX 256
+/* ------------------------------------------------------------
+ * Constants
+ * ------------------------------------------------------------ */
+#define GDT_MAX                 256
+
+// GDT segment indices
+#define GDT_NULL_IDX            0
+#define GDT_KERNEL_CODE_IDX     1
+#define GDT_KERNEL_DATA_IDX     2
+#define GDT_FIRST_FREE_IDX      3
+
+// Segment selectors (index << 3)
+#define GDT_KERNEL_CODE_SEL     ((GDT_KERNEL_CODE_IDX) << 3)
+#define GDT_KERNEL_DATA_SEL     ((GDT_KERNEL_DATA_IDX) << 3)
+
+// Segment access flags
+#define ACCESS_CODE_RING0       0x9A    // present, ring 0, executable, readable
+#define ACCESS_DATA_RING0       0x92    // present, ring 0, data, writable
+
+// Granularity flags
+#define GRAN_4K_32BIT           0xCF    // 4K blocks, 32-bit segment
+
+// Full 4 GiB limit (in pages)
+#define LIMIT_4GB               0xFFFFF
 
 struct gdt_entry {
     uint16_t limit_low;
@@ -42,48 +65,47 @@ static void gdt_set_entry(int idx, uint32_t base, uint32_t limit,
 void gdt_init(void)
 {
     // 0: null descriptor
-    gdt_set_entry(0, 0, 0, 0, 0);
+    gdt_set_entry(GDT_NULL_IDX, 0, 0, 0, 0);
 
-    // 1: kernel code segment
-    // base = 0, limit = 4 GB, executable, ring 0, present, 32-bit, 4K gran
-    gdt_set_entry(1, 0, 0xFFFFF, 0x9A, 0xCF);
+    // 1: kernel code segment (0–4 GiB, exec/read, ring 0)
+    gdt_set_entry(GDT_KERNEL_CODE_IDX, 0, LIMIT_4GB,
+                  ACCESS_CODE_RING0, GRAN_4K_32BIT);
 
     // 2: kernel data/stack segment
-    gdt_set_entry(2, 0, 0xFFFFF, 0x92, 0xCF);
+    gdt_set_entry(GDT_KERNEL_DATA_IDX, 0, LIMIT_4GB,
+                  ACCESS_DATA_RING0, GRAN_4K_32BIT);
 
-    // Clear rest: will be used later for per-process segments (SS, etc)
-    for (int i = 3; i < GDT_MAX; i++) {
+    // Clear the rest for future use
+    for (int i = GDT_FIRST_FREE_IDX; i < GDT_MAX; i++) {
         gdt_set_entry(i, 0, 0, 0, 0);
     }
 
     gdt_desc.limit = sizeof(gdt) - 1;
     gdt_desc.base  = (uint32_t)&gdt;
 
-    // ---- lgdt from C (no separate asm function needed) ----
+    // Load GDT
     asm volatile("lgdt (%0)" :: "r" (&gdt_desc));
 
     // Reload segment registers to use new GDT
     asm volatile (
-            "mov $0x10, %%ax\n"   // selector for GDT entry 2 (data)
+            "mov %[data_sel], %%ax\n"
             "mov %%ax, %%ds\n"
             "mov %%ax, %%es\n"
             "mov %%ax, %%fs\n"
             "mov %%ax, %%gs\n"
             "mov %%ax, %%ss\n"
             :
-            :
-            : "ax"
-            );
+            : [data_sel] "i" (GDT_KERNEL_DATA_SEL)
+    : "ax"
+    );
 }
 
 /* ------------------------------------------------------------
- * Allocate a per-process stack/data segment.
- * base = process mem_start, size = region size (e.g. 1 MiB)
- * Returns selector to store in task->ss
+ * Allocate a per-process stack/data segment
  * ------------------------------------------------------------ */
 uint16_t gdt_alloc_stack_segment(uint32_t base, uint32_t size)
 {
-    static int next = 3;  // first free index after code/data
+    static int next = GDT_FIRST_FREE_IDX;
 
     if (next >= GDT_MAX) {
         panic("No free GDT entries");
@@ -92,12 +114,7 @@ uint16_t gdt_alloc_stack_segment(uint32_t base, uint32_t size)
     uint32_t limit = size - 1;
     int idx = next++;
 
-    // Data segment, present, ring0, read/write
-    uint8_t access = 0x92;
-    uint8_t gran   = 0xCF;  // 4K granularity, 32-bit
+    gdt_set_entry(idx, base, limit, ACCESS_DATA_RING0, GRAN_4K_32BIT);
 
-    gdt_set_entry(idx, base, limit, access, gran);
-
-    // selector = index << 3, RPL=0
-    return (uint16_t)(idx << 3);
+    return (uint16_t)(idx << 3);  // selector with RPL=0
 }
