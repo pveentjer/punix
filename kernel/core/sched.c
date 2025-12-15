@@ -449,3 +449,21 @@ void sched_init(void)
         panic("sched_init: failed to allocate a task for the swapper\n");
     }
 }
+
+pid_t sched_waitpid(pid_t pid, int *status, int options)
+{
+    // todo: because completed tasks aren't kept around, there
+    // is currently no way to determine if a task has completed
+    // or doesn't exist.
+    while (true)
+    {
+        struct task *task = sched_find_by_pid(pid);
+
+        if (task == NULL)
+        {
+            return pid;
+        }
+
+        sched_schedule();
+    }
+}

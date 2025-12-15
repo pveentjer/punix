@@ -132,4 +132,6 @@ void sched_exit(int status);
 
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
+pid_t sched_waitpid(pid_t pid, int *status, int options);
+
 #endif // SCHED_H

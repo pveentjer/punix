@@ -55,11 +55,7 @@ static void sys_exit(int status)
     sched_exit(status);
 }
 
-static pid_t sys_add_task(
-        const char *filename,
-        int tty_id,
-        char **argv,
-        char **envp)
+static pid_t sys_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
     sched_schedule();
     return sched_add_task(filename, tty_id, argv, envp);
@@ -87,20 +83,7 @@ static int sys_nice(int inc)
 
 static pid_t sys_waitpid(pid_t pid, int *status, int options)
 {
-    // todo: because completed tasks aren't kept around, there
-    // is currently no way to determine if a task has completed
-    // or doesn't exist.
-    while (true)
-    {
-        struct task *task = sched_find_by_pid(pid);
-
-        if (task == NULL)
-        {
-            return pid;
-        }
-
-        sched_schedule();
-    }
+    return sched_waitpid(pid, status, options);
 }
 
 int sys_brk(void *addr)
