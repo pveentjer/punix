@@ -51,17 +51,6 @@ struct sys_calls
 /* First word in the header: pointer to sys_call_instance */
 #define SYS_CALLS_PTR_ADDR ((struct sys_calls * const *)SYS_CALLS_HDR_ADDR)
 
-/* Placeholder: will later do real segment switching */
-static inline void sys_enter_kernel_mode(void)
-{
-    /* TODO: implement segmentation switch to kernel view */
-}
-
-static inline void sys_leave_kernel_mode(void)
-{
-    /* TODO: implement segmentation switch back to app view */
-}
-
 static inline struct sys_calls *sys(void)
 {
     return *SYS_CALLS_PTR_ADDR;

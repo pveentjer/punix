@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include "kernel/libc.h"
 #include "kernel/sys_calls.h"
-
+#include "kernel/entry.h"
 
 void delay(uint32_t count)
 {
