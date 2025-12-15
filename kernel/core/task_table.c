@@ -2,7 +2,7 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/constants.h"
 #include "../../include/kernel/vfs.h"
-
+#include "../../include/kernel/gdt.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
@@ -16,20 +16,23 @@ void task_table_init(struct task_table *task_table)
     task_table->free_head = 0;
     task_table->free_tail = MAX_PROCESS_CNT;
 
-    for (int slot_idx = 0; slot_idx < MAX_PROCESS_CNT; slot_idx++)
+    for (int task_idx = 0; task_idx < MAX_PROCESS_CNT; task_idx++)
     {
-        struct task_slot *slot = &task_table->slots[slot_idx];
+        struct task_slot *slot = &task_table->slots[task_idx];
         slot->generation = 0;
 
         struct task *task = &slot->task;
 
         k_memset(task, 0, sizeof(struct task));
 
-        task->pid = PID_NONE;
-        task->mem_start = PROCESS_BASE + slot_idx * PROCESS_SIZE;
-        task->mem_end = task->mem_start + PROCESS_SIZE;
+        task->pid       = PID_NONE;
+        task->mem_start = PROCESS_BASE + task_idx * PROCESS_SIZE;
+        task->mem_end   = task->mem_start + PROCESS_SIZE;
 
-        task_table->free_ring[slot_idx] = slot_idx;
+        // Initialize per-task GDT indices in cpu_ctx
+        gdt_init_task_ctx(&task->cpu_ctx, task_idx);
+
+        task_table->free_ring[task_idx] = task_idx;
         files_init(&task->files);
     }
 }
@@ -104,4 +107,3 @@ void task_table_free(
     task_table->free_tail++;
     task->pid = PID_NONE;
 }
-
