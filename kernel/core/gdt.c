@@ -1,7 +1,8 @@
 // kernel/gdt.c
 #include <stdint.h>
 #include "../include/kernel/gdt.h"
-#include "../include/kernel/kutils.h"   // for panic(), if available
+#include "../include/kernel/kutils.h"
+#include "../include/kernel/constants.h"
 
 /* ------------------------------------------------------------
  * Constants
@@ -13,6 +14,11 @@
 #define GDT_KERNEL_CODE_IDX     1
 #define GDT_KERNEL_DATA_IDX     2
 #define GDT_FIRST_FREE_IDX      3
+
+// Per-task layout: 2 entries (code + data) per slot
+#define GDT_ENTRIES_PER_TASK    2
+#define GDT_TASK_CODE_IDX(slot) (GDT_FIRST_FREE_IDX + (slot) * GDT_ENTRIES_PER_TASK)
+#define GDT_TASK_DATA_IDX(slot) (GDT_FIRST_FREE_IDX + (slot) * GDT_ENTRIES_PER_TASK + 1)
 
 // Segment selectors (index << 3)
 #define GDT_KERNEL_CODE_SEL     ((GDT_KERNEL_CODE_IDX) << 3)
@@ -60,10 +66,18 @@ static void gdt_set_entry(int idx, uint32_t base, uint32_t limit,
 }
 
 /* ------------------------------------------------------------
- * Initialize kernel GDT and load it (lgdt) from C
+ * Initialize kernel GDT and per-task segments
  * ------------------------------------------------------------ */
 void gdt_init(void)
 {
+    // Sanity check: enough GDT space for all tasks
+    const int needed_entries =
+            GDT_FIRST_FREE_IDX + MAX_PROCESS_CNT * GDT_ENTRIES_PER_TASK;
+    if (needed_entries > GDT_MAX)
+    {
+        panic("gdt_init: not enough GDT entries for MAX_PROCESS_CNT");
+    }
+
     // 0: null descriptor
     gdt_set_entry(GDT_NULL_IDX, 0, 0, 0, 0);
 
@@ -71,22 +85,35 @@ void gdt_init(void)
     gdt_set_entry(GDT_KERNEL_CODE_IDX, 0, LIMIT_4GB,
                   ACCESS_CODE_RING0, GRAN_4K_32BIT);
 
-    // 2: kernel data/stack segment
+    // 2: kernel data/stack segment (0–4 GiB, data, ring 0)
     gdt_set_entry(GDT_KERNEL_DATA_IDX, 0, LIMIT_4GB,
                   ACCESS_DATA_RING0, GRAN_4K_32BIT);
 
-    // Clear the rest for future use
-    for (int i = GDT_FIRST_FREE_IDX; i < GDT_MAX; i++) {
-        gdt_set_entry(i, 0, 0, 0, 0);
+    // Per-task code/data segments
+    for (int slot = 0; slot < MAX_PROCESS_CNT; slot++)
+    {
+        uint32_t base  = PROCESS_BASE + (uint32_t)slot * PROCESS_SIZE;
+        uint32_t limit = PROCESS_SIZE - 1;
+
+        int code_idx = GDT_TASK_CODE_IDX(slot);
+        int data_idx = GDT_TASK_DATA_IDX(slot);
+
+        // user code segment for this task (currently ring 0, you can adjust later)
+        gdt_set_entry(code_idx, base, limit,
+                      ACCESS_CODE_RING0, GRAN_4K_32BIT);
+
+        // user data/stack segment for this task
+        gdt_set_entry(data_idx, base, limit,
+                      ACCESS_DATA_RING0, GRAN_4K_32BIT);
     }
 
     gdt_desc.limit = sizeof(gdt) - 1;
     gdt_desc.base  = (uint32_t)&gdt;
 
-    // Load GDT
+    // Load new GDT
     asm volatile("lgdt (%0)" :: "r" (&gdt_desc));
 
-    // Reload segment registers to use new GDT
+    // Reload segment registers to use new kernel segments
     asm volatile (
             "mov %[data_sel], %%ax\n"
             "mov %%ax, %%ds\n"
@@ -98,23 +125,4 @@ void gdt_init(void)
             : [data_sel] "i" (GDT_KERNEL_DATA_SEL)
     : "ax"
     );
-}
-
-/* ------------------------------------------------------------
- * Allocate a per-process stack/data segment
- * ------------------------------------------------------------ */
-uint16_t gdt_alloc_stack_segment(uint32_t base, uint32_t size)
-{
-    static int next = GDT_FIRST_FREE_IDX;
-
-    if (next >= GDT_MAX) {
-        panic("No free GDT entries");
-    }
-
-    uint32_t limit = size - 1;
-    int idx = next++;
-
-    gdt_set_entry(idx, base, limit, ACCESS_DATA_RING0, GRAN_4K_32BIT);
-
-    return (uint16_t)(idx << 3);  // selector with RPL=0
 }
