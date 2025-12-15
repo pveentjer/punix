@@ -236,5 +236,5 @@ add_custom_target(run
         COMMAND ${QEMU_EXECUTABLE} -drive format=raw,file=${BUILD_DIR}/disk.img
         DEPENDS ${BUILD_DIR}/disk.img
         WORKING_DIRECTORY ${BUILD_DIR}
-        COMMENT "Running Munix in QEMU"
+        COMMENT "Running Punix in QEMU"
 )
