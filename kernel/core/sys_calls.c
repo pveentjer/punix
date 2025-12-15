@@ -86,32 +86,27 @@ static pid_t sys_waitpid(pid_t pid, int *status, int options)
     return sched_waitpid(pid, status, options);
 }
 
-int sys_brk(void *addr)
+static int sys_brk(void *addr)
 {
     return mm_brk(addr);
 }
 
-int sys_chdir(const char *path)
+static int sys_chdir(const char *path)
 {
     sched_schedule();
 
     return vfs_chdir(path);
 }
 
-char *sys_getcwd(char *buf, size_t size)
+static char *sys_getcwd(char *buf, size_t size)
 {
     sched_schedule();
 
     return vfs_getcwd(buf, size);
 }
 
-
-/* ------------------------------------------------------------
- * Exported API instance in its own section
- * (make sure other function pointers are set elsewhere or add them here)
- * ------------------------------------------------------------ */
 __attribute__((section(".sys_calls"), used))
-const struct sys_calls kernel_api_instance = {
+const struct sys_calls sys_call_instance = {
         .sys_write      = sys_write,
         .sys_read       = sys_read,
         .sys_getpid     = sys_getpid,

@@ -9,8 +9,8 @@ SECTIONS
     .kernel_header : ALIGN(4) {
         __kernel_header_base = .;
 
-        /* 0x00100000: pointer to kernel_api_instance */
-        LONG(kernel_api_instance)
+        /* 0x00100000: pointer to sys_calls_instance */
+        LONG(sys_call_instance)
 
         /* 0x00100004: pointer to kernel entry (kmain) */
         LONG(kmain)
@@ -24,7 +24,7 @@ SECTIONS
 
     .rodata : ALIGN(4) {
         *(.rodata*)
-        KEEP(*(.kernel_api))
+        KEEP(*(.sys_calls))
     }
 
     .data : ALIGN(4) {

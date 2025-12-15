@@ -48,7 +48,7 @@ struct sys_calls
 #define MB(x)               ((x) * 1024u * 1024u)
 #define SYS_CALLS_HDR_ADDR  MB(1)
 
-/* First word in the header: pointer to kernel_api_instance */
+/* First word in the header: pointer to sys_calls_instance */
 #define SYS_CALLS_PTR_ADDR ((struct sys_calls * const *)SYS_CALLS_HDR_ADDR)
 
 static inline struct sys_calls *sys(void)

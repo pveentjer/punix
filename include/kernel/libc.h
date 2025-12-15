@@ -11,10 +11,6 @@ typedef long ssize_t;
 
 typedef int pid_t;
 
-// mode bits (minimal subset)
-#define S_IRUSR    0x100
-#define S_IWUSR    0x80
-
 extern char **environ;
 
 char *getenv(const char *name);
@@ -37,9 +33,9 @@ int nice(int inc);
 
 pid_t waitpid(pid_t pid, int *status, int options);
 
-void *sys_sbrk(intptr_t increment);
+void *sbrk(intptr_t increment);
 
-int sys_brk(void *addr);
+int brk(void *addr);
 
 int chdir(const char *path);
 
