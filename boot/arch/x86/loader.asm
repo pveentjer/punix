@@ -171,7 +171,7 @@ after_read:
     or  eax, 1
     mov cr0, eax
 
-    jmp CODE_SEG:kernel_start
+    jmp CODE_SEG:pm_start
 
 ; ========================================================================
 ; Helper routines (real mode)
@@ -232,10 +232,10 @@ hang:
     jmp hang
 
 ; ========================================================================
-; Stage 2 — Start the kernel
+; Stage 2 — Protected mode
 ; ========================================================================
 bits 32
-kernel_start:
+pm_start:
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
@@ -255,12 +255,41 @@ kernel_start:
     jmp eax
 
 ; ========================================================================
+; GDT entry helpers
+; ========================================================================
+;   GDT_ENTRY base, limit, access, flags
+;   - base  : 32-bit base address
+;   - limit : 20-bit limit (will be truncated)
+;   - access: access byte (e.g. 0x9A code, 0x92 data)
+;   - flags : high 4 bits (e.g. 0xC = 4K granularity + 32-bit)
+%macro GDT_ENTRY 4
+    dw  %2 & 0xFFFF                       ; limit low
+    dw  %1 & 0xFFFF                       ; base low
+    db  (%1 >> 16) & 0xFF                 ; base mid
+    db  %3                                ; access
+    db  ((%2 >> 16) & 0x0F) | ((%4 & 0x0F) << 4) ; limit high + flags
+    db  (%1 >> 24) & 0xFF                 ; base high
+%endmacro
+
+%define GDT_FLAG_GRAN_4K   0x8
+%define GDT_FLAG_32BIT     0x4
+%define GDT_FLAGS_FLAT     (GDT_FLAG_GRAN_4K | GDT_FLAG_32BIT) ; 0xC
+
+%define GDT_ACCESS_CODE    0x9A   ; present, ring 0, code, exec/read
+%define GDT_ACCESS_DATA    0x92   ; present, ring 0, data, read/write
+
+; ========================================================================
 ; GDT
 ; ========================================================================
 gdt_start:
-    dq 0x0000000000000000
-    dq 0x00CF9A000000FFFF       ; code segment
-    dq 0x00CF92000000FFFF       ; data segment
+    ; Null descriptor
+    dq 0
+
+    ; Code segment: base=0, limit=0xFFFFF (4 GiB with 4K granularity)
+    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_CODE, GDT_FLAGS_FLAT
+
+    ; Data segment: base=0, limit=0xFFFFF (4 GiB with 4K granularity)
+    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_DATA, GDT_FLAGS_FLAT
 gdt_end:
 
 gdt_ptr:
