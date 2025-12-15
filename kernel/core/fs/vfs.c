@@ -501,3 +501,77 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
 
     return file->fs->getdents(file, buf, count);
 }
+
+int vfs_chdir(const char *path)
+{
+    if (path == NULL)
+    {
+        return -1;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    char resolved[MAX_FILENAME_LEN];
+
+    // Use VFS to resolve relative or absolute paths against current->cwd
+    vfs_resolve_path(current->cwd, path, resolved, sizeof(resolved));
+
+
+    // Optional check: try opening it (helps confirm existence)
+    int fd = vfs_open(&vfs, current, resolved, 0, 0);
+    if (fd < 0)
+    {
+        return -1;
+    }
+    vfs_close(&vfs, current, fd);
+
+    // Copy the resolved path into task->cwd safely
+    k_strncpy(current->cwd, resolved, sizeof(current->cwd));
+    current->cwd[sizeof(current->cwd) - 1] = '\0';
+
+    return 0;
+}
+
+char *vfs_getcwd(char *buf, size_t size)
+{
+    if (buf == NULL || size == 0)
+    {
+        return NULL;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        buf[0] = '\0';
+        return NULL;
+    }
+
+    const char *src = current->cwd;
+
+    /* Fallback if cwd is empty */
+    if (src[0] == '\0')
+    {
+        src = "/";
+    }
+
+    size_t i = 0;
+    while (i + 1 < size && src[i] != '\0')
+    {
+        buf[i] = src[i];
+        i++;
+    }
+
+    if (src[i] != '\0')
+    {
+        /* buffer too small */
+        buf[0] = '\0';
+        return NULL;
+    }
+
+    buf[i] = '\0';
+    return buf;
+}

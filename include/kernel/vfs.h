@@ -31,6 +31,10 @@ ssize_t vfs_read(int fd, void *buf, size_t count);
 
 int vfs_getdents(int fd, struct dirent *buf, unsigned int count);
 
+int vfs_chdir(const char *path);
+
+char *vfs_getcwd(char *buf, size_t size);
+
 void vfs_resolve_path(
         const char *cwd,
         const char *pathname,
