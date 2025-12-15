@@ -11,6 +11,14 @@ struct scheduler sched;
 
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
+void ctx_init(
+        struct cpu_ctx *cpu_ctx,
+        uint32_t stack_top,
+        uint32_t main_addr,
+        int argc,
+        char **heap_argv,
+        char **heap_envp);
+
 
 void task_init_cwd(struct task *task);
 
@@ -209,36 +217,6 @@ static char **task_init_env(struct task *task,
 }
 
 /* ------------------------------------------------------------
- * prepare_initial_stack
- * ------------------------------------------------------------ */
-static void prepare_initial_stack(struct task *task,
-                                  uint32_t stack_top,
-                                  uint32_t main_addr,
-                                  int argc,
-                                  char **heap_argv,
-                                  char **heap_envp)
-{
-    uint32_t *sp32 = (uint32_t *) stack_top;
-
-    *(--sp32) = (uint32_t) heap_envp;        // envp
-    *(--sp32) = (uint32_t) heap_argv;        // argv
-    *(--sp32) = (uint32_t) argc;             // argc
-    *(--sp32) = main_addr;                   // program entry
-    *(--sp32) = 0;                           // dummy
-    *(--sp32) = (uint32_t) task_trampoline;  // return address
-    *(--sp32) = 0x202;                       // EFLAGS IF=1
-    *(--sp32) = 0;                           // EAX
-    *(--sp32) = 0;                           // ECX
-    *(--sp32) = 0;                           // EDX
-    *(--sp32) = 0;                           // EBX
-
-    struct cpu_ctx *cpu_ctx = &task->cpu_ctx;
-    cpu_ctx->esp = (uint32_t) sp32;
-    cpu_ctx->eip = (uint32_t) task_trampoline;
-    cpu_ctx->eflags = 0x202;
-}
-
-/* ------------------------------------------------------------
  * task_new
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
@@ -311,7 +289,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         *curbrk_ptr = (char *) task->brk;
     }
 
-    prepare_initial_stack(task, stackTop, main_addr, argc, heap_argv, heap_envp);
+    ctx_init(&task->cpu_ctx, stackTop, main_addr, argc, heap_argv, heap_envp);
 
     return task;
 }

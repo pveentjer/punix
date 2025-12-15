@@ -4,13 +4,97 @@ BITS 32
 section .text
 
 global ctx_switch
+global ctx_init
 
-%define OFF_EIP  0
-%define OFF_ESP  4
-%define OFF_EBP  8
+extern task_trampoline
 
+%define OFF_ESP  0
+
+; ============================================================
+; void ctx_init(struct cpu_ctx *cpu_ctx,
+;               uint32_t stack_top,
+;               uint32_t main_addr,
+;               int argc,
+;               char **heap_argv,
+;               char **heap_envp);
+; ============================================================
+ctx_init:
+    push ebp
+    mov  ebp, esp
+
+    ; args (cdecl)
+    ; [ebp+8]  = cpu_ctx
+    ; [ebp+12] = stack_top
+    ; [ebp+16] = main_addr
+    ; [ebp+20] = argc
+    ; [ebp+24] = heap_argv
+    ; [ebp+28] = heap_envp
+
+    mov  eax, [ebp+12]       ; stack_top
+    mov  ecx, eax            ; working stack pointer
+
+    ; Mirror old C prepare_initial_stack:
+
+    ; *(--sp32) = (uint32_t) heap_envp;
+    sub  ecx, 4
+    mov  edx, [ebp+28]
+    mov  [ecx], edx
+
+    ; *(--sp32) = (uint32_t) heap_argv;
+    sub  ecx, 4
+    mov  edx, [ebp+24]
+    mov  [ecx], edx
+
+    ; *(--sp32) = (uint32_t) argc;
+    sub  ecx, 4
+    mov  edx, [ebp+20]
+    mov  [ecx], edx
+
+    ; *(--sp32) = main_addr;
+    sub  ecx, 4
+    mov  edx, [ebp+16]
+    mov  [ecx], edx
+
+    ; *(--sp32) = 0;  // dummy
+    sub  ecx, 4
+    mov  dword [ecx], 0
+
+    ; *(--sp32) = (uint32_t) task_trampoline;  // return address
+    sub  ecx, 4
+    mov  edx, task_trampoline
+    mov  [ecx], edx
+
+    ; *(--sp32) = 0x202;  // EFLAGS IF=1
+    sub  ecx, 4
+    mov  dword [ecx], 0x202
+
+    ; *(--sp32) = 0;  // EAX
+    sub  ecx, 4
+    mov  dword [ecx], 0
+
+    ; *(--sp32) = 0;  // ECX
+    sub  ecx, 4
+    mov  dword [ecx], 0
+
+    ; *(--sp32) = 0;  // EDX
+    sub  ecx, 4
+    mov  dword [ecx], 0
+
+    ; *(--sp32) = 0;  // EBX
+    sub  ecx, 4
+    mov  dword [ecx], 0
+
+    ; cpu_ctx->esp = (uint32_t) sp32;
+    mov  eax, [ebp+8]        ; cpu_ctx*
+    mov  [eax + OFF_ESP], ecx
+
+    pop  ebp
+    ret
+
+
+; ============================================================
 ; int ctx_switch(struct cpu_ctx *prev, struct cpu_ctx *next);
-; Switch from prev to next cpu_ctx
+; ============================================================
 ctx_switch:
     ; Save callee-saved registers and flags
     pushfd
@@ -18,7 +102,7 @@ ctx_switch:
     push edi
     push esi
     push ebx
-    
+
     ; Stack layout now:
     ; esp+0:  EBX
     ; esp+4:  ESI
@@ -28,26 +112,23 @@ ctx_switch:
     ; esp+20: return address
     ; esp+24: prev pointer
     ; esp+28: next pointer
-    
-    mov eax, [esp + 24]       ; eax = prev
-    mov edx, [esp + 28]       ; edx = next
-    
-    ; Save current ESP into prev task
+
+    mov eax, [esp + 24]      ; prev
+    mov edx, [esp + 28]      ; next
+
+    ; Save current ESP into prev->cpu_ctx.esp
     mov [eax + OFF_ESP], esp
-    
+
     ; Switch to next task's stack
     mov esp, [edx + OFF_ESP]
-    
-    ; Restore next task's registers (pops in reverse order)
+
+    ; Restore next task's registers (reverse order)
     pop ebx
     pop esi
     pop edi
     pop ebp
     popfd
-    
-    ; --- Force IF=1 safely ---
-    sti                       ; set Interrupt Flag directly
-    ; -------------------------
 
-    xor eax, eax              ; return 0
-    ret                       ; return to next task
+    sti                      ; ensure IF=1
+    xor eax, eax             ; return 0
+    ret

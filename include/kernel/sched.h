@@ -18,21 +18,11 @@ enum sched_state
     TASK_BLOCKED   /* sleeping / waiting for an event */
 };
 
-struct cpu_ctx {
-    uint32_t eip;        // 0
-    uint32_t esp;        // 4
-    uint32_t ebp;        // 8
-    uint32_t eflags;     // 12
-
-    uint16_t ss;         // 16
-    uint16_t cs;         // 18
-    uint16_t ds;         // 20
-    uint16_t es;         // 22
-    uint16_t fs;         // 24
-    uint16_t gs;         // 26
-
-    uint16_t _pad;       // 28 (padding for 4-byte alignment)
-};                       // sizeof(struct cpu_ctx) = 32
+struct cpu_ctx
+{
+    // we just need the stack pointer, all cpu context is stored in the stack.
+    uint32_t esp;
+};
 
 
 struct task
@@ -138,6 +128,14 @@ void sched_enqueue(
 pid_t sched_getpid(void);
 
 void sched_exit(int status);
+
+void ctx_init(
+        struct cpu_ctx *cpu_ctx,
+        uint32_t stack_top,
+        uint32_t main_addr,
+        int argc,
+        char **heap_argv,
+        char **heap_envp);
 
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
 
