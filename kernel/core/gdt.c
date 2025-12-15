@@ -87,21 +87,18 @@ void gdt_init(void)
     gdt_set_entry(GDT_KERNEL_DATA_IDX, 0, LIMIT_4GB,
                   ACCESS_DATA_RING0, GRAN_4K_32BIT);
 
-    // Per-task code/data segments
+    // Per-task code/data segments:
+    // For now, make them IDENTICAL to kernel segments (flat 0–4 GiB, ring 0),
+    // so switching to task-specific selectors is a no-op in practice.
     for (int task_idx = 0; task_idx < MAX_PROCESS_CNT; task_idx++)
     {
-        uint32_t base  = PROCESS_BASE + (uint32_t)task_idx * PROCESS_SIZE;
-        uint32_t limit = PROCESS_SIZE - 1;
-
         int code_idx = GDT_TASK_CODE_IDX(task_idx);
         int data_idx = GDT_TASK_DATA_IDX(task_idx);
 
-        // Code segment (currently ring 0)
-        gdt_set_entry(code_idx, base, limit,
+        gdt_set_entry(code_idx, 0, LIMIT_4GB,
                       ACCESS_CODE_RING0, GRAN_4K_32BIT);
 
-        // Data/stack segment (currently ring 0)
-        gdt_set_entry(data_idx, base, limit,
+        gdt_set_entry(data_idx, 0, LIMIT_4GB,
                       ACCESS_DATA_RING0, GRAN_4K_32BIT);
     }
 
