@@ -437,3 +437,67 @@ int vfs_close(
     vfs_free_file(vfs, file);
     return 0;
 }
+
+
+ssize_t vfs_write(int fd, const char *buf, size_t count)
+{
+    if (buf == NULL || count == 0)
+    {
+        return 0;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->write == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->write(file, buf, count);
+}
+
+ssize_t vfs_read(int fd, void *buf, size_t count)
+{
+    sched_schedule();
+
+    if (buf == NULL || count == 0)
+    {
+        return 0;
+    }
+
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->read == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->read(file, buf, count);
+}
+
+int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
+{
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->fs == NULL || file->fs->getdents == NULL)
+    {
+        return -1;
+    }
+
+    return file->fs->getdents(file, buf, count);
+}

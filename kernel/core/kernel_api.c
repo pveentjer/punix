@@ -13,54 +13,18 @@
 static ssize_t sys_write(int fd, const char *buf, size_t count)
 {
     sched_schedule();
-
-    if (buf == NULL || count == 0)
-    {
-        return 0;
-    }
-
-    struct task *current = sched_current();
-    if (current == NULL)
-    {
-        return -1;
-    }
-
-    struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->write == NULL)
-    {
-        return -1;
-    }
-
-    return file->fs->write(file, buf, count);
+    return vfs_write(fd, buf, count);
 }
 
 static ssize_t sys_read(int fd, void *buf, size_t count)
 {
     sched_schedule();
 
-    if (buf == NULL || count == 0)
-    {
-        return 0;
-    }
-
-    struct task *current = sched_current();
-    if (current == NULL)
-    {
-        return -1;
-    }
-
-    struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->read == NULL)
-    {
-        return -1;
-    }
-
-    return file->fs->read(file, buf, count);
+    return vfs_read(fd, buf, count);
 }
 
 static int sys_open(const char *pathname, int flags, int mode)
 {
-
     return vfs_open(&vfs, sched_current(), pathname, flags, mode);
 }
 
@@ -71,19 +35,7 @@ static int sys_close(int fd)
 
 static int sys_getdents(int fd, struct dirent *buf, unsigned int count)
 {
-    struct task *current = sched_current();
-    if (current == NULL)
-    {
-        return -1;
-    }
-
-    struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->getdents == NULL)
-    {
-        return -1;
-    }
-
-    return file->fs->getdents(file, buf, count);
+   return vfs_getdents(fd, buf, count);
 }
 
 static pid_t sys_getpid(void)

@@ -25,6 +25,12 @@ extern struct vfs vfs;
  * API
  * ------------------------------------------------------------------ */
 
+ssize_t vfs_write(int fd, const char *buf, size_t count);
+
+ssize_t vfs_read(int fd, void *buf, size_t count);
+
+int vfs_getdents(int fd, struct dirent *buf, unsigned int count);
+
 void vfs_resolve_path(
         const char *cwd,
         const char *pathname,
