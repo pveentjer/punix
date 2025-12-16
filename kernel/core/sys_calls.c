@@ -181,22 +181,5 @@ static uint32_t sys_enter_dispatch(uint32_t nr,
 
 __attribute__((section(".sys_calls"), used))
 const struct sys_calls sys_call_instance = {
-        .write              = sys_write,
-        .read               = sys_read,
-        .getpid             = sys_getpid,
-        .sched_yield        = sys_sched_yield,
-        .exit               = sys_exit,
-        .execve             = sys_execve,
-        .fork               = sys_fork,
-        .kill               = sys_kill,
-        .add_task           = sys_add_task,
-        .nice               = sys_nice,
-        .open               = sys_open,
-        .close              = sys_close,
-        .getdents           = sys_getdents,
-        .waitpid            = sys_waitpid,
-        .brk                = sys_brk,
-        .chdir              = sys_chdir,
-        .getcwd             = sys_getcwd,
         .sys_enter_fn       = sys_enter_dispatch,
 };

@@ -31,40 +31,6 @@ enum sys_call_nr
 
 struct sys_calls
 {
-    ssize_t (*write)(int fd, const char *buf, size_t count);
-
-    ssize_t (*read)(int fd, void *buf, size_t count);
-
-    pid_t (*getpid)(void);
-
-    void (*sched_yield)(void);
-
-    void (*exit)(int status);
-
-    int (*kill)(pid_t pid, int sig);
-
-    pid_t (*fork)(void);
-
-    int (*nice)(int inc);
-
-    int (*execve)(const char *pathname, char *const argv[], char *const envp[]);
-
-    pid_t (*add_task)(const char *filename, int tty_id, char **argv, char **envp);
-
-    pid_t (*waitpid)(pid_t pid, int *status, int options);
-
-    int (*open)(const char *pathname, int flags, int mode);
-
-    int (*close)(int fd);
-
-    int (*getdents)(int fd, struct dirent *buf, unsigned int count);
-
-    int (*brk)(void *addr);
-
-    int (*chdir)(const char *path);
-
-    char* (*getcwd)(char *buf, size_t size);
-
     uint32_t (*sys_enter_fn)(
             uint32_t nr,
             uint32_t a1,
