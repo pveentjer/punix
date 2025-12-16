@@ -32,7 +32,6 @@ size_t strlen(const char *s)
     return len;
 }
 
-
 char **environ = NULL;
 
 char *getenv(const char *name)
@@ -116,7 +115,6 @@ void *memcpy(void *dest, const void *src, size_t n)
 
     return dest;
 }
-
 
 #define STDOUT 1
 #define PRINTF_BUF_SIZE 512
@@ -309,19 +307,23 @@ int strcmp(const char *s1, const char *s2)
     return (unsigned char) *s1 - (unsigned char) *s2;
 }
 
+/* ------------------------------------------------------------------
+ * Syscall helpers (updated: no sys_calls struct anymore)
+ * ------------------------------------------------------------------ */
+
 static inline uint32_t syscall_0(uint32_t nr)
 {
-    return sys()->sys_enter_fn(nr, 0, 0, 0, 0);
+    return sys_enter_fn()(nr, 0, 0, 0, 0);
 }
 
 static inline uint32_t syscall_1(uint32_t nr, uint32_t a1)
 {
-    return sys()->sys_enter_fn(nr, a1, 0, 0, 0);
+    return sys_enter_fn()(nr, a1, 0, 0, 0);
 }
 
 static inline uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
 {
-    return sys()->sys_enter_fn(nr, a1, a2, 0, 0);
+    return sys_enter_fn()(nr, a1, a2, 0, 0);
 }
 
 static inline uint32_t syscall_3(uint32_t nr,
@@ -329,7 +331,7 @@ static inline uint32_t syscall_3(uint32_t nr,
                                  uint32_t a2,
                                  uint32_t a3)
 {
-    return sys()->sys_enter_fn(nr, a1, a2, a3, 0);
+    return sys_enter_fn()(nr, a1, a2, a3, 0);
 }
 
 static inline uint32_t syscall_4(uint32_t nr,
@@ -338,7 +340,7 @@ static inline uint32_t syscall_4(uint32_t nr,
                                  uint32_t a3,
                                  uint32_t a4)
 {
-    return sys()->sys_enter_fn(nr, a1, a2, a3, a4);
+    return sys_enter_fn()(nr, a1, a2, a3, a4);
 }
 
 ssize_t write(int fd, const void *buf, size_t count)

@@ -10,7 +10,7 @@ SECTIONS
         __kernel_header_base = .;
 
         /* 0x00100000: pointer to sys_calls_instance */
-        LONG(sys_call_instance)
+        LONG(sys_enter_entry)
 
         /* 0x00100004: pointer to kernel entry (kmain) */
         LONG(kmain)

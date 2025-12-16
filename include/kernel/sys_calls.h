@@ -1,12 +1,12 @@
 #ifndef SYS_CALLS_H
 #define SYS_CALLS_H
 
+#include <stdint.h>
 #include <stddef.h>
 #include "dirent.h"
 
 typedef long ssize_t;
 typedef int pid_t;
-
 
 enum sys_call_nr
 {
@@ -29,26 +29,24 @@ enum sys_call_nr
     SYS_getcwd,
 };
 
-struct sys_calls
-{
-    uint32_t (*sys_enter_fn)(
-            uint32_t nr,
-            uint32_t a1,
-            uint32_t a2,
-            uint32_t a3,
-            uint32_t a4);
-};
+typedef uint32_t (*sys_enter_fn_t)(
+        uint32_t nr,
+        uint32_t a1,
+        uint32_t a2,
+        uint32_t a3,
+        uint32_t a4);
 
-/* 1 MiB base where the kernel header lives */
 #define MB(x)               ((x) * 1024u * 1024u)
 #define SYS_CALLS_HDR_ADDR  MB(1)
 
-/* First word in the header: pointer to sys_call_instance */
-#define SYS_CALLS_PTR_ADDR ((struct sys_calls * const *)SYS_CALLS_HDR_ADDR)
+/*
+ * Header contains a pointer to a sys_enter_fn_t variable (sys_enter_entry).
+ * So: *(uint32_t*)HDR == &sys_enter_entry
+ */
+#define SYS_ENTER_PTRPTR_ADDR ((sys_enter_fn_t const * const *)SYS_CALLS_HDR_ADDR)
 
-static inline struct sys_calls *sys(void)
+static inline sys_enter_fn_t sys_enter_fn(void)
 {
-    return *SYS_CALLS_PTR_ADDR;
+    return **SYS_ENTER_PTRPTR_ADDR;  // 1) load &sys_enter_entry, 2) load sys_enter_entry (fn ptr)
 }
-
 #endif /* SYS_CALLS_H */

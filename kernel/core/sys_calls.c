@@ -10,7 +10,6 @@
 #include "../../include/kernel/vfs.h"
 #include "../../include/kernel/mm.h"
 
-
 static ssize_t sys_write(int fd, const char *buf, size_t count)
 {
     sched_schedule();
@@ -20,7 +19,6 @@ static ssize_t sys_write(int fd, const char *buf, size_t count)
 static ssize_t sys_read(int fd, void *buf, size_t count)
 {
     sched_schedule();
-
     return vfs_read(fd, buf, count);
 }
 
@@ -78,6 +76,7 @@ static int sys_kill(pid_t pid, int sig)
 
 static int sys_nice(int inc)
 {
+    (void)inc;
     return 0;   // do nothing, succeed
 }
 
@@ -94,17 +93,16 @@ static int sys_brk(void *addr)
 static int sys_chdir(const char *path)
 {
     sched_schedule();
-
     return vfs_chdir(path);
 }
 
 static char *sys_getcwd(char *buf, size_t size)
 {
     sched_schedule();
-
     return vfs_getcwd(buf, size);
 }
 
+__attribute__((used))
 static uint32_t sys_enter_dispatch(uint32_t nr,
                                    uint32_t a1,
                                    uint32_t a2,
@@ -178,8 +176,10 @@ static uint32_t sys_enter_dispatch(uint32_t nr,
     }
 }
 
-
+/*
+ * Export just the entry function pointer (new design).
+ * Keep it in the same section name so your linker/loader logic
+ * that locates ".sys_calls" can stay unchanged.
+ */
 __attribute__((section(".sys_calls"), used))
-const struct sys_calls sys_call_instance = {
-        .sys_enter_fn       = sys_enter_dispatch,
-};
+const sys_enter_fn_t sys_enter_entry = sys_enter_dispatch;
