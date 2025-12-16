@@ -106,6 +106,7 @@ function(add_app name)
 
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
+            -ffunction-sections -fdata-sections
             -fPIE
             -fno-asynchronous-unwind-tables
     )
@@ -113,6 +114,9 @@ function(add_app name)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
             -pie
+            -Wl,-e,_start          # <--- make entry explicit
+            -Wl,-u,main            # <--- keep main even with --gc-sections
+            -Wl,--gc-sections
             -Wl,-z,max-page-size=0x1
             -Wl,-z,common-page-size=0x1
             -Wl,--build-id=none
@@ -125,7 +129,6 @@ function(add_app name)
             RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR}
     )
 
-    # Strip section headers and unnecessary sections after build
     add_custom_command(TARGET ${name}.elf POST_BUILD
             COMMAND ${CMAKE_STRIP} --strip-all ${BUILD_DIR}/${name}.elf
             COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.comment ${BUILD_DIR}/${name}.elf
@@ -146,6 +149,7 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
+
 
 
 
