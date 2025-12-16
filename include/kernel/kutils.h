@@ -40,6 +40,13 @@ static inline uint32_t align_down(uint32_t value, uint32_t align)
     return value & ~(align - 1);
 }
 
+static inline uint32_t read_esp(void)
+{
+    uint32_t esp;
+    __asm__ volatile("movl %%esp, %0" : "=r"(esp));
+    return esp;
+}
+
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size);
 
 #endif // KUTILS_H
