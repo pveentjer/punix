@@ -1,5 +1,11 @@
+#include "../include/kernel/libc.h"
+
 int main(int argc, char **argv)
 {
-    asm volatile("hlt");
+    for(;;)
+    {
+        asm volatile("hlt");
+        sched_yield();
+    }
     return 0;
 }

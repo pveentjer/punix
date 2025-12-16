@@ -353,6 +353,8 @@ pid_t sched_getpid(void)
 
 void sched_schedule(void)
 {
+//    kprintf("sched_schedule %u\n", sched.ctxt);
+
     struct task *prev = sched.current;
     struct task *next = run_queue_poll(&sched.run_queue);
     if (next == NULL)
