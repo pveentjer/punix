@@ -171,7 +171,7 @@ after_read:
     or  eax, 1
     mov cr0, eax
 
-    jmp CODE_SEG:pm_start
+    jmp CODE_SEG:kernel_start
 
 ; ========================================================================
 ; Helper routines (real mode)
@@ -235,7 +235,7 @@ hang:
 ; Stage 2 — Protected mode
 ; ========================================================================
 bits 32
-pm_start:
+kernel_start:
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
