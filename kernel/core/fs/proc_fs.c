@@ -118,14 +118,12 @@ static bool proc_is_pid_dir(const char *pathname, pid_t *pid_out)
         return false;
     }
 
-    /* Walk to the end of digits */
     const char *p = pathname + 6;
     while (*p >= '0' && *p <= '9')
     {
         p++;
     }
 
-    /* Must be exactly end or a trailing slash */
     if (*p == '\0' || (*p == '/' && p[1] == '\0'))
     {
         if (pid_out)
@@ -199,7 +197,8 @@ static int proc_open(struct file *file)
         const char *leaf = p + 1;
 
         if (k_strcmp(leaf, "comm") == 0 ||
-            k_strcmp(leaf, "cmdline") == 0)
+            k_strcmp(leaf, "cmdline") == 0 ||
+            k_strcmp(leaf, "stat") == 0)
         {
             file->pos = 0;
             return 0;
@@ -224,6 +223,12 @@ static ssize_t read_proc_pid_comm(
         const struct task *task);
 
 static ssize_t read_proc_pid_cmdline(
+        struct file *file,
+        void *buf,
+        size_t count,
+        const struct task *task);
+
+static ssize_t read_proc_pid_stat(
         struct file *file,
         void *buf,
         size_t count,
@@ -275,6 +280,10 @@ static ssize_t proc_read(
     {
         return read_proc_pid_cmdline(file, buf, count, task);
     }
+    else if (k_strcmp(leaf, "stat") == 0)
+    {
+        return read_proc_pid_stat(file, buf, count, task);
+    }
 
     return -1;
 }
@@ -316,6 +325,49 @@ static ssize_t read_proc_pid_comm(
     return size;
 }
 
+/* /proc/<pid>/stat -> prints task->ctxt as decimal + '\n' */
+static ssize_t read_proc_pid_stat(
+        struct file *file,
+        void *buf,
+        size_t count,
+        const struct task *task)
+{
+    /* Convert ctxt to string */
+    char num[64];
+    u64_to_str((uint64_t)task->ctxt, num, sizeof(num));
+
+    size_t num_len = k_strlen(num);
+    size_t len = num_len + 1; /* newline */
+
+    if (len > count)
+    {
+        len = count;
+    }
+
+    if (len == 0)
+    {
+        return 0;
+    }
+
+    /* Copy digits */
+    size_t digits_to_copy = (len > 0) ? (len - 1) : 0;
+    if (digits_to_copy > num_len)
+    {
+        digits_to_copy = num_len;
+    }
+
+    k_memcpy(buf, num, digits_to_copy);
+
+    /* Add newline if we have space for it */
+    if (len > digits_to_copy)
+    {
+        ((char *)buf)[digits_to_copy] = '\n';
+    }
+
+    file->pos += len;
+    return (ssize_t)len;
+}
+
 static ssize_t read_proc_stat(
         struct file *file,
         void *buf,
@@ -349,7 +401,7 @@ static ssize_t read_proc_stat(
 /* ------------------------------------------------------------
  * proc_getdents:
  *  - list /proc root
- *  - list /proc/<pid> directory (comm, cmdline)
+ *  - list /proc/<pid> directory (comm, cmdline, stat)
  * ------------------------------------------------------------ */
 static int proc_getdents(
         struct file *file,
@@ -395,7 +447,6 @@ static int proc_getdents(
     pid_t pid;
     if (proc_is_pid_dir(file->pathname, &pid))
     {
-        /* validate PID still exists */
         struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
         if (!task)
         {
@@ -406,13 +457,13 @@ static int proc_getdents(
         fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
         fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "comm");
         fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "cmdline");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
 
         int size = (int) (idx * sizeof(struct dirent));
         file->pos += size;
         return size;
     }
 
-    /* Not a directory we know how to list */
     return -1;
 }
 
