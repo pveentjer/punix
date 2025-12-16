@@ -5,17 +5,19 @@
 
 static void print_help(const char *prog)
 {
-    printf("Usage: %s [-l] [DIRECTORY]\n", prog);
+    printf("Usage: %s [-l] [-a] [DIRECTORY]\n", prog);
     printf("\n");
     printf("List the contents of a directory.\n");
     printf("\n");
     printf("Options:\n");
     printf("  -l        Use a long listing format\n");
+    printf("  -a        Show all entries, including . and ..\n");
     printf("  --help    Show this help message\n");
     printf("\n");
     printf("Examples:\n");
-    printf("  %s            # list root directory\n", prog);
-    printf("  %s -l /bin    # long list files in /bin\n", prog);
+    printf("  %s            # list directory\n", prog);
+    printf("  %s -a         # include hidden files\n", prog);
+    printf("  %s -la /bin   # long list, include hidden files\n", prog);
 }
 
 static char type_char(const struct dirent *de)
@@ -28,10 +30,18 @@ static char type_char(const struct dirent *de)
     }
 }
 
+static int is_dot_entry(const struct dirent *de)
+{
+    return
+            (de->d_name[0] == '.' && de->d_name[1] == '\0') ||
+            (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == '\0');
+}
+
 int main(int argc, char **argv)
 {
     const char *path = ".";
     int long_format = 0;
+    int show_all = 0;
 
     /* Parse arguments */
     for (int i = 1; i < argc; i++)
@@ -44,6 +54,15 @@ int main(int argc, char **argv)
         else if (strcmp(argv[i], "-l") == 0)
         {
             long_format = 1;
+        }
+        else if (strcmp(argv[i], "-a") == 0)
+        {
+            show_all = 1;
+        }
+        else if (strcmp(argv[i], "-la") == 0 || strcmp(argv[i], "-al") == 0)
+        {
+            long_format = 1;
+            show_all = 1;
         }
         else if (path == NULL || path == ".")
         {
@@ -80,9 +99,7 @@ int main(int argc, char **argv)
     {
         struct dirent *de = &entries[i];
 
-        /* Skip "." and ".." */
-        if ((de->d_name[0] == '.' && de->d_name[1] == '\0') ||
-            (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == '\0'))
+        if (!show_all && is_dot_entry(de))
         {
             continue;
         }
