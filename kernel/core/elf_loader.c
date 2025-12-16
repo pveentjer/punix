@@ -60,51 +60,6 @@ const struct embedded_app *find_app(const char *name)
     return NULL;
 }
 
-/* ------------------------------------------------------------
- * Fill dirent entries for /bin from embedded_apps
- * ------------------------------------------------------------ */
-
-static void fill_dirent_from_app(struct dirent *de,
-                                 const struct embedded_app *app,
-                                 uint32_t ino)
-{
-    de->d_ino = ino;
-    de->d_reclen = (uint16_t) sizeof(struct dirent);
-    de->d_type = DT_REG;
-
-    /* Strip any leading path: "/bin/ls" -> "ls" */
-    const char *name = app->name;
-    const char *base = name;
-
-    const char *p = k_strrchr(name, '/');
-    if (p && p[1] != '\0')
-        base = p + 1;
-
-    size_t len = k_strlen(base);
-    if (len >= sizeof(de->d_name))
-        len = sizeof(de->d_name) - 1;
-
-    k_memcpy(de->d_name, base, len);
-    de->d_name[len] = '\0';
-}
-
-int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
-{
-    unsigned int idx = 0;
-
-    if (!buf || max_entries == 0)
-        return 0;
-
-    for (size_t i = 0; i < embedded_app_count && idx < max_entries; ++i)
-    {
-        fill_dirent_from_app(&buf[idx], &embedded_apps[i],
-                             (uint32_t) (i + 1));  // fake inode
-        idx++;
-    }
-
-    return (int) idx;
-}
-
 /* --------------------------------------------------------------------
  * ELF loader with relocation fixups and symbol table parsing
  * -------------------------------------------------------------------- */

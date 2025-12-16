@@ -13,6 +13,7 @@ struct tty;
 
 enum sched_state
 {
+    TASK_POOLED,   /* currently not in use */
     TASK_QUEUED,   /* in the run queue, waiting to be scheduled */
     TASK_RUNNING,  /* currently running on the CPU */
     TASK_BLOCKED   /* sleeping / waiting for an event */
@@ -99,7 +100,6 @@ struct sched_stat
 
 extern struct scheduler sched;
 
-/* Task table functions */
 struct task *task_table_find_task_by_pid(const struct task_table *task_table, const pid_t pid);
 
 void task_table_init(struct task_table *task_table);

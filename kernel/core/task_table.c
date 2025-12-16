@@ -28,7 +28,7 @@ void task_table_init(struct task_table *task_table)
         task->pid       = PID_NONE;
         task->mem_start = PROCESS_BASE + task_idx * PROCESS_SIZE;
         task->mem_end   = task->mem_start + PROCESS_SIZE;
-
+        task->state     = TASK_POOLED;
         // Initialize per-task GDT indices in cpu_ctx
         gdt_init_task_ctx(&task->cpu_ctx, task_idx);
 
@@ -106,4 +106,5 @@ void task_table_free(
     task_table->free_ring[free_ring_idx] = slot_idx;
     task_table->free_tail++;
     task->pid = PID_NONE;
+    task->state = TASK_POOLED;
 }

@@ -111,6 +111,4 @@ extern const size_t embedded_app_count;
 
 const struct embedded_app *find_app(const char *name);
 
-int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries);
-
 #endif // ELF_LOADER_H
