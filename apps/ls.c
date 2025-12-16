@@ -5,39 +5,56 @@
 
 static void print_help(const char *prog)
 {
-    printf("Usage: %s [DIRECTORY]\n", prog);
+    printf("Usage: %s [-l] [DIRECTORY]\n", prog);
     printf("\n");
     printf("List the contents of a directory.\n");
     printf("\n");
     printf("Options:\n");
+    printf("  -l        Use a long listing format\n");
     printf("  --help    Show this help message\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s            # list root directory\n", prog);
-    printf("  %s /bin       # list files in /bin\n", prog);
-    printf("  %s /proc      # list processes\n", prog);
+    printf("  %s -l /bin    # long list files in /bin\n", prog);
+}
+
+static char type_char(const struct dirent *de)
+{
+    switch (de->d_type)
+    {
+        case DT_DIR:  return 'd';
+        case DT_REG:  return 'f';
+        default:      return '?';
+    }
 }
 
 int main(int argc, char **argv)
 {
     const char *path = ".";
+    int long_format = 0;
 
-    if (argc == 2 && strcmp(argv[1], "--help") == 0)
+    /* Parse arguments */
+    for (int i = 1; i < argc; i++)
     {
-        print_help(argv[0]);
-        return 0;
-    }
-
-    if (argc > 2)
-    {
-        printf("ls: too many arguments\n");
-        printf("Try '%s --help' for more information.\n", argv[0]);
-        return 1;
-    }
-
-    if (argc == 2)
-    {
-        path = argv[1];
+        if (strcmp(argv[i], "--help") == 0)
+        {
+            print_help(argv[0]);
+            return 0;
+        }
+        else if (strcmp(argv[i], "-l") == 0)
+        {
+            long_format = 1;
+        }
+        else if (path == NULL || path == ".")
+        {
+            path = argv[i];
+        }
+        else
+        {
+            printf("ls: too many arguments\n");
+            printf("Try '%s --help' for more information.\n", argv[0]);
+            return 1;
+        }
     }
 
     int fd = open(path, O_RDONLY, 0);
@@ -49,8 +66,6 @@ int main(int argc, char **argv)
 
     struct dirent entries[256];
 
-    /* Our current kernel getdents always returns the full listing each time,
-       so we only call it once. */
     int nbytes = getdents(fd, entries, sizeof(entries));
     if (nbytes < 0)
     {
@@ -59,7 +74,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int n = nbytes / (int) sizeof(struct dirent);
+    int n = nbytes / (int)sizeof(struct dirent);
 
     for (int i = 0; i < n; i++)
     {
@@ -72,7 +87,14 @@ int main(int argc, char **argv)
             continue;
         }
 
-        printf("%s\n", de->d_name);
+        if (long_format)
+        {
+            printf("%c %s\n", type_char(de), de->d_name);
+        }
+        else
+        {
+            printf("%s\n", de->d_name);
+        }
     }
 
     close(fd);
