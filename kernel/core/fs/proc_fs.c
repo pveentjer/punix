@@ -98,6 +98,47 @@ static pid_t proc_path_to_pid(const char *pathname)
 }
 
 /* ------------------------------------------------------------
+ * Helper: is pathname exactly /proc or /proc/
+ * ------------------------------------------------------------ */
+static bool proc_is_root(const char *pathname)
+{
+    return pathname &&
+           (k_strcmp(pathname, "/proc") == 0 ||
+            k_strcmp(pathname, "/proc/") == 0);
+}
+
+/* ------------------------------------------------------------
+ * Helper: is pathname exactly /proc/<pid> or /proc/<pid>/
+ * ------------------------------------------------------------ */
+static bool proc_is_pid_dir(const char *pathname, pid_t *pid_out)
+{
+    pid_t pid = proc_path_to_pid(pathname);
+    if (pid == PID_NONE)
+    {
+        return false;
+    }
+
+    /* Walk to the end of digits */
+    const char *p = pathname + 6;
+    while (*p >= '0' && *p <= '9')
+    {
+        p++;
+    }
+
+    /* Must be exactly end or a trailing slash */
+    if (*p == '\0' || (*p == '/' && p[1] == '\0'))
+    {
+        if (pid_out)
+        {
+            *pid_out = pid;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+/* ------------------------------------------------------------
  * proc_open: validate that the requested /proc path exists
  * ------------------------------------------------------------ */
 static int proc_open(struct file *file)
@@ -105,8 +146,7 @@ static int proc_open(struct file *file)
     const char *pathname = file->pathname;
 
     /* Root /proc directory */
-    if (k_strcmp(pathname, "/proc") == 0 ||
-        k_strcmp(pathname, "/proc/") == 0)
+    if (proc_is_root(pathname))
     {
         file->pos = 0;
         return 0;
@@ -307,7 +347,9 @@ static ssize_t read_proc_stat(
 }
 
 /* ------------------------------------------------------------
- * proc_getdents: list /proc root
+ * proc_getdents:
+ *  - list /proc root
+ *  - list /proc/<pid> directory (comm, cmdline)
  * ------------------------------------------------------------ */
 static int proc_getdents(
         struct file *file,
@@ -327,23 +369,51 @@ static int proc_getdents(
     unsigned int max_entries = count / sizeof(struct dirent);
     unsigned int idx = 0;
 
-    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
-    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
-    fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
-
-    if (idx < max_entries)
+    /* Root directory listing */
+    if (proc_is_root(file->pathname))
     {
-        unsigned int remaining = max_entries - idx;
-        int written = sched_fill_proc_dirents(&buf[idx], remaining);
-        if (written > 0)
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
+
+        if (idx < max_entries)
         {
-            idx += (unsigned int) written;
+            unsigned int remaining = max_entries - idx;
+            int written = sched_fill_proc_dirents(&buf[idx], remaining);
+            if (written > 0)
+            {
+                idx += (unsigned int) written;
+            }
         }
+
+        int size = (int) (idx * sizeof(struct dirent));
+        file->pos += size;
+        return size;
     }
 
-    int size = (int) (idx * sizeof(struct dirent));
-    file->pos += size;
-    return size;
+    /* /proc/<pid> directory listing */
+    pid_t pid;
+    if (proc_is_pid_dir(file->pathname, &pid))
+    {
+        /* validate PID still exists */
+        struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
+        if (!task)
+        {
+            return -1;
+        }
+
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "comm");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "cmdline");
+
+        int size = (int) (idx * sizeof(struct dirent));
+        file->pos += size;
+        return size;
+    }
+
+    /* Not a directory we know how to list */
+    return -1;
 }
 
 /* ------------------------------------------------------------
