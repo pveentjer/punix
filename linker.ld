@@ -31,9 +31,12 @@ SECTIONS
         *(.data*)
     }
 
-    .bss : ALIGN(4) {
-        *(.bss*)
-        *(COMMON)
+    .bss (NOLOAD) : ALIGN(16)
+    {
+       __bss_start = .;
+       *(.bss*)
+       *(COMMON)
+       __bss_end = .;
     }
 
     _kernel_end = .;

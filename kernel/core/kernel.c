@@ -9,10 +9,25 @@
 #include "../../include/kernel/vfs.h"
 
 
+extern uint8_t __bss_start;
+extern uint8_t __bss_end;
+
+// The kernel is loaded as is. But the bss (global variables) section currently contains
+// garbage and needs to be zeroed before it can be used.
+static void bss_zero(void)
+{
+    for (uint8_t *p = &__bss_start; p < &__bss_end; p++)
+    {
+        *p = 0;
+    }
+}
+
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
+    bss_zero();
+
     console_init(&kconsole);
 
     kprintf("PUnix 0.001\n");
