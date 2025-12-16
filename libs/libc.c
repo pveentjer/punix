@@ -310,141 +310,151 @@ int strcmp(const char *s1, const char *s2)
     return (unsigned char) *s1 - (unsigned char) *s2;
 }
 
+static inline uint32_t syscall_0(uint32_t nr)
+{
+    return sys()->sys_enter_fn(nr, 0, 0, 0, 0);
+}
+
+static inline uint32_t syscall_1(uint32_t nr, uint32_t a1)
+{
+    return sys()->sys_enter_fn(nr, a1, 0, 0, 0);
+}
+
+static inline uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
+{
+    return sys()->sys_enter_fn(nr, a1, a2, 0, 0);
+}
+
+static inline uint32_t syscall_3(uint32_t nr,
+                                 uint32_t a1,
+                                 uint32_t a2,
+                                 uint32_t a3)
+{
+    return sys()->sys_enter_fn(nr, a1, a2, a3, 0);
+}
+
+static inline uint32_t syscall_4(uint32_t nr,
+                                 uint32_t a1,
+                                 uint32_t a2,
+                                 uint32_t a3,
+                                 uint32_t a4)
+{
+    return sys()->sys_enter_fn(nr, a1, a2, a3, a4);
+}
+
 ssize_t write(int fd, const void *buf, size_t count)
 {
-    sys_enter_kernel_mode();
-    ssize_t res = sys()->write(fd, buf, count);
-    sys_leave_kernel_mode();
-    return res;
+    return (ssize_t)syscall_3(SYS_write,
+                              (uint32_t)fd,
+                              (uint32_t)buf,
+                              (uint32_t)count);
 }
 
 ssize_t read(int fd, void *buf, size_t count)
 {
-    sys_enter_kernel_mode();
-    ssize_t res = sys()->read(fd, buf, count);
-    sys_leave_kernel_mode();
-    return res;
+    return (ssize_t)syscall_3(SYS_read,
+                              (uint32_t)fd,
+                              (uint32_t)buf,
+                              (uint32_t)count);
 }
 
 pid_t getpid(void)
 {
-    sys_enter_kernel_mode();
-    pid_t res = sys()->getpid();
-    sys_leave_kernel_mode();
-    return res;
+    return (pid_t)syscall_0(SYS_getpid);
 }
 
 void sched_yield(void)
 {
-    sys_enter_kernel_mode();
-    sys()->sched_yield();
-    sys_leave_kernel_mode();
+    (void)syscall_0(SYS_sched_yield);
 }
 
 void exit(int status)
 {
-    sys_enter_kernel_mode();
-    sys()->exit(status);
-    sys_leave_kernel_mode();
+    (void)syscall_1(SYS_exit, (uint32_t)status);
 }
 
 int kill(pid_t pid, int sig)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->kill(pid, sig);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_2(SYS_kill,
+                          (uint32_t)pid,
+                          (uint32_t)sig);
 }
 
 int nice(int inc)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->nice(inc);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_1(SYS_nice, (uint32_t)inc);
 }
 
 pid_t waitpid(pid_t pid, int *status, int options)
 {
-    sys_enter_kernel_mode();
-    pid_t res = sys()->waitpid(pid, status, options);
-    sys_leave_kernel_mode();
-    return res;
+    return (pid_t)syscall_3(SYS_waitpid,
+                            (uint32_t)pid,
+                            (uint32_t)status,
+                            (uint32_t)options);
 }
 
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
-    sys_enter_kernel_mode();
-    pid_t res = sys()->add_task(filename, tty_id, argv, envp);
-    sys_leave_kernel_mode();
-    return res;
+    return (pid_t)syscall_4(SYS_add_task,
+                            (uint32_t)filename,
+                            (uint32_t)tty_id,
+                            (uint32_t)argv,
+                            (uint32_t)envp);
 }
 
 pid_t fork(void)
 {
-    sys_enter_kernel_mode();
-    pid_t res = sys()->fork();
-    sys_leave_kernel_mode();
-    return res;
+    return (pid_t)syscall_0(SYS_fork);
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    sys_enter_kernel_mode();
-    int res = sys()->execve(pathname, argv, envp);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_3(SYS_execve,
+                          (uint32_t)pathname,
+                          (uint32_t)argv,
+                          (uint32_t)envp);
 }
 
 int open(const char *pathname, int flags, int mode)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->open(pathname, flags, mode);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_3(SYS_open,
+                          (uint32_t)pathname,
+                          (uint32_t)flags,
+                          (uint32_t)mode);
 }
 
 int close(int fd)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->close(fd);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_1(SYS_close, (uint32_t)fd);
 }
 
 int getdents(int fd, struct dirent *buf, unsigned int count)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->getdents(fd, buf, count);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_3(SYS_getdents,
+                          (uint32_t)fd,
+                          (uint32_t)buf,
+                          (uint32_t)count);
 }
 
 int chdir(const char *path)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->chdir(path);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_1(SYS_chdir, (uint32_t)path);
 }
 
 char *getcwd(char *buf, size_t size)
 {
-    sys_enter_kernel_mode();
-    char *res = sys()->getcwd(buf, size);
-    sys_leave_kernel_mode();
-    return res;
+    return (char *)syscall_2(SYS_getcwd,
+                             (uint32_t)buf,
+                             (uint32_t)size);
 }
 
-// This value is initialized by the kernel
+/* brk / sbrk */
+
 void *__curbrk = 0;
 
 int brk(void *addr)
 {
-    sys_enter_kernel_mode();
-    int res = sys()->brk(addr);
-    sys_leave_kernel_mode();
-    return res;
+    return (int)syscall_1(SYS_brk, (uint32_t)addr);
 }
 
 void *sbrk(intptr_t increment)
@@ -453,20 +463,13 @@ void *sbrk(intptr_t increment)
 
     if (increment != 0)
     {
-        void *new_brk = (char *) old_brk + increment;
-
-        sys_enter_kernel_mode();
-        int rc = sys()->brk(new_brk);
-        sys_leave_kernel_mode();
+        void *new_brk = (char *)old_brk + increment;
+        int rc = (int)syscall_1(SYS_brk, (uint32_t)new_brk);
 
         if (rc == 0)
-        {
             __curbrk = new_brk;
-        }
         else
-        {
-            return (void *) -1;
-        }
+            return (void *)-1;
     }
 
     return old_brk;

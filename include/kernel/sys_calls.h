@@ -7,6 +7,28 @@
 typedef long ssize_t;
 typedef int pid_t;
 
+
+enum sys_call_nr
+{
+    SYS_write = 0,
+    SYS_read,
+    SYS_open,
+    SYS_close,
+    SYS_getdents,
+    SYS_add_task,
+    SYS_fork,
+    SYS_execve,
+    SYS_exit,
+    SYS_kill,
+    SYS_waitpid,
+    SYS_getpid,
+    SYS_sched_yield,
+    SYS_nice,
+    SYS_brk,
+    SYS_chdir,
+    SYS_getcwd,
+};
+
 struct sys_calls
 {
     ssize_t (*write)(int fd, const char *buf, size_t count);
@@ -42,6 +64,13 @@ struct sys_calls
     int (*chdir)(const char *path);
 
     char* (*getcwd)(char *buf, size_t size);
+
+    uint32_t (*sys_enter_fn)(
+            uint32_t nr,
+            uint32_t a1,
+            uint32_t a2,
+            uint32_t a3,
+            uint32_t a4);
 };
 
 /* 1 MiB base where the kernel header lives */
