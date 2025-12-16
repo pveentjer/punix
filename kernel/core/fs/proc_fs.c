@@ -32,7 +32,6 @@ static void fill_dirent_from_task(
 
 /* ------------------------------------------------------------
  * Fill struct dirent entries for /proc
- * (PIDs only; /proc/stat is added in proc_getdents)
  * ------------------------------------------------------------ */
 int sched_fill_proc_dirents(
         struct dirent *buf,
@@ -45,14 +44,12 @@ int sched_fill_proc_dirents(
         return 0;
     }
 
-    // Add the current task first (if any)
     if (sched.current && idx < max_entries)
     {
         fill_dirent_from_task(&buf[idx], sched.current);
         idx++;
     }
 
-    // Add all other tasks in the run queue
     struct task *t = sched.run_queue.first;
     while (t && idx < max_entries)
     {
@@ -67,21 +64,24 @@ int sched_fill_proc_dirents(
     return (int) idx;
 }
 
-/* Helper: extract PID from /proc/PID/... path */
-static pid_t proc_path_to_pid(
-        const char *pathname)
+/* ------------------------------------------------------------
+ * Extract PID from /proc/<pid>[/...]
+ * - must have at least one digit
+ * - next char must be '\0' or '/'
+ * ------------------------------------------------------------ */
+static pid_t proc_path_to_pid(const char *pathname)
 {
     if (!pathname || pathname[0] != '/')
-    {
         return PID_NONE;
-    }
 
     if (k_strncmp(pathname, "/proc/", 6) != 0)
-    {
         return PID_NONE;
-    }
 
     const char *p = pathname + 6;
+
+    /* must start with a digit */
+    if (*p < '0' || *p > '9')
+        return PID_NONE;
 
     pid_t pid = 0;
     while (*p >= '0' && *p <= '9')
@@ -89,6 +89,10 @@ static pid_t proc_path_to_pid(
         pid = pid * 10 + (*p - '0');
         p++;
     }
+
+    /* must end or be followed by '/' */
+    if (*p != '\0' && *p != '/')
+        return PID_NONE;
 
     return pid;
 }
@@ -98,7 +102,7 @@ static pid_t proc_path_to_pid(
  * ------------------------------------------------------------ */
 static int proc_open(struct file *file)
 {
-    char *pathname = file->pathname;
+    const char *pathname = file->pathname;
 
     /* Root /proc directory */
     if (k_strcmp(pathname, "/proc") == 0 ||
@@ -115,101 +119,119 @@ static int proc_open(struct file *file)
         return 0;
     }
 
-    /* Per-PID entries */
+    /* Everything else must be /proc/<pid>[/...] */
     pid_t pid = proc_path_to_pid(pathname);
     if (pid == PID_NONE)
     {
         return -1;
     }
 
-    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
+    struct task *task =
+            task_table_find_task_by_pid(&sched.task_table, pid);
     if (!task)
     {
-        (void) task; // in case you later build without using it
         return -1;
     }
 
-    const char *filename = k_strrchr(pathname, '/');
-    if (!filename)
+    const char *p = pathname + 6;
+    while (*p >= '0' && *p <= '9')
     {
-        return -1;
+        p++;
     }
-    filename++;
 
-    /* Directory: /proc/<pid> */
-    if (filename[0] == '\0')
+    /* "/proc/<pid>" */
+    if (*p == '\0')
     {
         file->pos = 0;
         return 0;
     }
 
-    /* Files: /proc/<pid>/comm, /proc/<pid>/cmdline */
-    if (k_strcmp(filename, "comm") == 0 ||
-        k_strcmp(filename, "cmdline") == 0)
+    /* "/proc/<pid>/" */
+    if (*p == '/' && p[1] == '\0')
     {
         file->pos = 0;
         return 0;
+    }
+
+    /* "/proc/<pid>/<file>" */
+    if (*p == '/')
+    {
+        const char *leaf = p + 1;
+
+        if (k_strcmp(leaf, "comm") == 0 ||
+            k_strcmp(leaf, "cmdline") == 0)
+        {
+            file->pos = 0;
+            return 0;
+        }
     }
 
     return -1;
 }
 
-static ssize_t read_proc_stat(struct file *file, void *buf, size_t count);
+/* ------------------------------------------------------------
+ * Forward declarations
+ * ------------------------------------------------------------ */
+static ssize_t read_proc_stat(
+        struct file *file,
+        void *buf,
+        size_t count);
 
-static ssize_t read_proc_pid_comm(struct file *file, void *buf, size_t count, const struct task *task);
+static ssize_t read_proc_pid_comm(
+        struct file *file,
+        void *buf,
+        size_t count,
+        const struct task *task);
 
-static ssize_t read_proc_pid_cmdline(struct file *file, void *buf, size_t count, const struct task *task);
+static ssize_t read_proc_pid_cmdline(
+        struct file *file,
+        void *buf,
+        size_t count,
+        const struct task *task);
 
 /* ------------------------------------------------------------
  * proc_read
- * - /proc/stat      -> scheduler stats (ctxt)
- * - /proc/<pid>/... -> comm / cmdline
  * ------------------------------------------------------------ */
 static ssize_t proc_read(
         struct file *file,
-        void *buf, size_t count)
+        void *buf,
+        size_t count)
 {
-    if (file->pos > 0)
+    if (file->pos > 0 || !buf || count == 0)
     {
         return 0;
     }
 
-    if (!buf || count == 0)
-    {
-        return 0;
-    }
-
-    /* Handle /proc/stat */
     if (k_strcmp(file->pathname, "/proc/stat") == 0)
     {
         return read_proc_stat(file, buf, count);
     }
 
-    /* Everything else is /proc/<pid>/... */
     pid_t pid = proc_path_to_pid(file->pathname);
     if (pid == PID_NONE)
     {
         return -1;
     }
 
-    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
-    if (task == NULL)
+    struct task *task =
+            task_table_find_task_by_pid(&sched.task_table, pid);
+    if (!task)
     {
         return -1;
     }
 
-    const char *filename = k_strrchr(file->pathname, '/');
-    if (!filename)
+    const char *leaf = k_strrchr(file->pathname, '/');
+    if (!leaf)
     {
         return -1;
     }
-    filename++;
+    leaf++;
 
-    if (k_strcmp(filename, "comm") == 0)
+    if (k_strcmp(leaf, "comm") == 0)
     {
         return read_proc_pid_comm(file, buf, count, task);
     }
-    else if (k_strcmp(filename, "cmdline") == 0)
+    else if (k_strcmp(leaf, "cmdline") == 0)
     {
         return read_proc_pid_cmdline(file, buf, count, task);
     }
@@ -230,14 +252,14 @@ static ssize_t read_proc_pid_cmdline(
     }
 
     k_memcpy(buf, task->name, len);
-
     file->pos += len;
     return (ssize_t) len;
 }
 
 static ssize_t read_proc_pid_comm(
         struct file *file,
-        void *buf, size_t count,
+        void *buf,
+        size_t count,
         const struct task *task)
 {
     size_t len = k_strlen(task->name);
@@ -269,42 +291,23 @@ static ssize_t read_proc_stat(
     size_t prefix_len = k_strlen(prefix);
     size_t num_len = k_strlen(num);
 
-    /* total length including newline */
     size_t len = prefix_len + num_len + 1;
     if (len > count)
     {
-        if (count == 0)
-        {
-            return 0;
-        }
         len = count;
     }
 
-    /* copy "ctxt = " */
     k_memcpy(buf, prefix, prefix_len);
-
-    /* copy number right after */
     k_memcpy((char *) buf + prefix_len, num, num_len);
-
-    /* append newline */
     ((char *) buf)[prefix_len + num_len] = '\n';
 
-    ssize_t size = (ssize_t) (prefix_len + num_len + 1);
-    if (size > (ssize_t) count)
-    {
-        size = (ssize_t) count;
-    }
-
+    ssize_t size = (ssize_t) len;
     file->pos += size;
     return size;
 }
 
-
 /* ------------------------------------------------------------
  * proc_getdents: list /proc root
- * - .  ..
- * - stat
- * - PIDs
  * ------------------------------------------------------------ */
 static int proc_getdents(
         struct file *file,
@@ -326,14 +329,8 @@ static int proc_getdents(
 
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
+    fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
 
-    /* Add /proc/stat as a regular file */
-    if (idx < max_entries)
-    {
-        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
-    }
-
-    /* Add PIDs */
     if (idx < max_entries)
     {
         unsigned int remaining = max_entries - idx;
@@ -349,6 +346,9 @@ static int proc_getdents(
     return size;
 }
 
+/* ------------------------------------------------------------
+ * Filesystem descriptor
+ * ------------------------------------------------------------ */
 struct fs proc_fs = {
         .open     = proc_open,
         .close    = NULL,
