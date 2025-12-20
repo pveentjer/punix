@@ -31,19 +31,14 @@ struct wait_queue
 
 void wait_queue_init(struct wait_queue *queue);
 
-void wait_queue_entry_init(
-        struct wait_queue_entry *entry,
-        struct task *task);
+void wait_queue_entry_init(struct wait_queue_entry *entry, struct task *task);
 
-void wait_queue_add(
-        struct wait_queue *queue,
-        struct wait_queue_entry *entry);
+void wait_queue_add(struct wait_queue *queue, struct wait_queue_entry *entry);
 
-void wait_queue_remove(
-        struct wait_queue_entry *entry);
+void wait_queue_remove(struct wait_queue_entry *entry);
 
 void wakeup(struct wait_queue *queue);
 
-void wait_event(struct wait_queue *queue,bool (*cond)(void *obj), void *ctx);
+void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx);
 
 #endif //WAIT_H
