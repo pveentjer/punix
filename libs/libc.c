@@ -530,8 +530,6 @@ char *getcwd(char *buf, size_t size)
                              (uint32_t)size);
 }
 
-/* brk / sbrk */
-
 void *__curbrk = 0;
 
 int brk(void *addr)

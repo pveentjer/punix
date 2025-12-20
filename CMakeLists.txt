@@ -19,7 +19,6 @@ if (NOT ARCH STREQUAL "x86")
     message(FATAL_ERROR "Unsupported ARCH=${ARCH}. Only ARCH=x86 is supported currently.")
 endif()
 
-# Export ARCH to C as a boolean macro
 add_compile_definitions(ARCH_X86=1)
 
 # ------------------------------------------------------------
@@ -33,12 +32,16 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# ------------------------------------------------------------
+# Directory layout
+# ------------------------------------------------------------
 set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/boot)
 set(KERNEL_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
 set(APPS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/apps)
 set(LIBS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/libs)
 set(DRIVERS_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/drivers)
 set(ARCH_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch)
+set(FS_DIR          ${CMAKE_CURRENT_SOURCE_DIR}/fs)
 set(BUILD_DIR       ${CMAKE_CURRENT_BINARY_DIR})
 
 # Arch-derived paths
@@ -46,7 +49,7 @@ set(BOOT_ARCH_DIR   ${BOOT_DIR}/arch/${ARCH})
 set(ARCH_SRC_DIR    ${ARCH_DIR}/${ARCH})
 
 # ------------------------------------------------------------
-# Boot sector and loader (NASM -> .bin)
+# Boot sector and loader
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/bootsector.bin
@@ -74,30 +77,37 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/syscall.c
         ${KERNEL_DIR}/core/kutils.c
         ${KERNEL_DIR}/core/elf_loader.c
+        ${KERNEL_DIR}/core/task_table.c
+        ${KERNEL_DIR}/core/tty.c
+        ${KERNEL_DIR}/core/wait.c
+        ${KERNEL_DIR}/core/mm.c
 )
 
 set(KERNEL_DRIVER_SOURCES
         ${DRIVERS_DIR}/console.c
 )
 
+# ------------------------------------------------------------
+# FS sources (moved to top-level fs/)
+# ------------------------------------------------------------
+set(FS_SOURCES
+        ${FS_DIR}/vfs.c
+        ${FS_DIR}/files.c
+        ${FS_DIR}/bin_fs.c
+        ${FS_DIR}/dev_fs.c
+        ${FS_DIR}/fs_util.c
+        ${FS_DIR}/proc_fs.c
+        ${FS_DIR}/root_fs.c
+)
+
 set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
-        ${KERNEL_DIR}/core/task_table.c
-        ${KERNEL_DIR}/core/fs/vfs.c
-        ${KERNEL_DIR}/core/files.c
-        ${KERNEL_DIR}/core/fs/bin_fs.c
-        ${KERNEL_DIR}/core/fs/dev_fs.c
-        ${KERNEL_DIR}/core/fs/fs_util.c
-        ${KERNEL_DIR}/core/fs/proc_fs.c
-        ${KERNEL_DIR}/core/fs/root_fs.c
-        ${KERNEL_DIR}/core/tty.c
-        ${KERNEL_DIR}/core/wait.c
-        ${KERNEL_DIR}/core/mm.c
+        ${FS_SOURCES}
 )
 
 # ------------------------------------------------------------
-# Arch sources (must be attached to a target to be compiled)
+# Arch sources
 # ------------------------------------------------------------
 set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/gdt.c
@@ -106,14 +116,13 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/syscall.c
 )
 
-# Object library for kernel code (core + drivers + arch)
 add_library(kernel_objs OBJECT
         ${KERNEL_SOURCES}
         ${ARCH_SOURCES}
 )
 
 # ------------------------------------------------------------
-# sched.asm -> sched_${ARCH}.o (NASM, ELF32)
+# sched.asm -> sched_x86.o
 # ------------------------------------------------------------
 set(SCHED_ASM_SRC   ${ARCH_SRC_DIR}/sched.asm)
 set(SCHED_ASM_OBJ   ${BUILD_DIR}/sched_${ARCH}.o)
@@ -199,7 +208,7 @@ add_app(tty)
 add_app(pwd)
 
 # ------------------------------------------------------------
-# Kernel ELF target
+# Kernel ELF
 # ------------------------------------------------------------
 add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
@@ -230,7 +239,7 @@ target_link_options(kernel.elf PRIVATE
 )
 
 # ------------------------------------------------------------
-# kernel.elf -> kernel.bin
+# kernel.bin
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/kernel.bin
@@ -241,7 +250,7 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
-# Disk image (bootsector + loader + kernel)
+# Disk image
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/disk.img
@@ -262,11 +271,11 @@ add_custom_target(disk ALL
 )
 
 # ------------------------------------------------------------
-# Run target (QEMU)
+# Run (QEMU)
 # ------------------------------------------------------------
 add_custom_target(run
         COMMAND ${QEMU_EXECUTABLE} -drive format=raw,file=${BUILD_DIR}/disk.img
         DEPENDS ${BUILD_DIR}/disk.img
         WORKING_DIRECTORY ${BUILD_DIR}
-        COMMENT "Running Punix in QEMU"
+        COMMENT "Running PUnix in QEMU"
 )
