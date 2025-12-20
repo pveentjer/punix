@@ -81,6 +81,7 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/tty.c
         ${KERNEL_DIR}/core/wait.c
         ${KERNEL_DIR}/core/mm.c
+        arch/x86/panic.c
 )
 
 set(KERNEL_DRIVER_SOURCES

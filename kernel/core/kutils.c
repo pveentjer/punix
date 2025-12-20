@@ -160,16 +160,7 @@ size_t k_strlen(const char *s)
     return len;
 }
 
-void panic(char *msg)
-{
-    kprintf("Kernel Panic!!!\n");
-    kprintf(msg);
 
-    for (;;)
-    {
-        __asm__ volatile("hlt");
-    }
-}
 
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
 {
