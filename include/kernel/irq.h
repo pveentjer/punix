@@ -17,8 +17,15 @@ static inline irq_state_t irq_disable(void);
 static inline void irq_restore(irq_state_t state);
 
 void idt_init(void);
+
+#ifdef ARCH_X86
+
 void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flags);
+
+#endif
+
 void interrupts_enable(void);
+
 bool interrupts_are_enabled(void);
 
 #endif //IRQ_H
