@@ -13,10 +13,10 @@ struct tty;
 
 enum sched_state
 {
-    TASK_POOLED,   /* currently not in use */
-    TASK_QUEUED,   /* in the run queue, waiting to be scheduled */
-    TASK_RUNNING,  /* currently running on the CPU */
-    TASK_BLOCKED   /* sleeping / waiting for an event */
+    TASK_POOLED,            /* currently not in use */
+    TASK_QUEUED,            /* in the run queue, waiting to be scheduled */
+    TASK_RUNNING,           /* currently running on the CPU */
+    TASK_INTERRUPTIBLE      /* sleeping / waiting for an event */
 };
 
 struct cpu_ctx

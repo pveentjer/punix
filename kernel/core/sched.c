@@ -342,7 +342,7 @@ int sched_kill(pid_t pid, int sig)
     }
 
     task->pending_signals |= (1u << (sig - 1));
-    if(task->state == TASK_BLOCKED)
+    if(task->state == TASK_INTERRUPTIBLE)
     {
         sched_enqueue(task);
     }
@@ -391,7 +391,7 @@ void sched_schedule(void)
             }
         }
 
-        if (prev->state != TASK_BLOCKED)
+        if (prev->state != TASK_INTERRUPTIBLE)
         {
             prev->state = TASK_QUEUED;
             if (prev != sched.swapper)

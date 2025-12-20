@@ -113,7 +113,7 @@ void wakeup(struct wait_queue *queue)
         entry->next = NULL;
         entry->queue = NULL;
 
-        if (task != NULL && task->state == TASK_BLOCKED)
+        if (task != NULL && task->state == TASK_INTERRUPTIBLE)
         {
             sched_enqueue(task);
         }
@@ -132,12 +132,14 @@ void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
     }
 
     struct wait_queue_entry wait_entry;
-    wait_queue_entry_init(&wait_entry, sched_current());
+    struct task *current = sched_current();
+
+    wait_queue_entry_init(&wait_entry, current);
 
     while (!cond(ctx))
     {
-        struct task *task = sched_current();
-        task->state = TASK_BLOCKED;
+        struct task *task = current;
+        task->state = TASK_INTERRUPTIBLE;
 
         wait_queue_add(queue, &wait_entry);
 
