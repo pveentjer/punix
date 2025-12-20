@@ -78,6 +78,7 @@ set(KERNEL_SOURCES
         kernel/core/tty.c
         kernel/core/wait.c
         kernel/core/mm.c
+        kernel/arch/x86/irq_x86.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
