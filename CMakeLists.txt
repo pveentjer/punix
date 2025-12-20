@@ -7,8 +7,20 @@ project(PUnix C ASM)
 # ------------------------------------------------------------
 find_program(NASM_EXECUTABLE nasm REQUIRED)
 find_program(OBJCOPY_EXECUTABLE objcopy REQUIRED)
-find_program(QEMU_EXECUTABLE qemu-system-i386 REQUIRED)
 find_program(LD_EXECUTABLE ld REQUIRED)
+find_program(QEMU_EXECUTABLE qemu-system-i386 REQUIRED)
+
+# ------------------------------------------------------------
+# Architecture selection (only x86 supported for now)
+# ------------------------------------------------------------
+set(ARCH "x86" CACHE STRING "Target architecture")
+
+if (NOT ARCH STREQUAL "x86")
+    message(FATAL_ERROR "Unsupported ARCH=${ARCH}. Only ARCH=x86 is supported currently.")
+endif()
+
+# Export ARCH to C as a boolean macro
+add_compile_definitions(ARCH_X86=1)
 
 # ------------------------------------------------------------
 # Compiler / flags
@@ -29,21 +41,25 @@ set(DRIVERS_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/drivers)
 set(ARCH_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch)
 set(BUILD_DIR       ${CMAKE_CURRENT_BINARY_DIR})
 
+# Arch-derived paths
+set(BOOT_ARCH_DIR   ${BOOT_DIR}/arch/${ARCH})
+set(ARCH_SRC_DIR    ${ARCH_DIR}/${ARCH})
+
 # ------------------------------------------------------------
 # Boot sector and loader (NASM -> .bin)
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/bootsector.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/arch/x86/bootsector.asm -o bootsector.bin
-        DEPENDS ${BOOT_DIR}/arch/x86/bootsector.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_ARCH_DIR}/bootsector.asm -o bootsector.bin
+        DEPENDS ${BOOT_ARCH_DIR}/bootsector.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling bootsector.bin"
 )
 
 add_custom_command(
         OUTPUT ${BUILD_DIR}/loader.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/arch/x86/loader.asm -o loader.bin
-        DEPENDS ${BOOT_DIR}/arch/x86/loader.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_ARCH_DIR}/loader.asm -o loader.bin
+        DEPENDS ${BOOT_ARCH_DIR}/loader.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling loader.bin"
 )
@@ -81,13 +97,13 @@ set(KERNEL_SOURCES
 )
 
 # ------------------------------------------------------------
-# Arch sources (FIX: must be attached to a target to be compiled)
+# Arch sources (must be attached to a target to be compiled)
 # ------------------------------------------------------------
 set(ARCH_SOURCES
-        ${ARCH_DIR}/x86/gdt.c
-        ${ARCH_DIR}/x86/irq.c
-        ${ARCH_DIR}/x86/keyboard.c
-        ${ARCH_DIR}/x86/syscall.c
+        ${ARCH_SRC_DIR}/gdt.c
+        ${ARCH_SRC_DIR}/irq.c
+        ${ARCH_SRC_DIR}/keyboard.c
+        ${ARCH_SRC_DIR}/syscall.c
 )
 
 # Object library for kernel code (core + drivers + arch)
@@ -97,16 +113,17 @@ add_library(kernel_objs OBJECT
 )
 
 # ------------------------------------------------------------
-# sched.asm -> sched_x86.o (NASM, ELF32)
+# sched.asm -> sched_${ARCH}.o (NASM, ELF32)
 # ------------------------------------------------------------
+set(SCHED_ASM_SRC   ${ARCH_SRC_DIR}/sched.asm)
+set(SCHED_ASM_OBJ   ${BUILD_DIR}/sched_${ARCH}.o)
+
 add_custom_command(
-        OUTPUT ${BUILD_DIR}/sched_x86.o
-        COMMAND ${NASM_EXECUTABLE} -f elf32
-        ${ARCH_DIR}/x86/sched.asm
-        -o sched_x86.o
-        DEPENDS ${ARCH_DIR}/x86/sched.asm
+        OUTPUT ${SCHED_ASM_OBJ}
+        COMMAND ${NASM_EXECUTABLE} -f elf32 ${SCHED_ASM_SRC} -o ${SCHED_ASM_OBJ}
+        DEPENDS ${SCHED_ASM_SRC}
         WORKING_DIRECTORY ${BUILD_DIR}
-        COMMENT "Assembling sched_x86.o"
+        COMMENT "Assembling ${SCHED_ASM_OBJ}"
 )
 
 # ------------------------------------------------------------
@@ -128,8 +145,8 @@ function(add_app name)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
             -pie
-            -Wl,-e,_start          # make entry explicit
-            -Wl,-u,main            # keep main even with --gc-sections
+            -Wl,-e,_start
+            -Wl,-u,main
             -Wl,--gc-sections
             -Wl,-z,max-page-size=0x1
             -Wl,-z,common-page-size=0x1
@@ -186,7 +203,7 @@ add_app(pwd)
 # ------------------------------------------------------------
 add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
-        ${BUILD_DIR}/sched_x86.o
+        ${SCHED_ASM_OBJ}
         ${init_OBJ}
         ${sh_OBJ}
         ${ls_OBJ}
