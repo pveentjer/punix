@@ -87,6 +87,7 @@ set(ARCH_SOURCES
         ${ARCH_DIR}/x86/gdt.c
         ${ARCH_DIR}/x86/irq.c
         ${ARCH_DIR}/x86/keyboard.c
+        ${ARCH_DIR}/x86/syscall.c
 )
 
 # Object library for kernel code (core + drivers + arch)
