@@ -103,6 +103,7 @@ void wakeup(struct wait_queue *queue)
     queue->head = NULL;
     queue->tail = NULL;
 
+
     while (entry != NULL)
     {
         struct wait_queue_entry *next = entry->next;
@@ -113,7 +114,8 @@ void wakeup(struct wait_queue *queue)
         entry->next = NULL;
         entry->queue = NULL;
 
-        if (task != NULL && task->state == TASK_INTERRUPTIBLE)
+        if (task != NULL &&
+            (task->state == TASK_INTERRUPTIBLE || task->state == TASK_UNINTERRUPTIBLE))
         {
             sched_enqueue(task);
         }
@@ -124,7 +126,7 @@ void wakeup(struct wait_queue *queue)
     sched_schedule();
 }
 
-void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
+void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx, wait_mode wait_mode)
 {
     if (queue == NULL || cond == NULL)
     {
@@ -139,7 +141,10 @@ void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
     while (!cond(ctx))
     {
         struct task *task = current;
-        task->state = TASK_INTERRUPTIBLE;
+
+        task->state = (wait_mode == WAIT_INTERRUPTIBLE)
+                      ? TASK_INTERRUPTIBLE
+                      : TASK_UNINTERRUPTIBLE;
 
         wait_queue_add(queue, &wait_entry);
 
@@ -147,7 +152,7 @@ void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
 
         wait_queue_remove(&wait_entry);
 
-        if (t->pending_signals != 0u)
+        if (current->pending_signals != 0u && wait_mode == WAIT_INTERRUPTIBLE)
         {
             sched_exit(-1);
         }

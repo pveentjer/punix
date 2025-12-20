@@ -91,7 +91,7 @@ size_t tty_read(
         return 0u;
     }
 
-    wait_event(&tty->in_wait_queue, tty_input_available, tty);
+    wait_event(&tty->in_wait_queue, tty_input_available, tty, WAIT_INTERRUPTIBLE);
 
     size_t available = tty->in_head - tty->in_tail;
     if (available > maxlen)

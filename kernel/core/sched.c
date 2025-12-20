@@ -79,7 +79,6 @@ struct task *sched_find_by_pid(pid_t pid)
 
 void sched_enqueue(struct task *task)
 {
-    task->state = TASK_QUEUED;
     run_queue_push(&sched.run_queue, task);
 }
 
@@ -342,7 +341,7 @@ int sched_kill(pid_t pid, int sig)
     }
 
     task->pending_signals |= (1u << (sig - 1));
-    if(task->state == TASK_INTERRUPTIBLE)
+    if (task->state == TASK_INTERRUPTIBLE || task->state == TASK_INTERRUPTIBLE)
     {
         sched_enqueue(task);
     }
@@ -391,7 +390,7 @@ void sched_schedule(void)
             }
         }
 
-        if (prev->state != TASK_INTERRUPTIBLE)
+        if (prev->state != TASK_INTERRUPTIBLE && prev->state != TASK_UNINTERRUPTIBLE)
         {
             prev->state = TASK_QUEUED;
             if (prev != sched.swapper)
@@ -400,7 +399,6 @@ void sched_schedule(void)
             }
         }
     }
-
 
     next->state = TASK_RUNNING;
     sched.current = next;
@@ -443,7 +441,6 @@ void sched_init(void)
 }
 
 
-
 struct waitpid_ctx
 {
     pid_t pid;
@@ -451,13 +448,13 @@ struct waitpid_ctx
 
 static bool child_exited(void *obj)
 {
-    const struct waitpid_ctx *ctx = (const struct waitpid_ctx *)obj;
+    const struct waitpid_ctx *ctx = (const struct waitpid_ctx *) obj;
     return sched_find_by_pid(ctx->pid) == NULL;
 }
 
 pid_t sched_waitpid(pid_t pid, int *status, int options)
 {
-    (void)status;
+    (void) status;
 
     if (options & ~WNOHANG)
     {
@@ -469,7 +466,7 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
         return (sched_find_by_pid(pid) == NULL) ? pid : 0;
     }
 
-     for (;;)
+    for (;;)
     {
         struct task *child = sched_find_by_pid(pid);
 
@@ -478,9 +475,9 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
             return pid;
         }
 
-        struct waitpid_ctx ctx = { .pid = pid };
+        struct waitpid_ctx ctx = {.pid = pid};
 
-        wait_event(&child->wait_exit, child_exited, &ctx);
+        wait_event(&child->wait_exit, child_exited, &ctx, WAIT_INTERRUPTIBLE);
     }
 }
 

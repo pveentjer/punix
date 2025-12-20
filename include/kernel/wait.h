@@ -29,6 +29,12 @@ struct wait_queue
     struct wait_queue_entry *tail;
 };
 
+typedef enum wait_mode
+{
+    WAIT_UNINTERRUPTIBLE = 0,
+    WAIT_INTERRUPTIBLE   = 1,
+} wait_mode;
+
 void wait_queue_init(struct wait_queue *queue);
 
 void wait_queue_entry_init(struct wait_queue_entry *entry, struct task *task);
@@ -39,6 +45,6 @@ void wait_queue_remove(struct wait_queue_entry *entry);
 
 void wakeup(struct wait_queue *queue);
 
-void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx);
+void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx, wait_mode wait_mode);
 
 #endif //WAIT_H
