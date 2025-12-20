@@ -1,5 +1,5 @@
 #include <stdarg.h>
-#include "../../include/kernel/console.h"
+#include "kernel/console.h"
 
 static inline uint16_t vga_entry(char c, uint8_t attr)
 {

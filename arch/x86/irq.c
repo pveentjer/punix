@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../../../include/kernel/irq.h"
+#include "kernel/irq.h"
 
 typedef uint32_t irq_state_t;
 

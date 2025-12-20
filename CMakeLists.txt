@@ -21,11 +21,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-set(BOOT_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/boot)
-set(KERNEL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
-set(APPS_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/apps)
-set(LIBS_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/libs)
-set(BUILD_DIR  ${CMAKE_CURRENT_BINARY_DIR})
+set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/boot)
+set(KERNEL_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
+set(APPS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/apps)
+set(LIBS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/libs)
+set(DRIVERS_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/drivers)
+set(ARCH_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch)
+set(BUILD_DIR       ${CMAKE_CURRENT_BINARY_DIR})
 
 # ------------------------------------------------------------
 # Boot sector and loader (NASM -> .bin)
@@ -59,29 +61,39 @@ set(KERNEL_CORE_SOURCES
 )
 
 set(KERNEL_DRIVER_SOURCES
-        ${KERNEL_DIR}/drivers/console.c
-        ${KERNEL_DIR}/drivers/arch/x86/keyboard.c
+        ${DRIVERS_DIR}/console.c
 )
 
 set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
-        kernel/arch/x86/gdt.c
-        kernel/core/task_table.c
-        kernel/core/fs/vfs.c
-        kernel/core/files.c
-        kernel/core/fs/bin_fs.c
-        kernel/core/fs/dev_fs.c
-        kernel/core/fs/fs_util.c
-        kernel/core/fs/proc_fs.c
-        kernel/core/fs/root_fs.c
-        kernel/core/tty.c
-        kernel/core/wait.c
-        kernel/core/mm.c
-        kernel/arch/x86/irq.c
+        ${KERNEL_DIR}/core/task_table.c
+        ${KERNEL_DIR}/core/fs/vfs.c
+        ${KERNEL_DIR}/core/files.c
+        ${KERNEL_DIR}/core/fs/bin_fs.c
+        ${KERNEL_DIR}/core/fs/dev_fs.c
+        ${KERNEL_DIR}/core/fs/fs_util.c
+        ${KERNEL_DIR}/core/fs/proc_fs.c
+        ${KERNEL_DIR}/core/fs/root_fs.c
+        ${KERNEL_DIR}/core/tty.c
+        ${KERNEL_DIR}/core/wait.c
+        ${KERNEL_DIR}/core/mm.c
 )
 
-add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
+# ------------------------------------------------------------
+# Arch sources (FIX: must be attached to a target to be compiled)
+# ------------------------------------------------------------
+set(ARCH_SOURCES
+        ${ARCH_DIR}/x86/gdt.c
+        ${ARCH_DIR}/x86/irq.c
+        ${ARCH_DIR}/x86/keyboard.c
+)
+
+# Object library for kernel code (core + drivers + arch)
+add_library(kernel_objs OBJECT
+        ${KERNEL_SOURCES}
+        ${ARCH_SOURCES}
+)
 
 # ------------------------------------------------------------
 # sched.asm -> sched_x86.o (NASM, ELF32)
@@ -89,9 +101,9 @@ add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
 add_custom_command(
         OUTPUT ${BUILD_DIR}/sched_x86.o
         COMMAND ${NASM_EXECUTABLE} -f elf32
-        ${KERNEL_DIR}/arch/x86/sched.asm
+        ${ARCH_DIR}/x86/sched.asm
         -o sched_x86.o
-        DEPENDS ${KERNEL_DIR}/arch/x86/sched.asm
+        DEPENDS ${ARCH_DIR}/x86/sched.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling sched_x86.o"
 )
@@ -115,8 +127,8 @@ function(add_app name)
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
             -pie
-            -Wl,-e,_start          # <--- make entry explicit
-            -Wl,-u,main            # <--- keep main even with --gc-sections
+            -Wl,-e,_start          # make entry explicit
+            -Wl,-u,main            # keep main even with --gc-sections
             -Wl,--gc-sections
             -Wl,-z,max-page-size=0x1
             -Wl,-z,common-page-size=0x1
@@ -150,9 +162,6 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
-
-
-
 
 # ------------------------------------------------------------
 # Build user apps
