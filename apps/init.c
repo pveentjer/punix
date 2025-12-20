@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "../include/kernel/libc.h"
-#include "../include/kernel/constants.h"
+#include "kernel/libc.h"
+#include "kernel/constants.h"
 
 int main(int argc, char **argv)
 {

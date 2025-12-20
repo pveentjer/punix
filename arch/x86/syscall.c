@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../../include/kernel/syscall.h"
+#include "kernel/syscall.h"
 
 /*
  * Register ABI adapter (Linux-style x86-32):

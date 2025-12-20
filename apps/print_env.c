@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../include/kernel/libc.h"
+#include "kernel/libc.h"
 
 extern char **environ;
 

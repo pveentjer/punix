@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include "../include/kernel/libc.h"
-#include "../include/kernel/fcntl.h"
-#include "../include/kernel/dirent.h"
+#include "kernel/libc.h"
+#include "kernel/fcntl.h"
+#include "kernel/dirent.h"
 
 extern char **environ;
 
