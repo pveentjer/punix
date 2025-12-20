@@ -53,7 +53,7 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/kernel.c
         ${KERNEL_DIR}/core/sched.c
         ${KERNEL_DIR}/core/interrupt.c
-        ${KERNEL_DIR}/core/sys_calls.c
+        ${KERNEL_DIR}/core/syscall.c
         ${KERNEL_DIR}/core/kutils.c
         ${KERNEL_DIR}/core/elf_loader.c
 )

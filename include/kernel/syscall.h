@@ -1,12 +1,9 @@
-#ifndef SYS_CALLS_H
-#define SYS_CALLS_H
+#ifndef SYSCALL_H
+#define SYSCALL_H
 
 #include <stdint.h>
 #include <stddef.h>
 #include "dirent.h"
-
-typedef long ssize_t;
-typedef int pid_t;
 
 enum sys_call_nr
 {
@@ -44,4 +41,4 @@ static inline sys_enter_fn_t sys_enter_fn(void)
 {
     return **SYS_ENTER_PTRPTR_ADDR;  // 1) load &sys_enter_entry, 2) load sys_enter_entry (fn ptr)
 }
-#endif /* SYS_CALLS_H */
+#endif /* SYSCALL_H */

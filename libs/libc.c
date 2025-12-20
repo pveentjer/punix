@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include "kernel/libc.h"
-#include "kernel/sys_calls.h"
+#include "kernel/syscall.h"
 
 void delay(uint32_t count)
 {

@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../../include/kernel/sys_calls.h"
+#include "../../include/kernel/syscall.h"
 #include "../../include/kernel/console.h"
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/keyboard.h"
@@ -126,7 +126,7 @@ static uint32_t sys_enter_dispatch(void)
             "push %ebx\n\t"        /* a1 */
             "push %eax\n\t"        /* nr */
             "call sys_enter_dispatch_c\n\t"
-            "add  $24, %esp\n\t"
+            "add  $24, %esp\n\t"   /* drop the sys call nr + 5 args from the stack */
             "ret\n\t"
             );
 }
