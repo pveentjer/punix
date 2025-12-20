@@ -60,7 +60,7 @@ set(KERNEL_CORE_SOURCES
 
 set(KERNEL_DRIVER_SOURCES
         ${KERNEL_DIR}/drivers/console.c
-        ${KERNEL_DIR}/drivers/keyboard.c
+        ${KERNEL_DIR}/drivers/arch/x86/keyboard_x86.c
 )
 
 set(KERNEL_SOURCES
