@@ -66,7 +66,7 @@ set(KERNEL_DRIVER_SOURCES
 set(KERNEL_SOURCES
         ${KERNEL_CORE_SOURCES}
         ${KERNEL_DRIVER_SOURCES}
-        kernel/core/gdt.c
+        kernel/arch/x86/gdt.c
         kernel/core/task_table.c
         kernel/core/fs/vfs.c
         kernel/core/files.c

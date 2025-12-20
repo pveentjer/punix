@@ -1,9 +1,9 @@
 // kernel/gdt.c
 #include <stdint.h>
-#include "../include/kernel/gdt.h"
-#include "../include/kernel/kutils.h"
-#include "../include/kernel/constants.h"
-#include "../include/kernel/sched.h"   // for struct cpu_ctx
+#include "kernel/arch/x86/gdt.h"
+#include "kernel/kutils.h"
+#include "kernel/constants.h"
+#include "kernel/sched.h"   // for struct cpu_ctx
 
 /* ------------------------------------------------------------
  * Constants

@@ -4,7 +4,7 @@
 #include "../../include/kernel/console.h"
 #include "../../include/kernel/sched.h"
 #include "../../include/kernel/interrupt.h"
-#include "../../include/kernel/gdt.h"
+#include "kernel/arch/x86/gdt.h"
 #include "../../include/kernel/tty.h"
 #include "../../include/kernel/vfs.h"
 

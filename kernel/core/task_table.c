@@ -2,7 +2,7 @@
 #include "../../include/kernel/kutils.h"
 #include "../../include/kernel/constants.h"
 #include "../../include/kernel/vfs.h"
-#include "../../include/kernel/gdt.h"
+#include "kernel/arch/x86/gdt.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
