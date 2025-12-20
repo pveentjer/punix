@@ -6,6 +6,7 @@
 #define WAIT_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct task;
 
@@ -42,5 +43,7 @@ void wait_queue_remove(
         struct wait_queue_entry *entry);
 
 void wakeup(struct wait_queue *queue);
+
+void wait_event(struct wait_queue *queue,bool (*cond)(void *obj), void *ctx);
 
 #endif //WAIT_H

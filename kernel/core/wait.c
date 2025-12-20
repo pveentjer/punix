@@ -121,6 +121,30 @@ void wakeup(struct wait_queue *queue)
         entry = next;
     }
 
-    /* preserve your old semantics: kick the scheduler after waking tasks */
     sched_schedule();
+}
+
+void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
+{
+    if (queue == NULL || cond == NULL)
+    {
+        return;
+    }
+
+    struct wait_queue_entry wait_entry;
+    wait_queue_entry_init(&wait_entry, sched_current());
+
+    while (!cond(ctx))
+    {
+        struct task *task = sched_current();
+        task->state = TASK_BLOCKED;
+
+        wait_queue_add(queue, &wait_entry);
+
+        sched_schedule();
+
+        wait_queue_remove(&wait_entry);
+
+        // todo: check for signals/kill and potentially return early
+    }
 }

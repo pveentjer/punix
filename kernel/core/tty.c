@@ -1,7 +1,8 @@
 #include "../../include/kernel/tty.h"
 #include "../../include/kernel/keyboard.h"
 #include "../../include/kernel/console.h"
-#include "kernel/sched.h"
+#include "../../include/kernel/sched.h"
+#include "../../include/kernel/wait.h"
 
 #define TTY_INPUT_BUF_MASK  (TTY_INPUT_BUF_SIZE  - 1u)
 #define TTY_OUTPUT_BUF_MASK (TTY_OUTPUT_BUF_SIZE - 1u)
@@ -74,6 +75,12 @@ void tty_input_put(
     wakeup(&tty->in_wait_queue);
 }
 
+static bool tty_input_available(void *obj)
+{
+    struct tty *tty = (struct tty *)obj;
+    return (tty->in_head - tty->in_tail) != 0u;
+}
+
 size_t tty_read(
         struct tty *tty,
         char *buf,
@@ -84,25 +91,9 @@ size_t tty_read(
         return 0u;
     }
 
+    wait_event(&tty->in_wait_queue, tty_input_available, tty);
+
     size_t available = tty->in_head - tty->in_tail;
-
-    struct wait_queue_entry wait_entry;
-    wait_queue_entry_init(&wait_entry, sched_current());
-
-    while (available == 0u)
-    {
-        struct task *task = sched_current();
-        task->state = TASK_BLOCKED;
-
-        wait_queue_add(&tty->in_wait_queue, &wait_entry);
-
-        sched_schedule();
-
-        wait_queue_remove(&wait_entry);
-
-        available = tty->in_head - tty->in_tail;
-    }
-
     if (available > maxlen)
     {
         available = maxlen;
@@ -118,6 +109,7 @@ size_t tty_read(
 
     return available;
 }
+
 
 
 /* ------------------------------------------------------------------

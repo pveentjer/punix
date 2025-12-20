@@ -440,65 +440,46 @@ void sched_init(void)
     }
 }
 
-pid_t __sched_waitpid(pid_t pid, int *status, int options)
+
+
+struct waitpid_ctx
 {
-    // todo: because completed tasks aren't kept around, there
-    // is currently no way to determine if a task has completed
-    // or doesn't exist.
-    while (true)
-    {
-        struct task *task = sched_find_by_pid(pid);
+    pid_t pid;
+};
 
-        if (task == NULL)
-        {
-            return pid;
-        }
-
-        sched_schedule();
-    }
+static bool child_exited(void *obj)
+{
+    const struct waitpid_ctx *ctx = (const struct waitpid_ctx *)obj;
+    return sched_find_by_pid(ctx->pid) == NULL;
 }
 
 pid_t sched_waitpid(pid_t pid, int *status, int options)
 {
     (void)status;
 
-    /* reject unsupported options */
     if (options & ~WNOHANG)
     {
         return -EINVAL;
     }
 
-    struct wait_queue_entry wait_entry;
-    wait_queue_entry_init(&wait_entry, sched_current());
+    if (options & WNOHANG)
+    {
+        return (sched_find_by_pid(pid) == NULL) ? pid : 0;
+    }
 
-    for (;;)
+     for (;;)
     {
         struct task *child = sched_find_by_pid(pid);
 
-        /* child already exited */
         if (child == NULL)
         {
-            wait_queue_remove(&wait_entry);
             return pid;
         }
 
-        /* WNOHANG: do not block */
-        if (options & WNOHANG)
-        {
-            wait_queue_remove(&wait_entry);
-            return 0;
-        }
+        struct waitpid_ctx ctx = { .pid = pid };
 
-        /* block until child exits */
-        struct task *current = sched_current();
-        current->state = TASK_BLOCKED;
-
-        wait_queue_add(&child->wait_exit, &wait_entry);
-
-        sched_schedule();
-
-        /* always detach after wake */
-        wait_queue_remove(&wait_entry);
+        wait_event(&child->wait_exit, child_exited, &ctx);
     }
 }
+
 
