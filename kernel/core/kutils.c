@@ -1,5 +1,5 @@
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/console.h"
+#include "kernel/kutils.h"
+#include "kernel/console.h"
 
 void *k_memcpy(void *dest, const void *src, size_t n)
 {

@@ -1,7 +1,7 @@
-#include "../../include/kernel/sched.h"
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/constants.h"
-#include "../../include/kernel/vfs.h"
+#include "kernel/sched.h"
+#include "kernel/kutils.h"
+#include "kernel/constants.h"
+#include "kernel/vfs.h"
 #include "kernel/arch/x86/gdt.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)

@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include "../../include/kernel/mm.h"
-#include "../../include/kernel/sched.h"
+#include "kernel/mm.h"
+#include "kernel/sched.h"
 
 int mm_brk(void *addr)
 {

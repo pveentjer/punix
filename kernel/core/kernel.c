@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "../../include/kernel/console.h"
-#include "../../include/kernel/sched.h"
-#include "../../include/kernel/interrupt.h"
+#include "kernel/console.h"
+#include "kernel/sched.h"
+#include "kernel/interrupt.h"
 #include "kernel/arch/x86/gdt.h"
-#include "../../include/kernel/tty.h"
-#include "../../include/kernel/vfs.h"
-#include "../../include/kernel/config.h"
+#include "kernel/tty.h"
+#include "kernel/vfs.h"
+#include "kernel/config.h"
 
 
 extern uint8_t __bss_start;

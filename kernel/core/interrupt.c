@@ -1,4 +1,4 @@
-#include "../../include/kernel/interrupt.h"
+#include "kernel/interrupt.h"
 #include <stdint.h>
 #include <stdbool.h>
 

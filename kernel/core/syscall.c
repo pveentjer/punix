@@ -1,14 +1,14 @@
 #include <stdint.h>
-#include "../../include/kernel/syscall.h"
-#include "../../include/kernel/console.h"
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/keyboard.h"
-#include "../../include/kernel/sched.h"
-#include "../../include/kernel/libc.h"
-#include "../../include/kernel/dirent.h"
-#include "../../include/kernel/elf_loader.h"
-#include "../../include/kernel/vfs.h"
-#include "../../include/kernel/mm.h"
+#include "kernel/syscall.h"
+#include "kernel/console.h"
+#include "kernel/kutils.h"
+#include "kernel/keyboard.h"
+#include "kernel/sched.h"
+#include "kernel/libc.h"
+#include "kernel/dirent.h"
+#include "kernel/elf_loader.h"
+#include "kernel/vfs.h"
+#include "kernel/mm.h"
 
 __attribute__((used))
 uint32_t sys_enter_dispatch_c(uint32_t nr,

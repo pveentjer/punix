@@ -1,7 +1,7 @@
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/console.h"
-#include "../../include/kernel/elf_loader.h"
-#include "../../include/kernel/kutils.h"  // (you can drop this duplicate if you want)
+#include "kernel/kutils.h"
+#include "kernel/console.h"
+#include "kernel/elf_loader.h"
+#include "kernel/kutils.h"
 
 /* ELF binary symbols from objcopy */
 extern unsigned char _binary_swapper_elf_start[];

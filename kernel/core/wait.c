@@ -1,5 +1,5 @@
-#include "../../include/kernel/wait.h"
-#include "../../include/kernel/sched.h"
+#include "kernel/wait.h"
+#include "kernel/sched.h"
 
 void wait_queue_init(struct wait_queue *queue)
 {

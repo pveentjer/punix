@@ -1,11 +1,11 @@
 // sched.c
-#include "../../include/kernel/sched.h"
-#include "../../include/kernel/console.h"
-#include "../../include/kernel/interrupt.h"
-#include "../../include/kernel/kutils.h"
-#include "../../include/kernel/elf_loader.h"
-#include "../../include/kernel/constants.h"
-#include "../../include/kernel/vfs.h"
+#include "kernel/sched.h"
+#include "kernel/console.h"
+#include "kernel/interrupt.h"
+#include "kernel/kutils.h"
+#include "kernel/elf_loader.h"
+#include "kernel/constants.h"
+#include "kernel/vfs.h"
 
 struct scheduler sched;
 

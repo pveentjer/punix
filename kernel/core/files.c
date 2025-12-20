@@ -1,6 +1,6 @@
 #include <stddef.h>
-#include "../../include/kernel/files.h"
-#include "../../include/kernel/kutils.h"
+#include "kernel/files.h"
+#include "kernel/kutils.h"
 
 #define FD_MAX      INT_MAX
 

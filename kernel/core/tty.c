@@ -1,8 +1,8 @@
-#include "../../include/kernel/tty.h"
-#include "../../include/kernel/keyboard.h"
-#include "../../include/kernel/console.h"
-#include "../../include/kernel/sched.h"
-#include "../../include/kernel/wait.h"
+#include "kernel/tty.h"
+#include "kernel/keyboard.h"
+#include "kernel/console.h"
+#include "kernel/sched.h"
+#include "kernel/wait.h"
 
 #define TTY_INPUT_BUF_MASK  (TTY_INPUT_BUF_SIZE  - 1u)
 #define TTY_OUTPUT_BUF_MASK (TTY_OUTPUT_BUF_SIZE - 1u)
