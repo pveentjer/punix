@@ -1,5 +1,5 @@
-#include "../../include/kernel/keyboard.h"
-#include "../../include/kernel/interrupt.h"
+#include "kernel/keyboard.h"
+#include "kernel/interrupt.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
