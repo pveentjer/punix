@@ -86,23 +86,22 @@ size_t tty_read(
 
     size_t available = tty->in_head - tty->in_tail;
 
-    while (available == 0)
+    struct wait_queue_entry wait_entry;
+    wait_queue_entry_init(&wait_entry, sched_current());
+
+    while (available == 0u)
     {
         struct task *task = sched_current();
         task->state = TASK_BLOCKED;
 
-        struct wait_queue_entry entry = {
-                .task = task,
-                .next = NULL,
-        };
-
-        wait_queue_add(&tty->in_wait_queue, &entry);
+        wait_queue_add(&tty->in_wait_queue, &wait_entry);
 
         sched_schedule();
 
+        wait_queue_remove(&wait_entry);
+
         available = tty->in_head - tty->in_tail;
     }
-
 
     if (available > maxlen)
     {
@@ -117,7 +116,9 @@ size_t tty_read(
 
     tty->in_tail += available;
 
+    return available;
 }
+
 
 /* ------------------------------------------------------------------
  * TTY output

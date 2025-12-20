@@ -60,6 +60,8 @@ struct task
     uint64_t ctxt;
 
     uint32_t brk;
+
+    struct wait_queue wait_exit;
 };
 
 /* Task table - must be defined before struct scheduler */

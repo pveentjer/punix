@@ -1,34 +1,126 @@
 #include "../../include/kernel/wait.h"
-#include "kernel/sched.h"
+#include "../../include/kernel/sched.h"
 
 void wait_queue_init(struct wait_queue *queue)
 {
+    if (queue == NULL)
+    {
+        return;
+    }
+
     queue->head = NULL;
+    queue->tail = NULL;
+}
+
+void wait_queue_entry_init(struct wait_queue_entry *entry, struct task *task)
+{
+    if (entry == NULL)
+    {
+        return;
+    }
+
+    entry->task = task;
+    entry->prev = NULL;
+    entry->next = NULL;
+    entry->queue = NULL;
 }
 
 void wait_queue_add(struct wait_queue *queue, struct wait_queue_entry *entry)
 {
-    entry->next = queue->head;
-    queue->head = entry;
+    if (queue == NULL || entry == NULL)
+    {
+        return;
+    }
+
+    /* already queued => no-op (prevents double insert corruption) */
+    if (entry->queue != NULL)
+    {
+        return;
+    }
+
+    entry->queue = queue;
+    entry->prev = queue->tail;
+    entry->next = NULL;
+
+    if (queue->tail != NULL)
+    {
+        queue->tail->next = entry;
+    }
+    else
+    {
+        queue->head = entry;
+    }
+
+    queue->tail = entry;
+}
+
+void wait_queue_remove(struct wait_queue_entry *entry)
+{
+    if (entry == NULL)
+    {
+        return;
+    }
+
+    struct wait_queue *queue = entry->queue;
+    if (queue == NULL)
+    {
+        return; /* not queued */
+    }
+
+    if (entry->prev != NULL)
+    {
+        entry->prev->next = entry->next;
+    }
+    else
+    {
+        queue->head = entry->next;
+    }
+
+    if (entry->next != NULL)
+    {
+        entry->next->prev = entry->prev;
+    }
+    else
+    {
+        queue->tail = entry->prev;
+    }
+
+    entry->prev = NULL;
+    entry->next = NULL;
+    entry->queue = NULL;
 }
 
 void wakeup(struct wait_queue *queue)
 {
+    if (queue == NULL)
+    {
+        return;
+    }
+
     struct wait_queue_entry *entry = queue->head;
+
+    /* detach whole list first */
     queue->head = NULL;
+    queue->tail = NULL;
 
     while (entry != NULL)
     {
         struct wait_queue_entry *next = entry->next;
-        entry->next = NULL;
         struct task *task = entry->task;
 
-        task->state = TASK_QUEUED;
+        /* fully detach entry */
+        entry->prev = NULL;
+        entry->next = NULL;
+        entry->queue = NULL;
 
-        sched_enqueue(task);
+        if (task != NULL && task->state == TASK_BLOCKED)
+        {
+            sched_enqueue(task);
+        }
 
         entry = next;
     }
 
+    /* preserve your old semantics: kick the scheduler after waking tasks */
     sched_schedule();
 }

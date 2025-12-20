@@ -77,4 +77,8 @@
 #define TTY_INPUT_BUF_SIZE    256u
 #define TTY_OUTPUT_BUF_SIZE   4096u
 
+
+#define WNOHANG 0x01
+#define EINVAL 22
+
 #endif /* CONSTANTS_H */

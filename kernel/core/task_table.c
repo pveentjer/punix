@@ -32,6 +32,8 @@ void task_table_init(struct task_table *task_table)
         // Initialize per-task GDT indices in cpu_ctx
         gdt_init_task_ctx(&task->cpu_ctx, task_idx);
 
+        wait_queue_init(&task->wait_exit);
+
         task_table->free_ring[task_idx] = task_idx;
         files_init(&task->files);
     }

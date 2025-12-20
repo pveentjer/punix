@@ -6,6 +6,8 @@
 #include "dirent.h"
 #include "fcntl.h"
 
+#define WNOHANG 0x01
+
 // Minimal ssize_t for your freestanding kernel
 typedef long ssize_t;
 

@@ -98,6 +98,8 @@ void sched_exit(int status)
         task_table_free(&sched.task_table, current);
     }
 
+    wakeup(&current->wait_exit);
+
     sched.current = NULL;
     sched_schedule();
 }
@@ -353,6 +355,14 @@ pid_t sched_getpid(void)
 
 void sched_schedule(void)
 {
+    static uint32_t countdown = 1000;
+
+    if (--countdown == 0)
+    {
+        kprintf("sched_schedule: ctxt=%u\n", sched.ctxt);
+        countdown = 1000;
+    }
+
 //    kprintf("sched_schedule %u\n", sched.ctxt);
 
     struct task *prev = sched.current;
@@ -430,7 +440,7 @@ void sched_init(void)
     }
 }
 
-pid_t sched_waitpid(pid_t pid, int *status, int options)
+pid_t __sched_waitpid(pid_t pid, int *status, int options)
 {
     // todo: because completed tasks aren't kept around, there
     // is currently no way to determine if a task has completed
@@ -447,3 +457,48 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
         sched_schedule();
     }
 }
+
+pid_t sched_waitpid(pid_t pid, int *status, int options)
+{
+    (void)status;
+
+    /* reject unsupported options */
+    if (options & ~WNOHANG)
+    {
+        return -EINVAL;
+    }
+
+    struct wait_queue_entry wait_entry;
+    wait_queue_entry_init(&wait_entry, sched_current());
+
+    for (;;)
+    {
+        struct task *child = sched_find_by_pid(pid);
+
+        /* child already exited */
+        if (child == NULL)
+        {
+            wait_queue_remove(&wait_entry);
+            return pid;
+        }
+
+        /* WNOHANG: do not block */
+        if (options & WNOHANG)
+        {
+            wait_queue_remove(&wait_entry);
+            return 0;
+        }
+
+        /* block until child exits */
+        struct task *current = sched_current();
+        current->state = TASK_BLOCKED;
+
+        wait_queue_add(&child->wait_exit, &wait_entry);
+
+        sched_schedule();
+
+        /* always detach after wake */
+        wait_queue_remove(&wait_entry);
+    }
+}
+
