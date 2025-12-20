@@ -60,7 +60,7 @@ set(KERNEL_CORE_SOURCES
 
 set(KERNEL_DRIVER_SOURCES
         ${KERNEL_DIR}/drivers/console.c
-        ${KERNEL_DIR}/drivers/arch/x86/keyboard_x86.c
+        ${KERNEL_DIR}/drivers/arch/x86/keyboard.c
 )
 
 set(KERNEL_SOURCES
@@ -78,20 +78,20 @@ set(KERNEL_SOURCES
         kernel/core/tty.c
         kernel/core/wait.c
         kernel/core/mm.c
-        kernel/arch/x86/irq_x86.c
+        kernel/arch/x86/irq.c
 )
 
 add_library(kernel_objs OBJECT ${KERNEL_SOURCES})
 
 # ------------------------------------------------------------
-# sched_x86.asm -> sched_x86.o (NASM, ELF32)
+# sched.asm -> sched_x86.o (NASM, ELF32)
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/sched_x86.o
         COMMAND ${NASM_EXECUTABLE} -f elf32
-        ${KERNEL_DIR}/arch/x86/sched_x86.asm
+        ${KERNEL_DIR}/arch/x86/sched.asm
         -o sched_x86.o
-        DEPENDS ${KERNEL_DIR}/arch/x86/sched_x86.asm
+        DEPENDS ${KERNEL_DIR}/arch/x86/sched.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling sched_x86.o"
 )

@@ -1,4 +1,4 @@
-; sched_x86.asm
+; sched.asm
 BITS 32
 
 section .text
