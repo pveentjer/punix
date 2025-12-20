@@ -7,6 +7,7 @@
 #include "kernel/arch/x86/gdt.h"
 #include "../../include/kernel/tty.h"
 #include "../../include/kernel/vfs.h"
+#include "../../include/kernel/config.h"
 
 
 extern uint8_t __bss_start;
@@ -32,8 +33,10 @@ void kmain(void)
 
     kprintf("PUnix 0.001\n");
 
+#ifdef ARCH_X86
     kprintf("Init Global Descriptor Table.\n");
     gdt_init();
+#endif
 
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
