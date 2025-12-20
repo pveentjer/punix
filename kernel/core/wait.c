@@ -145,6 +145,9 @@ void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx)
 
         wait_queue_remove(&wait_entry);
 
-        // todo: check for signals/kill and potentially return early
+        if (t->pending_signals != 0u)
+        {
+            sched_exit(-1);
+        }
     }
 }

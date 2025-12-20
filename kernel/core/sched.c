@@ -72,10 +72,8 @@ struct task *sched_current(void)
     return sched.current;
 }
 
-struct task *sched_find_by_pid(
-        pid_t pid)
+struct task *sched_find_by_pid(pid_t pid)
 {
-
     return task_table_find_task_by_pid(&sched.task_table, pid);
 }
 
@@ -344,9 +342,13 @@ int sched_kill(pid_t pid, int sig)
     }
 
     task->pending_signals |= (1u << (sig - 1));
+    if(task->state == TASK_BLOCKED)
+    {
+        sched_enqueue(task);
+    }
+
     return 0;
 }
-
 
 pid_t sched_getpid(void)
 {
