@@ -3,8 +3,8 @@
 #include <stddef.h>
 #include "kernel/console.h"
 #include "kernel/sched.h"
-#include "kernel/interrupt.h"
-#include "kernel/arch/x86/gdt.h"
+#include "kernel/irq.h"
+#include "../../arch/x86/include/gdt.h"
 #include "kernel/tty.h"
 #include "kernel/vfs.h"
 #include "kernel/config.h"

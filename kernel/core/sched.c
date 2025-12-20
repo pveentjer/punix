@@ -1,7 +1,7 @@
 // sched.c
 #include "kernel/sched.h"
 #include "kernel/console.h"
-#include "kernel/interrupt.h"
+#include "kernel/irq.h"
 #include "kernel/kutils.h"
 #include "kernel/elf_loader.h"
 #include "kernel/constants.h"

@@ -35,7 +35,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # ------------------------------------------------------------
 # Directory layout
 # ------------------------------------------------------------
-set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/boot)
+set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH}/boot)
 set(KERNEL_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
 set(APPS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/apps)
 set(LIBS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/libs)
@@ -53,16 +53,16 @@ set(ARCH_SRC_DIR    ${ARCH_DIR}/${ARCH})
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/bootsector.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_ARCH_DIR}/bootsector.asm -o bootsector.bin
-        DEPENDS ${BOOT_ARCH_DIR}/bootsector.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/bootsector.asm -o bootsector.bin
+        DEPENDS ${BOOT_DIR}/bootsector.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling bootsector.bin"
 )
 
 add_custom_command(
         OUTPUT ${BUILD_DIR}/loader.bin
-        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_ARCH_DIR}/loader.asm -o loader.bin
-        DEPENDS ${BOOT_ARCH_DIR}/loader.asm
+        COMMAND ${NASM_EXECUTABLE} -f bin ${BOOT_DIR}/loader.asm -o loader.bin
+        DEPENDS ${BOOT_DIR}/loader.asm
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling loader.bin"
 )
@@ -73,7 +73,6 @@ add_custom_command(
 set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/kernel.c
         ${KERNEL_DIR}/core/sched.c
-        ${KERNEL_DIR}/core/interrupt.c
         ${KERNEL_DIR}/core/syscall.c
         ${KERNEL_DIR}/core/kutils.c
         ${KERNEL_DIR}/core/elf_loader.c

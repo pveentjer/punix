@@ -1,8 +1,9 @@
+#include "kernel/config.h"
+#include "kernel/constants.h"
 #include "kernel/sched.h"
 #include "kernel/kutils.h"
-#include "kernel/constants.h"
 #include "kernel/vfs.h"
-#include "kernel/arch/x86/gdt.h"
+#include "../../arch/x86/include/gdt.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
@@ -29,8 +30,10 @@ void task_table_init(struct task_table *task_table)
         task->mem_start = PROCESS_BASE + task_idx * PROCESS_SIZE;
         task->mem_end   = task->mem_start + PROCESS_SIZE;
         task->state     = TASK_POOLED;
+#ifdef ARCH_X86
         // Initialize per-task GDT indices in cpu_ctx
         gdt_init_task_ctx(&task->cpu_ctx, task_idx);
+#endif
 
         wait_queue_init(&task->wait_exit);
 

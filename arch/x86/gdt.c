@@ -1,6 +1,6 @@
 // kernel/gdt.c
 #include <stdint.h>
-#include "kernel/arch/x86/gdt.h"
+#include "include/gdt.h"
 #include "kernel/kutils.h"
 #include "kernel/constants.h"
 #include "kernel/sched.h"   // for struct cpu_ctx
