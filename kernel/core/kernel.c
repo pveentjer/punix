@@ -26,9 +26,6 @@ static void bss_zero(void)
     }
 }
 
-
-
-
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
 void kmain(void)
@@ -36,9 +33,9 @@ void kmain(void)
     struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
 
     k_cpu_ctx->esp = KERNEL_STACK_TOP;
-    k_cpu_ctx->ss  = (uint32_t)GDT_KERNEL_DATA_SEL;
-    k_cpu_ctx->cs = GDT_KERNEL_CODE_SEL;
-    k_cpu_ctx->ds = GDT_KERNEL_DATA_SEL;
+    k_cpu_ctx->ss  = (uint32_t)GDT_KERNEL_DS;
+    k_cpu_ctx->cs = GDT_KERNEL_CS;
+    k_cpu_ctx->ds = GDT_KERNEL_DS;
 
     bss_zero();
 

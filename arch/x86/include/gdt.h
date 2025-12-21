@@ -25,8 +25,8 @@
 #define GDT_TASK_DATA_IDX(task_idx) (GDT_FIRST_FREE_IDX + (task_idx) * GDT_ENTRIES_PER_TASK + 1)
 
 // Segment selectors (index << 3)
-#define GDT_KERNEL_CODE_SEL     ((GDT_KERNEL_CODE_IDX) << 3)
-#define GDT_KERNEL_DATA_SEL     ((GDT_KERNEL_DATA_IDX) << 3)
+#define GDT_KERNEL_CS     ((GDT_KERNEL_CODE_IDX) << 3)
+#define GDT_KERNEL_DS     ((GDT_KERNEL_DATA_IDX) << 3)
 
 // Segment access flags
 #define ACCESS_CODE_RING0       0x9A    // present, ring 0, executable, readable

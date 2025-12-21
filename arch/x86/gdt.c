@@ -84,7 +84,7 @@ void gdt_init(void)
             "mov %%ax, %%gs\n"
             "mov %%ax, %%ss\n"
             :
-            : [data_sel] "i" (GDT_KERNEL_DATA_SEL)
+            : [data_sel] "i" (GDT_KERNEL_DS)
     : "ax"
     );
 }
