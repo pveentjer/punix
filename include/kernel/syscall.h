@@ -33,13 +33,15 @@ typedef struct sys_enter_entry
     // is first so that the loader can find the address of the main at
     // the beginning of the kernel memory space
     void (*kmain)(void);
+
+    // the function to enter the kernel
     sys_enter_fn_t sys_enter;
-} sys_enter_entry_t;
+};
 
 #define MB(x)                   ((x) * 1024u * 1024u)
 #define SYS_ENTER_ENTRY_ADDR    MB(1)
 
-#define SYS_ENTER_ENTRY ((const sys_enter_entry_t *)SYS_ENTER_ENTRY_ADDR)
+#define SYS_ENTER_ENTRY ((const struct sys_enter_entry *)SYS_ENTER_ENTRY_ADDR)
 
 static inline sys_enter_fn_t sys_enter_fn(void)
 {
