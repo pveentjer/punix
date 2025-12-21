@@ -14,7 +14,7 @@
  * Returns uint32_t in EAX.
  */
 __attribute__((naked, used))
-uint32_t sys_enter_entry(void)
+uint32_t sys_enter(void)
 {
         __asm__ volatile(
                 "push %edi\n\t"        /* a5 */

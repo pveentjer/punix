@@ -12,8 +12,8 @@ SECTIONS
         /* 0x00100000: pointer to kernel entry (kmain) */
         LONG(kmain)
 
-        /* 0x00100004: pointer to sys_enter_entry */
-        LONG(sys_enter_entry)
+        /* 0x00100004: pointer to sys_enter */
+        LONG(sys_enter)
     }
 
     /* Now put the actual code right after the header */

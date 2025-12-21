@@ -30,7 +30,7 @@ enum sys_call_nr
 
 typedef uint32_t (*sys_enter_fn_t)(void);
 
-typedef struct sys_enter_entry
+typedef struct kernel_entry
 {
     // is first so that the loader can find the address of the main at
     // the beginning of the kernel memory space
@@ -43,13 +43,13 @@ typedef struct sys_enter_entry
 };
 
 #define MB(x)                   ((x) * 1024u * 1024u)
-#define SYS_ENTER_ENTRY_ADDR    MB(1)
+#define KERNEL_ENTRY_ADDR    MB(1)
 
-#define SYS_ENTER_ENTRY ((const struct sys_enter_entry *)SYS_ENTER_ENTRY_ADDR)
+#define KERNEL_ENTRY ((const struct kernel_entry *)KERNEL_ENTRY_ADDR)
 
 static inline sys_enter_fn_t sys_enter_fn(void)
 {
-    return SYS_ENTER_ENTRY->sys_enter;
+    return KERNEL_ENTRY->sys_enter;
 }
 
 #endif /* SYSCALL_H */
