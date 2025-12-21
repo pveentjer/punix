@@ -426,7 +426,6 @@ void sched_init(void)
 
     task_table_init(&sched.task_table);
 
-    console_clear(&kconsole);
     char *argv[] = {"/sbin/swapper", NULL};
     char *envp[] = {NULL};
 

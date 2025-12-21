@@ -8,8 +8,8 @@ struct cpu_ctx
     uint32_t ss;
 
     // These only need to be set once and will never change again.
-    uint16_t code_gdt_idx;
-    uint16_t data_gdt_idx;
+    uint16_t cs;
+    uint16_t ds;
 };
 
 #endif //CPU_CTX_H

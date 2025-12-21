@@ -47,6 +47,48 @@ static inline uint32_t read_esp(void)
     return esp;
 }
 
+static inline uint16_t read_cs(void)
+{
+    uint16_t cs;
+    __asm__ volatile ("mov %%cs, %0" : "=r"(cs));
+    return cs;
+}
+
+static inline uint16_t read_ds(void)
+{
+    uint16_t ds;
+    __asm__ volatile ("mov %%ds, %0" : "=r"(ds));
+    return ds;
+}
+
+static inline uint16_t read_es(void)
+{
+    uint16_t es;
+    __asm__ volatile ("mov %%es, %0" : "=r"(es));
+    return es;
+}
+
+static inline uint16_t read_fs(void)
+{
+    uint16_t fs;
+    __asm__ volatile ("mov %%fs, %0" : "=r"(fs));
+    return fs;
+}
+
+static inline uint16_t read_gs(void)
+{
+    uint16_t gs;
+    __asm__ volatile ("mov %%gs, %0" : "=r"(gs));
+    return gs;
+}
+
+static inline uint16_t read_ss(void)
+{
+    uint16_t ss;
+    __asm__ volatile ("mov %%ss, %0" : "=r"(ss));
+    return ss;
+}
+
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size);
 
 #endif // KUTILS_H
