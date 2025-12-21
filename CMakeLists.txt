@@ -142,6 +142,7 @@ function(add_app name)
     add_executable(${name}.elf
             ${APPS_DIR}/${name}.c
             ${LIBS_DIR}/libc.c
+            ${ARCH_SRC_DIR}/libc.c
     )
 
     target_compile_options(${name}.elf PRIVATE
