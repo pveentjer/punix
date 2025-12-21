@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "dirent.h"
+#include "kernel/cpu_ctx.h"
+
 
 enum sys_call_nr
 {
@@ -36,6 +38,8 @@ typedef struct sys_enter_entry
 
     // the function to enter the kernel
     sys_enter_fn_t sys_enter;
+
+    struct cpu_ctx k_cpu_ctx;
 };
 
 #define MB(x)                   ((x) * 1024u * 1024u)

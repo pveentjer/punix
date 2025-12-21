@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "constants.h"
 #include "files.h"
+#include "cpu_ctx.h"
 
 typedef int pid_t;
 typedef uint32_t sigset_t;
@@ -20,15 +21,7 @@ enum sched_state
     TASK_UNINTERRUPTIBLE    /* sleeping; waiting for an event, not woken by signals */
 };
 
-struct cpu_ctx
-{
-    // we just need the stack pointer, all cpu context is stored in the stack.
-    uint32_t esp;
 
-    // These only need to be set once and will never change again.
-    uint16_t code_gdt_idx;
-    uint16_t data_gdt_idx;
-};
 
 
 struct task
