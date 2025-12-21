@@ -1,8 +1,10 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include "kernel/config.h"
 #include "kernel/console.h"
 #include "kernel/sched.h"
+#include "kernel/syscall.h"
 #include "kernel/irq.h"
 #include "../../arch/x86/include/gdt.h"
 #include "kernel/tty.h"
@@ -27,6 +29,14 @@ static void bss_zero(void)
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
+    struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
+
+    k_cpu_ctx->esp = KERNEL_STACK_TOP;
+    k_cpu_ctx->ss  = (uint32_t)GDT_KERNEL_DATA_SEL;
+
+    k_cpu_ctx->code_gdt_idx = GDT_KERNEL_CODE_SEL;
+    k_cpu_ctx->data_gdt_idx = GDT_KERNEL_DATA_SEL;
+
     bss_zero();
 
     console_init(&kconsole);
