@@ -251,8 +251,9 @@ kernel_start:
     mov ecx, KERNEL_SIZE_BYTES / 4
     rep movsd
 
-    ; jump to kernel entry at [1M + 4]
-    mov eax, [SYS_CALLS_HDR_ADDR + 4]
+    ; jump to kernel entry at [1M]
+    ; kmain is in the first 4 bytes
+    mov eax, [SYS_CALLS_HDR_ADDR]
     jmp eax
 
 ; ========================================================================
