@@ -9,6 +9,7 @@ global ctx_init
 extern task_trampoline
 
 %define OFF_ESP  0
+%define OFF_DS   8
 
 ; ============================================================
 ; void ctx_init(struct cpu_ctx *cpu_ctx,
@@ -32,8 +33,6 @@ ctx_init:
 
     mov  eax, [ebp+12]       ; stack_top
     mov  ecx, eax            ; working stack pointer
-
-    ; Mirror old C prepare_initial_stack:
 
     ; *(--sp32) = (uint32_t) heap_envp;
     sub  ecx, 4
@@ -96,6 +95,8 @@ ctx_init:
 ; int ctx_switch(struct cpu_ctx *prev, struct cpu_ctx *next);
 ; ============================================================
 ctx_switch:
+    cli
+
     ; Save callee-saved registers and flags
     pushfd
     push ebp
@@ -127,8 +128,17 @@ ctx_switch:
     pop esi
     pop edi
     pop ebp
+
+    ; Load next task's data selector into DS/ES/FS/GS
+    mov ax, [edx + OFF_DS]
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ; Restore next task's flags
     popfd
 
-    sti                      ; ensure IF=1
-    xor eax, eax             ; return 0
+    sti
+    xor eax, eax
     ret
