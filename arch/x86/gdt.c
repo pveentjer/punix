@@ -96,4 +96,5 @@ void gdt_init_task_ctx(struct cpu_ctx *ctx, int task_idx)
 {
     ctx->cs = GDT_TASK_CODE_IDX(task_idx);
     ctx->ds = GDT_TASK_DATA_IDX(task_idx);
+    ctx->ss = ctx->ds;
 }
