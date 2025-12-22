@@ -10,6 +10,7 @@ extern task_trampoline
 
 %define OFF_ESP  0
 %define OFF_DS   8
+%define OFF_SS   4
 
 ; ============================================================
 ; void ctx_init(struct cpu_ctx *cpu_ctx,
@@ -23,68 +24,48 @@ ctx_init:
     push ebp
     mov  ebp, esp
 
-    ; args (cdecl)
-    ; [ebp+8]  = cpu_ctx
-    ; [ebp+12] = stack_top
-    ; [ebp+16] = main_addr
-    ; [ebp+20] = argc
-    ; [ebp+24] = heap_argv
-    ; [ebp+28] = heap_envp
+    mov  eax, [ebp+12]
+    mov  ecx, eax
 
-    mov  eax, [ebp+12]       ; stack_top
-    mov  ecx, eax            ; working stack pointer
-
-    ; *(--sp32) = (uint32_t) heap_envp;
     sub  ecx, 4
     mov  edx, [ebp+28]
     mov  [ecx], edx
 
-    ; *(--sp32) = (uint32_t) heap_argv;
     sub  ecx, 4
     mov  edx, [ebp+24]
     mov  [ecx], edx
 
-    ; *(--sp32) = (uint32_t) argc;
     sub  ecx, 4
     mov  edx, [ebp+20]
     mov  [ecx], edx
 
-    ; *(--sp32) = main_addr;
     sub  ecx, 4
     mov  edx, [ebp+16]
     mov  [ecx], edx
 
-    ; *(--sp32) = 0;  // dummy
     sub  ecx, 4
     mov  dword [ecx], 0
 
-    ; *(--sp32) = (uint32_t) task_trampoline;  // return address
     sub  ecx, 4
     mov  edx, task_trampoline
     mov  [ecx], edx
 
-    ; *(--sp32) = 0x202;  // EFLAGS IF=1
     sub  ecx, 4
     mov  dword [ecx], 0x202
 
-    ; *(--sp32) = 0;  // EAX
     sub  ecx, 4
     mov  dword [ecx], 0
 
-    ; *(--sp32) = 0;  // ECX
     sub  ecx, 4
     mov  dword [ecx], 0
 
-    ; *(--sp32) = 0;  // EDX
     sub  ecx, 4
     mov  dword [ecx], 0
 
-    ; *(--sp32) = 0;  // EBX
     sub  ecx, 4
     mov  dword [ecx], 0
 
-    ; cpu_ctx->esp = (uint32_t) sp32;
-    mov  eax, [ebp+8]        ; cpu_ctx*
+    mov  eax, [ebp+8]
     mov  [eax + OFF_ESP], ecx
 
     pop  ebp
@@ -97,48 +78,33 @@ ctx_init:
 ctx_switch:
     cli
 
-    ; Save callee-saved registers and flags
     pushfd
     push ebp
     push edi
     push esi
     push ebx
 
-    ; Stack layout now:
-    ; esp+0:  EBX
-    ; esp+4:  ESI
-    ; esp+8:  EDI
-    ; esp+12: EBP
-    ; esp+16: EFLAGS
-    ; esp+20: return address
-    ; esp+24: prev pointer
-    ; esp+28: next pointer
+    mov eax, [esp + 24]
+    mov edx, [esp + 28]
 
-    mov eax, [esp + 24]      ; prev
-    mov edx, [esp + 28]      ; next
-
-    ; Save current ESP into prev->cpu_ctx.esp
     mov [eax + OFF_ESP], esp
-
-    ; Switch to next task's stack
     mov esp, [edx + OFF_ESP]
 
-    ; Restore next task's registers (reverse order)
     pop ebx
     pop esi
     pop edi
     pop ebp
 
-    ; Load next task's data selector into DS/ES/FS/GS
     mov ax, [edx + OFF_DS]
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    ; Restore next task's flags
-    popfd
+    mov ax, [edx + OFF_SS]
+    mov ss, ax
 
+    popfd
     sti
     xor eax, eax
     ret
