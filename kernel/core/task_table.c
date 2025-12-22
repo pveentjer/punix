@@ -27,8 +27,8 @@ void task_table_init(struct task_table *task_table)
         k_memset(task, 0, sizeof(struct task));
 
         task->pid       = PID_NONE;
-        task->mem_start = PROCESS_BASE + task_idx * PROCESS_SIZE;
-        task->mem_end   = task->mem_start + PROCESS_SIZE;
+        task->addr_base = PROCESS_BASE + task_idx * PROCESS_SIZE;
+        task->addr_end  = task->addr_base + PROCESS_SIZE;
         task->state     = TASK_POOLED;
 #ifdef ARCH_X86
         // Initialize per-task GDT indices in cpu_ctx

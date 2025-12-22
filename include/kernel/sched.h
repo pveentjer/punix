@@ -35,10 +35,10 @@ struct task
     char cwd[MAX_FILENAME_LEN];
 
     // The start of the process memory (inclusive)
-    uint32_t mem_start;
+    uint32_t addr_base;
 
     // The end of the process memory (exclusive)
-    uint32_t mem_end;
+    uint32_t addr_end;
 
     char name[MAX_FILENAME_LEN];
 

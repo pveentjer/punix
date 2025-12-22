@@ -10,10 +10,6 @@ struct cpu_ctx
     // These only need to be set once and will never change again.
     uint16_t cs;
     uint16_t ds;
-
-    // User address-space description
-    uint32_t addr_base;
-    uint32_t addr_limit;
 };
 
 #endif //CPU_CTX_H

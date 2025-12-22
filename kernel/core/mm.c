@@ -12,7 +12,7 @@ int mm_brk(void *addr)
 
     uint32_t new_brk = (uint32_t) addr;
 
-    if (new_brk >= task->mem_end)
+    if (new_brk >= task->addr_end)
     {
         return -1;
     }
