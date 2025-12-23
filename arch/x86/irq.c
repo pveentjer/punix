@@ -1,8 +1,10 @@
 // arch/x86/irq.c
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "kernel/irq.h"
 #include "include/irq.h"
+#include "include/gdt.h"
 
 /* ------------------------------------------------------------
  * IRQ state helpers
@@ -54,9 +56,26 @@ struct idt_ptr
 
 #define IDT_ENTRIES 256
 
-
 static struct idt_entry idt[IDT_ENTRIES];
 static struct idt_ptr   idtp;
+
+/* ------------------------------------------------------------
+ * PIC ports
+ * ------------------------------------------------------------ */
+#define PIC1_COMMAND 0x20
+#define PIC1_DATA    0x21
+#define PIC2_COMMAND 0xA0
+#define PIC2_DATA    0xA1
+
+/* ------------------------------------------------------------
+ * IDT gate flags (no magic numbers)
+ * ------------------------------------------------------------ */
+#define IDT_FLAG_PRESENT    0x80
+#define IDT_DPL0            0x00
+#define IDT_INT_GATE_32     0x0E
+
+#define IDT_FLAGS_KERNEL_INT \
+    (IDT_FLAG_PRESENT | IDT_DPL0 | IDT_INT_GATE_32)
 
 /* ------------------------------------------------------------
  * IRQ handler table (C handlers only)
@@ -74,7 +93,10 @@ static inline void outb(uint16_t port, uint8_t val)
 /* ------------------------------------------------------------
  * IDT helper
  * ------------------------------------------------------------ */
-void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flags)
+void idt_set_gate(uint8_t num,
+                  uint32_t handler,
+                  uint16_t selector,
+                  uint8_t flags)
 {
     idt[num].offset_low  = handler & 0xFFFF;
     idt[num].offset_high = (handler >> 16) & 0xFFFF;
@@ -101,8 +123,8 @@ void irq_register_handler(uint8_t vector, void (*handler)(void))
 }
 
 /* ------------------------------------------------------------
- * Default ISR: just iret
- * (drivers install real stubs via idt_set_gate)
+ * Default ISR: does nothing, just returns
+ * Drivers install real stubs via idt_set_gate()
  * ------------------------------------------------------------ */
 __attribute__((naked))
 static void isr_default(void)
@@ -121,7 +143,12 @@ void idt_init(void)
     for (int i = 0; i < IDT_ENTRIES; i++)
     {
         irq_handlers[i] = 0;
-        idt_set_gate((uint8_t)i, (uint32_t)isr_default, 0x08, 0x8E);
+        idt_set_gate(
+                (uint8_t)i,
+                (uint32_t)isr_default,
+                (uint16_t)GDT_KERNEL_CS,
+                (uint8_t)IDT_FLAGS_KERNEL_INT
+        );
     }
 
     __asm__ volatile("lidt (%0)" : : "r"(&idtp));
