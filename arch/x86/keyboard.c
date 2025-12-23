@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 /* ------------------------------------------------------------------
- * I/O ports / PIC (IRQ stuff)
+ * I/O ports / PIC
  * ------------------------------------------------------------------ */
 #define KEYBOARD_DATA_PORT   0x60
 #define PIC1_COMMAND_PORT    0x20
@@ -100,22 +100,22 @@ static void emit_key(char value, enum keyboard_code code)
 {
     if (keyboard_handler_cb != NULL)
     {
-        keyboard_handler_cb(value, code, ctrl_pressed, alt_pressed, shift_pressed);
+        keyboard_handler_cb(value, code,
+                            ctrl_pressed, alt_pressed, shift_pressed);
     }
 }
 
 /* ------------------------------------------------------------------
- * IRQ-level handler
+ * Ordinary C IRQ handler (no IRQ mechanics)
  * ------------------------------------------------------------------ */
 void keyboard_interrupt_handler(void)
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 
-    /* Handle 0xE0 prefix for extended keys */
     if (scancode == SC_EXTENDED)
     {
         extended_code = true;
-        goto eoi;
+        return;
     }
 
     if (extended_code)
@@ -126,51 +126,39 @@ void keyboard_interrupt_handler(void)
 
         switch (base)
         {
-            case SC_RCTRL:
-                ctrl_pressed = !is_release;
-                if (!is_release) emit_key(0, KEY_CTRL);
-                break;
-
-            case SC_RALT:
-                alt_pressed = !is_release;
-                if (!is_release) emit_key(0, KEY_ALT);
-                break;
-
+            case SC_RCTRL:  ctrl_pressed = !is_release; if (!is_release) emit_key(0, KEY_CTRL); break;
+            case SC_RALT:   alt_pressed  = !is_release; if (!is_release) emit_key(0, KEY_ALT);  break;
             case SC_ARROW_UP:    if (!is_release) emit_key(0, KEY_UP);    break;
             case SC_ARROW_DOWN:  if (!is_release) emit_key(0, KEY_DOWN);  break;
             case SC_ARROW_LEFT:  if (!is_release) emit_key(0, KEY_LEFT);  break;
             case SC_ARROW_RIGHT: if (!is_release) emit_key(0, KEY_RIGHT); break;
             default: break;
         }
-
-        goto eoi;
+        return;
     }
 
-    /* Non-extended scancode */
     {
         bool is_release = (scancode & SCANCODE_RELEASE_MASK);
         uint8_t base = scancode & ~SCANCODE_RELEASE_MASK;
 
         switch (base)
         {
-            /* ---------------- Modifiers ---------------- */
             case SC_LSHIFT:
             case SC_RSHIFT:
                 shift_pressed = !is_release;
                 if (!is_release) emit_key(0, KEY_SHIFT);
-                goto eoi;
+                return;
 
             case SC_LCTRL:
                 ctrl_pressed = !is_release;
                 if (!is_release) emit_key(0, KEY_CTRL);
-                goto eoi;
+                return;
 
             case SC_LALT:
                 alt_pressed = !is_release;
                 if (!is_release) emit_key(0, KEY_ALT);
-                goto eoi;
+                return;
 
-                /* ---------------- Function keys ---------------- */
             case SC_F1: case SC_F2: case SC_F3: case SC_F4: case SC_F5: case SC_F6:
             case SC_F7: case SC_F8: case SC_F9: case SC_F10: case SC_F11: case SC_F12:
                 if (!is_release)
@@ -194,20 +182,19 @@ void keyboard_interrupt_handler(void)
                     }
                     emit_key(0, code);
                 }
-                goto eoi;
+                return;
 
-            default: break;
+            default:
+                break;
         }
 
-        /* ---------------- Printable keys ---------------- */
         if (is_release || base >= sizeof(SCANCODE_LOWER))
-            goto eoi;
+            return;
 
         char c = shift_pressed ? SCANCODE_UPPER[base] : SCANCODE_LOWER[base];
         if (!c)
-            goto eoi;
+            return;
 
-        /* Ctrl-modified letters → control codes (1..26) */
         if (ctrl_pressed)
         {
             if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 1);
@@ -216,24 +203,8 @@ void keyboard_interrupt_handler(void)
 
         emit_key(c, KEY_NONE);
     }
-
-    eoi:
-    outb(PIC1_COMMAND_PORT, PIC_EOI);
 }
 
-/* ------------------------------------------------------------------
- * ISR stub
- * ------------------------------------------------------------------ */
-__attribute__((naked))
-void keyboard_isr(void)
-{
-    asm volatile(
-            "pushal\n\t"
-            "call keyboard_interrupt_handler\n\t"
-            "popal\n\t"
-            "iret"
-            );
-}
 
 /* ------------------------------------------------------------------
  * Initialization
@@ -251,9 +222,9 @@ void keyboard_init(void (*handler)(char value,
     alt_pressed   = false;
     extended_code = false;
 
-    idt_set_gate(KEYBOARD_IRQ_VECTOR, (uint32_t)keyboard_isr, 0x08, 0x8E);
+    irq_register_handler(KEYBOARD_IRQ_VECTOR, keyboard_interrupt_handler);
 
     uint8_t mask = inb(PIC1_DATA_PORT);
-    mask &= (uint8_t)~KEYBOARD_IRQ_MASK; /* enable IRQ1 */
+    mask &= (uint8_t)~KEYBOARD_IRQ_MASK;
     outb(PIC1_DATA_PORT, mask);
 }

@@ -1,31 +1,23 @@
-#ifndef IRQ_H
-#define IRQ_H
+#ifndef KERNEL_IRQ_H
+#define KERNEL_IRQ_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef uint32_t irq_state_t;
 
-/*
- * The reason why the irq_disable and irq_restore return or receive state, is
- * to safely deal with reentrant calls.
- */
+/* IRQ state helpers */
+irq_state_t irq_disable(void);
+void irq_restore(irq_state_t state);
 
-/* Disable interrupts and return the previous interrupt state. */
-static inline irq_state_t irq_disable(void);
+/* IRQ handler registration */
+void irq_register_handler(uint8_t vector, void (*handler)(void));
 
-/* Restore interrupts to a previous state returned by irq_disable(). */
-static inline void irq_restore(irq_state_t state);
-
+/* IDT / IRQ init */
 void idt_init(void);
 
-#ifdef ARCH_X86
-
-void idt_set_gate(uint8_t num, uint32_t handler, uint16_t selector, uint8_t flags);
-
-#endif
-
+/* Interrupt helpers */
 void interrupts_enable(void);
-
 bool interrupts_are_enabled(void);
 
-#endif //IRQ_H
+#endif
