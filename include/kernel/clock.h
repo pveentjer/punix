@@ -7,6 +7,8 @@
 
 #include "time.h"
 
+void clock_init(void);
+
 /*
  * Kernel-internal clock access.
  *

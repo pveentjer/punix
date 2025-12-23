@@ -11,6 +11,7 @@
 #include "kernel/vfs.h"
 #include "kernel/config.h"
 #include "kernel/panic.h"
+#include "kernel/clock.h"
 
 
 extern uint8_t __bss_start;
@@ -42,6 +43,8 @@ void kmain(void)
     console_init(&kconsole);
 
     kprintf("PUnix 0.001\n");
+
+    clock_init();
 
 #ifdef ARCH_X86
     kprintf("Init Global Descriptor Table.\n");

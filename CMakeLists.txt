@@ -209,6 +209,7 @@ add_app(print_env)
 add_app(tty)
 add_app(pwd)
 add_app(date)
+add_app(uptime)
 
 # ------------------------------------------------------------
 # Kernel ELF
@@ -230,6 +231,7 @@ add_executable(kernel.elf
         ${tty_OBJ}
         ${pwd_OBJ}
         ${date_OBJ}
+        ${uptime_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

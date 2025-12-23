@@ -208,3 +208,111 @@ size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
     buf[len] = '\0';
     return len;
 }
+
+#include <stdint.h>
+
+/* unsigned 64-bit division */
+uint64_t __udivdi3(uint64_t n, uint64_t d)
+{
+    if (d == 0) return 0;
+
+    uint64_t q = 0;
+    uint64_t r = 0;
+
+    for (int i = 63; i >= 0; i--)
+    {
+        r <<= 1;
+        r |= (n >> i) & 1;
+        if (r >= d)
+        {
+            r -= d;
+            q |= (1ULL << i);
+        }
+    }
+
+    return q;
+}
+
+/* unsigned 64-bit modulo */
+uint64_t __umoddi3(uint64_t n, uint64_t d)
+{
+    if (d == 0) return 0;
+
+    uint64_t r = 0;
+
+    for (int i = 63; i >= 0; i--)
+    {
+        r <<= 1;
+        r |= (n >> i) & 1;
+        if (r >= d)
+            r -= d;
+    }
+
+    return r;
+}
+
+/* signed 64-bit division */
+int64_t __divdi3(int64_t a, int64_t b)
+{
+    int neg = 0;
+    if (a < 0) { a = -a; neg ^= 1; }
+    if (b < 0) { b = -b; neg ^= 1; }
+
+    uint64_t q = __udivdi3((uint64_t)a, (uint64_t)b);
+    return neg ? -(int64_t)q : (int64_t)q;
+}
+
+/* signed 64-bit modulo */
+int64_t __moddi3(int64_t a, int64_t b)
+{
+    int neg = (a < 0);
+    if (a < 0) a = -a;
+    if (b < 0) b = -b;
+
+    uint64_t r = __umoddi3((uint64_t)a, (uint64_t)b);
+    return neg ? -(int64_t)r : (int64_t)r;
+}
+
+/* combined div+mod helper (some GCC paths use this) */
+int64_t __divmoddi4(int64_t a, int64_t b, int64_t *rem)
+{
+    int64_t q = __divdi3(a, b);
+    if (rem)
+        *rem = a - q * b;
+    return q;
+}
+
+#include <stdint.h>
+
+/*
+ * unsigned 64-bit div+mod helper
+ * GCC may emit this instead of separate calls
+ */
+uint64_t __udivmoddi4(uint64_t n, uint64_t d, uint64_t *rem)
+{
+    if (d == 0)
+    {
+        if (rem) *rem = 0;
+        return 0;
+    }
+
+    uint64_t q = 0;
+    uint64_t r = 0;
+
+    for (int i = 63; i >= 0; i--)
+    {
+        r <<= 1;
+        r |= (n >> i) & 1ULL;
+
+        if (r >= d)
+        {
+            r -= d;
+            q |= (1ULL << i);
+        }
+    }
+
+    if (rem)
+        *rem = r;
+
+    return q;
+}
