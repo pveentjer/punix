@@ -168,6 +168,26 @@ static void buf_put_uint(char *buf, size_t *len, unsigned int n, unsigned int ba
     }
 }
 
+static void buf_put_ull(char *buf, size_t *len, unsigned long long n, unsigned int base)
+{
+    char tmp[64];
+    const char digits[] = "0123456789abcdef";
+    int i = 0;
+
+    if (n == 0ULL) tmp[i++] = '0';
+    else
+    {
+        while (n && i < (int)sizeof(tmp))
+        {
+            tmp[i++] = digits[n % base];
+            n /= base;
+        }
+    }
+
+    while (i-- > 0 && *len < PRINTF_BUF_SIZE)
+        buf[(*len)++] = tmp[i];
+}
+
 int printf(const char *fmt, ...)
 {
     char buf[PRINTF_BUF_SIZE];
@@ -184,7 +204,7 @@ int printf(const char *fmt, ...)
             continue;
         }
 
-        p++;                    // skip '%'
+        p++;
         if (!*p) break;
 
         int zero_pad = 0;
@@ -195,96 +215,78 @@ int printf(const char *fmt, ...)
             zero_pad = 1;
             p++;
         }
+
         if (*p >= '1' && *p <= '9')
         {
             width = *p - '0';
             p++;
         }
 
+        int is_ll = 0;
+        if (*p == 'l' && *(p + 1) == 'l')
+        {
+            is_ll = 1;
+            p += 2;
+        }
+
         switch (*p)
         {
             case 's':
-            {
-                const char *s = va_arg(args, const char *);
-                buf_puts(buf, &len, s ? s : "(null)");
+                buf_puts(buf, &len, va_arg(args, const char *));
                 break;
-            }
 
             case 'd':
-            {
-                int val = va_arg(args, int);
-                unsigned int u;
-                int digits = 0;
-
-                if (val < 0)
+                if (is_ll)
                 {
-                    buf_putc(buf, &len, '-');
-                    u = (unsigned int)(-val);
+                    long long v = va_arg(args, long long);
+                    unsigned long long u = (v < 0) ? (buf_putc(buf,&len,'-'), -v) : v;
+                    buf_put_ull(buf, &len, u, 10);
                 }
                 else
                 {
-                    u = (unsigned int)val;
+                    int v = va_arg(args, int);
+                    unsigned int u = (v < 0) ? (buf_putc(buf,&len,'-'), -v) : v;
+                    buf_put_uint(buf, &len, u, 10);
                 }
-
-                unsigned int tmp = u;
-                do {
-                    digits++;
-                    tmp /= 10;
-                } while (tmp);
-
-                while (zero_pad && digits < width)
-                {
-                    buf_putc(buf, &len, '0');
-                    digits++;
-                }
-
-                buf_put_uint(buf, &len, u, 10);
                 break;
-            }
 
             case 'u':
-            {
-                unsigned int val = va_arg(args, unsigned int);
-                buf_put_uint(buf, &len, val, 10);
+                if (is_ll)
+                    buf_put_ull(buf, &len, va_arg(args, unsigned long long), 10);
+                else
+                    buf_put_uint(buf, &len, va_arg(args, unsigned int), 10);
                 break;
-            }
 
             case 'x':
-            {
-                unsigned int val = va_arg(args, unsigned int);
-                buf_put_uint(buf, &len, val, 16);
+                if (is_ll)
+                    buf_put_ull(buf, &len, va_arg(args, unsigned long long), 16);
+                else
+                    buf_put_uint(buf, &len, va_arg(args, unsigned int), 16);
                 break;
-            }
 
             case 'c':
-            {
-                char c = (char)va_arg(args, int);
-                buf_putc(buf, &len, c);
+                buf_putc(buf, &len, (char)va_arg(args, int));
                 break;
-            }
 
             case '%':
-            {
                 buf_putc(buf, &len, '%');
                 break;
-            }
 
             default:
-            {
                 buf_putc(buf, &len, '%');
                 buf_putc(buf, &len, *p);
                 break;
-            }
         }
     }
 
     va_end(args);
 
-    if (len > 0)
+    if (len)
         write(FD_STDOUT, buf, len);
 
     return (int)len;
 }
+
 
 
 int atoi(const char *str)
