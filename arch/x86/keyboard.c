@@ -1,5 +1,7 @@
 #include "kernel/keyboard.h"
 #include "kernel/irq.h"
+#include "include/irq.h"
+
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,9 +10,7 @@
  * I/O ports / PIC
  * ------------------------------------------------------------------ */
 #define KEYBOARD_DATA_PORT   0x60
-#define PIC1_COMMAND_PORT    0x20
 #define PIC1_DATA_PORT       0x21
-#define PIC_EOI              0x20
 
 #define KEYBOARD_IRQ_VECTOR  0x09
 #define KEYBOARD_IRQ_MASK    (1u << 1)
@@ -205,6 +205,10 @@ void keyboard_interrupt_handler(void)
     }
 }
 
+/* ------------------------------------------------------------------
+ * Arch stub for this IRQ vector
+ * ------------------------------------------------------------------ */
+MAKE_IRQ_STUB(keyboard_irq_stub, 9)
 
 /* ------------------------------------------------------------------
  * Initialization
@@ -222,8 +226,13 @@ void keyboard_init(void (*handler)(char value,
     alt_pressed   = false;
     extended_code = false;
 
+    /* Register C handler in the common table */
     irq_register_handler(KEYBOARD_IRQ_VECTOR, keyboard_interrupt_handler);
 
+    /* Install the arch stub into the IDT */
+    idt_set_gate(KEYBOARD_IRQ_VECTOR, (uint32_t)keyboard_irq_stub, 0x08, 0x8E);
+
+    /* Unmask IRQ1 on master PIC */
     uint8_t mask = inb(PIC1_DATA_PORT);
     mask &= (uint8_t)~KEYBOARD_IRQ_MASK;
     outb(PIC1_DATA_PORT, mask);
