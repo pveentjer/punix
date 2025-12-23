@@ -210,6 +210,7 @@ add_app(tty)
 add_app(pwd)
 add_app(date)
 add_app(uptime)
+add_app(clear)
 
 # ------------------------------------------------------------
 # Kernel ELF
@@ -232,6 +233,7 @@ add_executable(kernel.elf
         ${pwd_OBJ}
         ${date_OBJ}
         ${uptime_OBJ}
+        ${clear_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

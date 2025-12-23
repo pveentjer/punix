@@ -34,6 +34,8 @@ extern unsigned char _binary_date_elf_start[];
 extern unsigned char _binary_date_elf_end[];
 extern unsigned char _binary_uptime_elf_start[];
 extern unsigned char _binary_uptime_elf_end[];
+extern unsigned char _binary_clear_elf_start[];
+extern unsigned char _binary_clear_elf_end[];
 
 
 const struct embedded_app embedded_apps[] = {
@@ -52,6 +54,7 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/pwd",         _binary_pwd_elf_start,         _binary_pwd_elf_end},
         {"/bin/date",        _binary_date_elf_start,        _binary_date_elf_end},
         {"/bin/uptime",      _binary_uptime_elf_start,      _binary_uptime_elf_end},
+        {"/bin/clear",       _binary_clear_elf_start,       _binary_clear_elf_end},
 };
 
 const size_t embedded_app_count =

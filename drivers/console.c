@@ -90,10 +90,12 @@ void console_init(struct console *con)
     con->cursor_row = 0;
     con->cursor_col = 0;
 
+    /* Escape parser starts in normal state. */
+    con->esc_state = CON_ESC_NONE;
+
     /* Clear screen on init. */
     console_clear(con);
 }
-
 
 void console_clear(struct console *con)
 {
@@ -116,6 +118,10 @@ void console_clear(struct console *con)
 
     con->cursor_row = 0;
     con->cursor_col = 0;
+
+    /* Any non-text operation terminates an in-progress escape sequence. */
+    con->esc_state = CON_ESC_NONE;
+
     vga_update_cursor(con);
 }
 
@@ -126,6 +132,92 @@ void console_put_char(struct console *con, char c)
         return;
     }
 
+    /* ------------------------------------------------------------
+     * Minimal ANSI escape parsing (single field, no extra value).
+     *
+     * Supported:
+     *   ESC[H
+     *   ESC[J     (treated like clear for now)
+     *   ESC[2J
+     *   ESC[3J
+     * ------------------------------------------------------------ */
+    switch (con->esc_state)
+    {
+        case CON_ESC_NONE:
+            if ((unsigned char)c == 0x1Bu) /* ESC */
+            {
+                con->esc_state = CON_ESC_ESC;
+                return;
+            }
+            break;
+
+        case CON_ESC_ESC:
+            if (c == '[')
+            {
+                con->esc_state = CON_ESC_CSI;
+                return;
+            }
+            /* Not CSI -> drop and return to normal. */
+            con->esc_state = CON_ESC_NONE;
+            return;
+
+        case CON_ESC_CSI:
+            if (c == 'H')
+            {
+                con->cursor_row = 0;
+                con->cursor_col = 0;
+                con->esc_state = CON_ESC_NONE;
+                vga_update_cursor(con);
+                return;
+            }
+            if (c == 'J')
+            {
+                con->esc_state = CON_ESC_NONE;
+                console_clear(con);
+                return;
+            }
+
+            if (c == '0') { con->esc_state = CON_ESC_CSI_0; return; }
+            if (c == '2') { con->esc_state = CON_ESC_CSI_2; return; }
+            if (c == '3') { con->esc_state = CON_ESC_CSI_3; return; }
+
+            con->esc_state = CON_ESC_CSI_OTHER;
+            return;
+
+        case CON_ESC_CSI_0:
+        case CON_ESC_CSI_2:
+        case CON_ESC_CSI_3:
+            if (c == 'H')
+            {
+                con->cursor_row = 0;
+                con->cursor_col = 0;
+                con->esc_state = CON_ESC_NONE;
+                vga_update_cursor(con);
+                return;
+            }
+            if (c == 'J')
+            {
+                con->esc_state = CON_ESC_NONE;
+                console_clear(con);
+                return;
+            }
+            /* Anything else: give up on this sequence. */
+            con->esc_state = CON_ESC_NONE;
+            return;
+
+        case CON_ESC_CSI_OTHER:
+        default:
+            /* Ignore until a likely final byte, then reset.
+             * Final bytes are typically in '@'..'~' (0x40..0x7E).
+             */
+            if ((unsigned char)c >= 0x40u && (unsigned char)c <= 0x7Eu)
+            {
+                con->esc_state = CON_ESC_NONE;
+            }
+            return;
+    }
+
+    /* Normal character output path */
     volatile uint16_t *video = con->video;
     int cols = con->cols;
     int rows = con->rows;
