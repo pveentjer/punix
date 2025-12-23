@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "kernel/irq.h"
+#include "include/irq.h"
 
 /* ------------------------------------------------------------
  * IRQ state helpers
@@ -53,14 +54,6 @@ struct idt_ptr
 
 #define IDT_ENTRIES 256
 
-/* ------------------------------------------------------------
- * PIC ports
- * ------------------------------------------------------------ */
-#define PIC1_COMMAND 0x20
-#define PIC1_DATA    0x21
-#define PIC2_COMMAND 0xA0
-#define PIC2_DATA    0xA1
-#define PIC_EOI      0x20
 
 static struct idt_entry idt[IDT_ENTRIES];
 static struct idt_ptr   idtp;
@@ -97,42 +90,6 @@ static void pic_mask_all(void)
 {
     outb(PIC1_DATA, 0xFF);
     outb(PIC2_DATA, 0xFF);
-}
-
-/* ------------------------------------------------------------
- * IRQ dispatcher (called by arch-specific stubs)
- * ------------------------------------------------------------ */
-void irq_dispatch(uint32_t vector)
-{
-    if (vector >= IDT_ENTRIES)
-    {
-        return;
-    }
-
-    void (*h)(void) = irq_handlers[vector];
-    if (h)
-    {
-        h();
-    }
-
-    /*
-     * Send EOI for hardware IRQs.
-     *
-     * Your current system uses the legacy (non-remapped) PIC layout:
-     *   Master IRQs: vectors 0x08..0x0F
-     *   Slave  IRQs: vectors 0x70..0x77
-     *
-     * (If you later remap PIC to 0x20..0x2F, adjust this accordingly.)
-     */
-    if ((vector >= 0x08 && vector <= 0x0F) ||
-        (vector >= 0x70 && vector <= 0x77))
-    {
-        if (vector >= 0x70)
-        {
-            outb(PIC2_COMMAND, PIC_EOI);
-        }
-        outb(PIC1_COMMAND, PIC_EOI);
-    }
 }
 
 /* ------------------------------------------------------------

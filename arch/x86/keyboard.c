@@ -1,3 +1,5 @@
+// arch/x86/keyboard.c
+
 #include "kernel/keyboard.h"
 #include "kernel/irq.h"
 #include "include/irq.h"
@@ -49,19 +51,21 @@
 /* ------------------------------------------------------------------
  * Scancode → ASCII tables
  * ------------------------------------------------------------------ */
-static const char SCANCODE_LOWER[] = {
-        0, 0, '1','2','3','4','5','6','7','8','9','0','-','=', '\b','\t',
-        'q','w','e','r','t','y','u','i','o','p','[',']','\n',0,'a','s',
-        'd','f','g','h','j','k','l',';','\'','`',0,'\\','z','x','c','v',
-        'b','n','m',',','.','/',0,'*',0,' '
-};
+static const char SCANCODE_LOWER[] =
+        {
+                0, 0, '1','2','3','4','5','6','7','8','9','0','-','=', '\b','\t',
+                'q','w','e','r','t','y','u','i','o','p','[',']','\n',0,'a','s',
+                'd','f','g','h','j','k','l',';','\'','`',0,'\\','z','x','c','v',
+                'b','n','m',',','.','/',0,'*',0,' '
+        };
 
-static const char SCANCODE_UPPER[] = {
-        0, 0, '!','@','#','$','%','^','&','*','(',')','_','+','\b','\t',
-        'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',0,'A','S',
-        'D','F','G','H','J','K','L',':','"','~',0,'|','Z','X','C','V',
-        'B','N','M','<','>','?',0,'*',0,' '
-};
+static const char SCANCODE_UPPER[] =
+        {
+                0, 0, '!','@','#','$','%','^','&','*','(',')','_','+','\b','\t',
+                'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',0,'A','S',
+                'D','F','G','H','J','K','L',':','"','~',0,'|','Z','X','C','V',
+                'B','N','M','<','>','?',0,'*',0,' '
+        };
 
 /* ------------------------------------------------------------------
  * Internal state
@@ -100,8 +104,7 @@ static void emit_key(char value, enum keyboard_code code)
 {
     if (keyboard_handler_cb != NULL)
     {
-        keyboard_handler_cb(value, code,
-                            ctrl_pressed, alt_pressed, shift_pressed);
+        keyboard_handler_cb(value, code, ctrl_pressed, alt_pressed, shift_pressed);
     }
 }
 
@@ -128,10 +131,12 @@ void keyboard_interrupt_handler(void)
         {
             case SC_RCTRL:  ctrl_pressed = !is_release; if (!is_release) emit_key(0, KEY_CTRL); break;
             case SC_RALT:   alt_pressed  = !is_release; if (!is_release) emit_key(0, KEY_ALT);  break;
+
             case SC_ARROW_UP:    if (!is_release) emit_key(0, KEY_UP);    break;
             case SC_ARROW_DOWN:  if (!is_release) emit_key(0, KEY_DOWN);  break;
             case SC_ARROW_LEFT:  if (!is_release) emit_key(0, KEY_LEFT);  break;
             case SC_ARROW_RIGHT: if (!is_release) emit_key(0, KEY_RIGHT); break;
+
             default: break;
         }
         return;
@@ -189,11 +194,15 @@ void keyboard_interrupt_handler(void)
         }
 
         if (is_release || base >= sizeof(SCANCODE_LOWER))
+        {
             return;
+        }
 
         char c = shift_pressed ? SCANCODE_UPPER[base] : SCANCODE_LOWER[base];
         if (!c)
+        {
             return;
+        }
 
         if (ctrl_pressed)
         {
@@ -206,9 +215,9 @@ void keyboard_interrupt_handler(void)
 }
 
 /* ------------------------------------------------------------------
- * Arch stub for this IRQ vector
+ * Arch stub for IRQ1 (vector 0x09). Master PIC only => eoi_pic2 = 0
  * ------------------------------------------------------------------ */
-MAKE_IRQ_STUB(keyboard_irq_stub, 9)
+MAKE_IRQ_STUB(keyboard_irq_stub, keyboard_interrupt_handler, 0)
 
 /* ------------------------------------------------------------------
  * Initialization
@@ -225,9 +234,6 @@ void keyboard_init(void (*handler)(char value,
     ctrl_pressed  = false;
     alt_pressed   = false;
     extended_code = false;
-
-    /* Register C handler in the common table */
-    irq_register_handler(KEYBOARD_IRQ_VECTOR, keyboard_interrupt_handler);
 
     /* Install the arch stub into the IDT */
     idt_set_gate(KEYBOARD_IRQ_VECTOR, (uint32_t)keyboard_irq_stub, 0x08, 0x8E);
