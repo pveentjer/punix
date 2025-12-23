@@ -54,9 +54,6 @@ void kmain(void)
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
 
-    kprintf("Enabling interrupts.\n");
-    interrupts_enable();
-
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
 
@@ -66,9 +63,14 @@ void kmain(void)
     kprintf("Init scheduler.\n");
     sched_init();
 
-    console_clear(&kconsole);
+
+//    console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};
     sched_add_task("/sbin/init", 1, argv, 0);
+
+    kprintf("Enabling interrupts.\n");
+    interrupts_enable();
+
 
     sched_schedule();
 }

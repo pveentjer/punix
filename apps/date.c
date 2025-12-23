@@ -48,6 +48,12 @@ static void epoch_to_utc(uint32_t t,
 
     *wday = (int)((t + 4) % 7);  /* 1970-01-01 was Thu */
 
+    if ((unsigned)*wday >= 7u)
+    {
+        printf("wday out of range in epoch_to_utc\n");
+    }
+
+
     int y = 1970;
     while (1)
     {

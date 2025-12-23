@@ -389,6 +389,28 @@ int console_printf(struct console *con, const char *fmt, ...)
 
 /* ---------------- kprintf on primary console ---------------- */
 
+/* Helper for 64-bit division by 10 (avoids __udivdi3) */
+static uint64_t udiv64_10(uint64_t n, unsigned int *rem)
+{
+    /* Simple shift-and-subtract division by 10 */
+    uint64_t q = (n >> 1) + (n >> 2);
+    q = q + (q >> 4);
+    q = q + (q >> 8);
+    q = q + (q >> 16);
+    q = q + (q >> 32);
+    q = q >> 3;
+
+    unsigned int r = (unsigned int)(n - q * 10);
+    if (r >= 10)
+    {
+        q++;
+        r -= 10;
+    }
+
+    *rem = r;
+    return q;
+}
+
 int kprintf(const char *fmt, ...)
 {
     struct console *con = &kconsole;
@@ -416,6 +438,37 @@ int kprintf(const char *fmt, ...)
         if (*fmt == '\0')
         {
             break;
+        }
+
+        /* Parse flags and width */
+        int zero_pad = 0;
+        int width = 0;
+
+        if (*fmt == '0')
+        {
+            zero_pad = 1;
+            fmt++;
+        }
+
+        while (*fmt >= '0' && *fmt <= '9')
+        {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        /* Parse length modifier */
+        int is_long = 0;
+        int is_long_long = 0;
+
+        if (*fmt == 'l')
+        {
+            is_long = 1;
+            fmt++;
+            if (*fmt == 'l')
+            {
+                is_long_long = 1;
+                fmt++;
+            }
         }
 
         switch (*fmt)
@@ -456,11 +509,11 @@ int kprintf(const char *fmt, ...)
             {
                 int v = va_arg(ap, int);
                 unsigned int uv;
+                int negative = 0;
 
                 if (v < 0)
                 {
-                    console_put_char(con, '-');
-                    count++;
+                    negative = 1;
                     uv = (unsigned int)(-v);
                 }
                 else
@@ -485,6 +538,23 @@ int kprintf(const char *fmt, ...)
                     }
                 }
 
+                /* Handle width and padding */
+                int num_len = pos + (negative ? 1 : 0);
+                int pad_len = (width > num_len) ? (width - num_len) : 0;
+
+                if (negative)
+                {
+                    console_put_char(con, '-');
+                    count++;
+                }
+
+                while (pad_len > 0)
+                {
+                    console_put_char(con, zero_pad ? '0' : ' ');
+                    count++;
+                    pad_len--;
+                }
+
                 while (pos > 0)
                 {
                     pos--;
@@ -496,23 +566,58 @@ int kprintf(const char *fmt, ...)
 
             case 'u':
             {
-                unsigned int uv = va_arg(ap, unsigned int);
-                char buf[16];
+                char buf[24];
                 int pos = 0;
 
-                if (uv == 0u)
+                if (is_long_long)
                 {
-                    buf[pos] = '0';
-                    pos++;
+                    /* 64-bit unsigned */
+                    uint64_t uv = va_arg(ap, uint64_t);
+
+                    if (uv == 0ULL)
+                    {
+                        buf[pos] = '0';
+                        pos++;
+                    }
+                    else
+                    {
+                        while ((uv > 0ULL) && (pos < (int)sizeof(buf)))
+                        {
+                            unsigned int rem;
+                            uv = udiv64_10(uv, &rem);
+                            buf[pos] = (char)('0' + rem);
+                            pos++;
+                        }
+                    }
                 }
                 else
                 {
-                    while ((uv > 0u) && (pos < (int)sizeof(buf)))
+                    /* 32-bit unsigned */
+                    unsigned int uv = va_arg(ap, unsigned int);
+
+                    if (uv == 0u)
                     {
-                        buf[pos] = (char)('0' + (uv % 10u));
+                        buf[pos] = '0';
                         pos++;
-                        uv /= 10u;
                     }
+                    else
+                    {
+                        while ((uv > 0u) && (pos < (int)sizeof(buf)))
+                        {
+                            buf[pos] = (char)('0' + (uv % 10u));
+                            pos++;
+                            uv /= 10u;
+                        }
+                    }
+                }
+
+                /* Handle width and padding */
+                int pad_len = (width > pos) ? (width - pos) : 0;
+                while (pad_len > 0)
+                {
+                    console_put_char(con, zero_pad ? '0' : ' ');
+                    count++;
+                    pad_len--;
                 }
 
                 while (pos > 0)
@@ -527,24 +632,58 @@ int kprintf(const char *fmt, ...)
             case 'x':
             case 'X':
             {
-                unsigned int v = va_arg(ap, unsigned int);
-                char buf[8];
+                char buf[16];
                 int pos = 0;
                 static const char HEX[] = "0123456789ABCDEF";
 
-                if (v == 0u)
+                if (is_long_long)
                 {
-                    buf[pos] = '0';
-                    pos++;
+                    /* 64-bit hex */
+                    uint64_t v = va_arg(ap, uint64_t);
+
+                    if (v == 0ULL)
+                    {
+                        buf[pos] = '0';
+                        pos++;
+                    }
+                    else
+                    {
+                        while ((v > 0ULL) && (pos < (int)sizeof(buf)))
+                        {
+                            buf[pos] = HEX[v & 0xFu];
+                            pos++;
+                            v >>= 4;
+                        }
+                    }
                 }
                 else
                 {
-                    while ((v > 0u) && (pos < (int)sizeof(buf)))
+                    /* 32-bit hex */
+                    unsigned int v = va_arg(ap, unsigned int);
+
+                    if (v == 0u)
                     {
-                        buf[pos] = HEX[v & 0xFu];
+                        buf[pos] = '0';
                         pos++;
-                        v >>= 4;
                     }
+                    else
+                    {
+                        while ((v > 0u) && (pos < (int)sizeof(buf)))
+                        {
+                            buf[pos] = HEX[v & 0xFu];
+                            pos++;
+                            v >>= 4;
+                        }
+                    }
+                }
+
+                /* Handle width and padding */
+                int pad_len = (width > pos) ? (width - pos) : 0;
+                while (pad_len > 0)
+                {
+                    console_put_char(con, zero_pad ? '0' : ' ');
+                    count++;
+                    pad_len--;
                 }
 
                 while (pos > 0)
