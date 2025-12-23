@@ -114,6 +114,7 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/irq.c
         ${ARCH_SRC_DIR}/keyboard.c
         ${ARCH_SRC_DIR}/syscall.c
+        ${ARCH_SRC_DIR}/clock.c
 )
 
 add_library(kernel_objs OBJECT
@@ -207,6 +208,7 @@ add_app(swapper)
 add_app(print_env)
 add_app(tty)
 add_app(pwd)
+add_app(date)
 
 # ------------------------------------------------------------
 # Kernel ELF
@@ -227,6 +229,7 @@ add_executable(kernel.elf
         ${print_env_OBJ}
         ${tty_OBJ}
         ${pwd_OBJ}
+        ${date_OBJ}
 )
 
 set_target_properties(kernel.elf PROPERTIES

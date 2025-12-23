@@ -30,6 +30,8 @@ extern unsigned char _binary_tty_elf_start[];
 extern unsigned char _binary_tty_elf_end[];
 extern unsigned char _binary_pwd_elf_start[];
 extern unsigned char _binary_pwd_elf_end[];
+extern unsigned char _binary_date_elf_start[];
+extern unsigned char _binary_date_elf_end[];
 
 const struct embedded_app embedded_apps[] = {
         {"/sbin/swapper",    _binary_swapper_elf_start,     _binary_swapper_elf_end},
@@ -45,6 +47,7 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/print_env",   _binary_print_env_elf_start,   _binary_print_env_elf_end},
         {"/bin/tty",         _binary_tty_elf_start,         _binary_tty_elf_end},
         {"/bin/pwd",         _binary_pwd_elf_start,         _binary_pwd_elf_end},
+        {"/bin/date",        _binary_date_elf_start,        _binary_date_elf_end},
 };
 
 const size_t embedded_app_count =

@@ -26,6 +26,7 @@ enum sys_call_nr
     SYS_brk,
     SYS_chdir,
     SYS_getcwd,
+    SYS_clock_gettime,
 };
 
 typedef uint32_t (*sys_enter_fn_t)(void);

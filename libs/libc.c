@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include "kernel/libc.h"
 #include "kernel/syscall.h"
+#include "kernel/time.h"
 
 void delay(uint32_t count)
 {
@@ -183,8 +184,22 @@ int printf(const char *fmt, ...)
             continue;
         }
 
-        p++; // skip '%'
-        if (!*p) break; // stray '%' at end
+        p++;                    // skip '%'
+        if (!*p) break;
+
+        int zero_pad = 0;
+        int width = 0;
+
+        if (*p == '0')
+        {
+            zero_pad = 1;
+            p++;
+        }
+        if (*p >= '1' && *p <= '9')
+        {
+            width = *p - '0';
+            p++;
+        }
 
         switch (*p)
         {
@@ -194,43 +209,68 @@ int printf(const char *fmt, ...)
                 buf_puts(buf, &len, s ? s : "(null)");
                 break;
             }
+
             case 'd':
             {
                 int val = va_arg(args, int);
+                unsigned int u;
+                int digits = 0;
+
                 if (val < 0)
                 {
                     buf_putc(buf, &len, '-');
-                    val = -val;
+                    u = (unsigned int)(-val);
                 }
-                buf_put_uint(buf, &len, (unsigned int) val, 10);
+                else
+                {
+                    u = (unsigned int)val;
+                }
+
+                unsigned int tmp = u;
+                do {
+                    digits++;
+                    tmp /= 10;
+                } while (tmp);
+
+                while (zero_pad && digits < width)
+                {
+                    buf_putc(buf, &len, '0');
+                    digits++;
+                }
+
+                buf_put_uint(buf, &len, u, 10);
                 break;
             }
+
             case 'u':
             {
                 unsigned int val = va_arg(args, unsigned int);
                 buf_put_uint(buf, &len, val, 10);
                 break;
             }
+
             case 'x':
             {
                 unsigned int val = va_arg(args, unsigned int);
                 buf_put_uint(buf, &len, val, 16);
                 break;
             }
+
             case 'c':
             {
-                char c = (char) va_arg(args, int);
+                char c = (char)va_arg(args, int);
                 buf_putc(buf, &len, c);
                 break;
             }
+
             case '%':
             {
                 buf_putc(buf, &len, '%');
                 break;
             }
+
             default:
             {
-                // Unknown format: print it literally
                 buf_putc(buf, &len, '%');
                 buf_putc(buf, &len, *p);
                 break;
@@ -241,12 +281,11 @@ int printf(const char *fmt, ...)
     va_end(args);
 
     if (len > 0)
-    {
         write(FD_STDOUT, buf, len);
-    }
 
-    return (int) len;
+    return (int)len;
 }
+
 
 int atoi(const char *str)
 {
@@ -450,4 +489,11 @@ void *sbrk(intptr_t increment)
     }
 
     return old_brk;
+}
+
+int clock_gettime(clockid_t clk_id, struct timespec *tp)
+{
+    return (int)syscall_2(SYS_clock_gettime,
+                          (uint32_t)clk_id,
+                          (uint32_t)tp);
 }

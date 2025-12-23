@@ -9,6 +9,7 @@
 #include "kernel/elf_loader.h"
 #include "kernel/vfs.h"
 #include "kernel/mm.h"
+#include "kernel/clock.h"
 
 static inline void *uaddr(uint32_t user_ptr, struct task *current)
 {
@@ -130,6 +131,12 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
             sched_schedule();
             return (uint32_t)vfs_getcwd((char *)uaddr(a1, current),
                                         (size_t)a2);
+        }
+        case SYS_clock_gettime:
+        {
+            sched_schedule();
+            return (uint32_t)kclock_gettime((clockid_t)a1,
+                                            (struct timespec *) uaddr(a2, current));
         }
         default:
             return (uint32_t)-ENOSYS;
