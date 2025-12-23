@@ -13,8 +13,6 @@ struct timespec
 
 #define CLOCK_REALTIME   0
 #define CLOCK_MONOTONIC  1
-#define CLOCK_REALTIME   0
-#define CLOCK_MONOTONIC  1
 #define CLOCK_BOOTTIME   2
 
 int clock_gettime(clockid_t clk_id, struct timespec *tp);
