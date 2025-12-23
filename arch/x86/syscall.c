@@ -1,30 +1,43 @@
 #include <stdint.h>
 #include "kernel/syscall.h"
+#include "include/gdt.h"   // GDT_KERNEL_DS
 
-/*
- * Register ABI adapter (Linux-style x86-32):
- *   EAX = nr
- *   EBX = a1
- *   ECX = a2
- *   EDX = a3
- *   ESI = a4
- *   EDI = a5
- *
- * Converts regs -> cdecl args and calls sys_enter_dispatch_c().
- * Returns uint32_t in EAX.
- */
 __attribute__((naked, used))
 uint32_t sys_enter(void)
 {
-        __asm__ volatile(
-                "push %edi\n\t"        /* a5 */
-                "push %esi\n\t"        /* a4 */
-                "push %edx\n\t"        /* a3 */
-                "push %ecx\n\t"        /* a2 */
-                "push %ebx\n\t"        /* a1 */
-                "push %eax\n\t"        /* nr */
-                "call sys_enter_dispatch_c\n\t"
-                "add  $24, %esp\n\t"
-                "ret\n\t"
-                );
+    __asm__ volatile(
+            "pushw %%ds\n\t"
+            "pushw %%es\n\t"
+            "pushw %%fs\n\t"
+            "pushw %%gs\n\t"
+
+            /* load kernel data segments (preserve eax) */
+            "pushl %%eax\n\t"
+            "movw  %0, %%ax\n\t"
+            "movw  %%ax, %%ds\n\t"
+            "movw  %%ax, %%es\n\t"
+            "movw  %%ax, %%fs\n\t"
+            "movw  %%ax, %%gs\n\t"
+            "popl  %%eax\n\t"
+
+            /* regs -> cdecl args */
+            "pushl %%edi\n\t"
+            "pushl %%esi\n\t"
+            "pushl %%edx\n\t"
+            "pushl %%ecx\n\t"
+            "pushl %%ebx\n\t"
+            "pushl %%eax\n\t"
+            "call  sys_enter_dispatch_c\n\t"
+            "addl  $24, %%esp\n\t"
+
+            /* restore segments */
+            "popw %%gs\n\t"
+            "popw %%fs\n\t"
+            "popw %%es\n\t"
+            "popw %%ds\n\t"
+            "ret\n\t"
+            :
+            : "i"((uint16_t)GDT_KERNEL_DS)
+            : "memory"
+            );
 }
