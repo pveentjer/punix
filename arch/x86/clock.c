@@ -19,7 +19,7 @@ struct timespec
 
 void panic(const char *msg);
 
-void kprintf(const char *fmt, ...);  /* Add this for debug output */
+void kprintf(const char *fmt, ...);
 
 /* ------------------------------------------------------------
  * I/O helpers
@@ -107,39 +107,8 @@ static void require_reasonable_tsc(void)
     panic("clock: non-invariant TSC on bare metal");
 }
 
-static uint64_t detect_tsc_hz_cpuid(void)
-{
-    uint32_t a, b, c, d;
-
-    /* CPUID 0x15 */
-    cpuid(0x15, &a, &b, &c, &d);
-    if (a && b && c)
-    {
-        uint64_t hz = (uint64_t) c * b / a;
-//        kprintf("clock: CPUID 0x15: a=%u b=%u c=%u -> %llu Hz\n", a, b, c, hz);
-        if (hz > 100000000ULL && hz < 10000000000ULL)
-        {
-            return hz;
-        }
-    }
-
-    /* CPUID 0x16 */
-    cpuid(0x16, &a, &b, &c, &d);
-    if (a)
-    {
-        uint64_t hz = (uint64_t) a * 1000000ULL;
-//        kprintf("clock: CPUID 0x16: a=%u -> %llu Hz\n", a, hz);
-        if (hz > 100000000ULL && hz < 10000000000ULL)
-        {
-            return hz;
-        }
-    }
-
-    return 0;
-}
-
 /* ------------------------------------------------------------
- * RTC helpers
+ * RTC helpers (for epoch only)
  * ------------------------------------------------------------ */
 
 static int rtc_is_bcd(void)
@@ -172,10 +141,10 @@ static uint32_t rtc_seconds_since_epoch(void)
             0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
     };
 
-    uint32_t days = (y - 1970) * 365 +        /* Regular days */
-                    ((y - 1969) / 4) +         /* Leap years since 1970 */
-                    days_before[mon - 1] +     /* Days in previous months */
-                    (day - 1);                 /* Current day */
+    uint32_t days = (y - 1970) * 365 +
+                    ((y - 1969) / 4) +
+                    days_before[mon - 1] +
+                    (day - 1);
 
     /* Adjust for leap year if past February */
     if (mon > 2 && (y % 4 == 0) && ((y % 100 != 0) || (y % 400 == 0)))
@@ -183,52 +152,47 @@ static uint32_t rtc_seconds_since_epoch(void)
         days++;
     }
 
-    uint32_t epoch = days * 86400u + hour * 3600u + min * 60u + sec;
-
-//    kprintf("clock: RTC %04u-%02u-%02u %02u:%02u:%02u -> epoch %u\n",
-//            y, mon, day, hour, min, sec, epoch);
-
-    return epoch;
+    return days * 86400u + hour * 3600u + min * 60u + sec;
 }
 
-static uint64_t calibrate_tsc_rtc(void)
+/* ------------------------------------------------------------
+ * PIT (Programmable Interval Timer)
+ * ------------------------------------------------------------ */
+
+#define PIT_FREQUENCY 1193182ULL
+#define PIT_CH2_DATA  0x42
+#define PIT_MODE      0x43
+#define PIT_SPKR      0x61
+
+static uint64_t calibrate_tsc_pit(void)
 {
-//    kprintf("clock: calibrating TSC via RTC...\n");
+    /* Use channel 2 (speaker) in one-shot mode */
+    outb(PIT_MODE, 0xB0);
 
-    uint32_t s0 = rtc_value(0x00);
-//    kprintf("clock:   s0=%u, waiting for tick...\n", s0);
+    /* Set count for ~50ms: 1193182 / 20 = 59659 */
+    uint16_t count = 59659;
+    outb(PIT_CH2_DATA, count & 0xFF);
+    outb(PIT_CH2_DATA, count >> 8);
 
-    uint32_t timeout = 100000000;
-    while (rtc_value(0x00) == s0 && --timeout)
-    {}
+    /* Enable gate, disable speaker */
+    uint8_t spkr = inb(PIT_SPKR);
+    outb(PIT_SPKR, (spkr & 0xFC) | 0x01);
 
-    if (!timeout)
-    {
-//        kprintf("clock:   TIMEOUT waiting for first tick!\n");
-        return 0;
-    }
+    /* Small delay for PIT to start */
+    for (volatile int i = 0; i < 1000; i++);
 
     uint64_t t0 = rdtsc();
-    uint32_t s1 = rtc_value(0x00);
-//    kprintf("clock:   s1=%u, tsc0=%llu\n", s1, t0);
 
-    timeout = 100000000;
-    while (rtc_value(0x00) == s1 && --timeout)
+    /* Wait for countdown to complete (bit 5 goes high) */
+    while (!(inb(PIT_SPKR) & 0x20))
     {}
 
-    if (!timeout)
-    {
-//        kprintf("clock:   TIMEOUT waiting for second tick!\n");
-        return 0;
-    }
-
     uint64_t t1 = rdtsc();
-    uint32_t s2 = rtc_value(0x00);
 
-    uint64_t hz = t1 - t0;
-//    kprintf("clock:   s2=%u, tsc1=%llu, delta=%llu Hz\n", s2, t1, hz);
+    /* Restore speaker state */
+    outb(PIT_SPKR, spkr);
 
-    return hz;
+    return (t1 - t0) * PIT_FREQUENCY / count;
 }
 
 /* ------------------------------------------------------------
@@ -249,33 +213,8 @@ void clock_init(void)
     require_reasonable_tsc();
 
     boot_epoch_sec = rtc_seconds_since_epoch();
-
-    /* Don't capture boot_tsc yet! */
-
-    if (running_under_hypervisor())
-    {
-//        kprintf("clock: hypervisor detected, using RTC calibration\n");
-        tsc_hz = calibrate_tsc_rtc();
-    }
-    else
-    {
-//        kprintf("clock: bare metal, trying CPUID first\n");
-        tsc_hz = detect_tsc_hz_cpuid();
-        if (!tsc_hz)
-            tsc_hz = calibrate_tsc_rtc();
-    }
-
-    if (!tsc_hz)
-    {
-        panic("clock: unable to determine TSC frequency");
-    }
-
-//    kprintf("clock: tsc_hz=%llu (%llu MHz)\n", tsc_hz, tsc_hz / 1000000);
-
-    /* Capture boot_tsc AFTER calibration completes */
+    tsc_hz = calibrate_tsc_pit();
     boot_tsc = rdtsc();
-//    kprintf("clock: boot_tsc=%llu (after calibration)\n", boot_tsc);
-
     last_ns = 0;
 }
 
@@ -298,15 +237,9 @@ int kclock_gettime(int clk_id, struct timespec *tp)
     uint64_t rem = delta % tsc_hz;
     uint64_t ns = sec * 1000000000ULL + (rem * 1000000000ULL) / tsc_hz;
 
-    /* DEBUG: Print every call */
-    static int call_count = 0;
-//    kprintf("clock[%d]: now=%llu boot=%llu delta=%llu ns=%llu last_ns=%llu\n",
-//            ++call_count, now, boot_tsc, delta, ns, last_ns);
-
     /* monotonic clamp */
     if (ns < last_ns)
     {
-//        kprintf("  CLAMPED! ns=%llu < last_ns=%llu\n", ns, last_ns);
         ns = last_ns;
     }
     else
