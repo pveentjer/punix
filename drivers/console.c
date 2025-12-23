@@ -255,6 +255,18 @@ void console_put_char(struct console *con, char c)
         video[con->cursor_row * cols + con->cursor_col] =
                 vga_entry(' ', attr);
     }
+    else if (c == '\t')
+    {
+        int tabw = 8;
+        int next = (con->cursor_col + tabw) & ~(tabw - 1);
+        if (next >= cols) next = cols - 1;
+
+        while (con->cursor_col < next)
+        {
+            video[con->cursor_row * cols + con->cursor_col] = vga_entry(' ', attr);
+            con->cursor_col++;
+        }
+    }
     else
     {
         video[con->cursor_row * cols + con->cursor_col] =
