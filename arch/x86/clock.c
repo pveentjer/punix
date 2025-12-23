@@ -94,13 +94,17 @@ static void require_reasonable_tsc(void)
 
     /* invariant TSC */
     if (d & (1u << 8))
+    {
         return;
+    }
 
     /* hypervisor (QEMU/KVM/etc) */
     if (running_under_hypervisor())
+    {
         return;
+    }
 
-//    panic("clock: non-invariant TSC on bare metal");
+    panic("clock: non-invariant TSC on bare metal");
 }
 
 static uint64_t detect_tsc_hz_cpuid(void)
@@ -114,7 +118,9 @@ static uint64_t detect_tsc_hz_cpuid(void)
         uint64_t hz = (uint64_t) c * b / a;
 //        kprintf("clock: CPUID 0x15: a=%u b=%u c=%u -> %llu Hz\n", a, b, c, hz);
         if (hz > 100000000ULL && hz < 10000000000ULL)
+        {
             return hz;
+        }
     }
 
     /* CPUID 0x16 */
@@ -124,7 +130,9 @@ static uint64_t detect_tsc_hz_cpuid(void)
         uint64_t hz = (uint64_t) a * 1000000ULL;
 //        kprintf("clock: CPUID 0x16: a=%u -> %llu Hz\n", a, hz);
         if (hz > 100000000ULL && hz < 10000000000ULL)
+        {
             return hz;
+        }
     }
 
     return 0;
@@ -171,7 +179,9 @@ static uint32_t rtc_seconds_since_epoch(void)
 
     /* Adjust for leap year if past February */
     if (mon > 2 && (y % 4 == 0) && ((y % 100 != 0) || (y % 400 == 0)))
+    {
         days++;
+    }
 
     uint32_t epoch = days * 86400u + hour * 3600u + min * 60u + sec;
 
@@ -256,7 +266,9 @@ void clock_init(void)
     }
 
     if (!tsc_hz)
+    {
         panic("clock: unable to determine TSC frequency");
+    }
 
 //    kprintf("clock: tsc_hz=%llu (%llu MHz)\n", tsc_hz, tsc_hz / 1000000);
 
@@ -274,7 +286,9 @@ void clock_init(void)
 int kclock_gettime(int clk_id, struct timespec *tp)
 {
     if (!tp)
+    {
         return -EFAULT;
+    }
 
     uint64_t now = rdtsc();
     uint64_t delta = now - boot_tsc;
@@ -306,13 +320,11 @@ int kclock_gettime(int clk_id, struct timespec *tp)
             tp->tv_sec = boot_epoch_sec + (uint32_t) (ns / 1000000000ULL);
             tp->tv_nsec = (uint32_t) (ns % 1000000000ULL);
             return 0;
-
         case CLOCK_MONOTONIC:
         case CLOCK_BOOTTIME:
             tp->tv_sec = (uint32_t) (ns / 1000000000ULL);
             tp->tv_nsec = (uint32_t) (ns % 1000000000ULL);
             return 0;
-
         default:
             return -EINVAL;
     }
