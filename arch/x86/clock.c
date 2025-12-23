@@ -1,4 +1,7 @@
 #include <stdint.h>
+#include "kernel/time.h"
+#include "kernel/panic.h"
+#include "kernel/console.h"
 
 /* ------------------------------------------------------------
  * Public API
@@ -10,16 +13,6 @@
 
 #define EINVAL 22
 #define EFAULT 14
-
-struct timespec
-{
-    uint32_t tv_sec;
-    uint32_t tv_nsec;
-};
-
-void panic(const char *msg);
-
-void kprintf(const char *fmt, ...);
 
 /* ------------------------------------------------------------
  * I/O helpers
@@ -229,35 +222,39 @@ int kclock_gettime(int clk_id, struct timespec *tp)
         return -EFAULT;
     }
 
-    uint64_t now = rdtsc();
-    uint64_t delta = now - boot_tsc;
-
-    /* Avoid overflow by doing division first */
-    uint64_t sec = delta / tsc_hz;
-    uint64_t rem = delta % tsc_hz;
-    uint64_t ns = sec * 1000000000ULL + (rem * 1000000000ULL) / tsc_hz;
-
-    /* monotonic clamp */
-    if (ns < last_ns)
-    {
-        ns = last_ns;
-    }
-    else
-    {
-        last_ns = ns;
-    }
-
     switch (clk_id)
     {
-        case CLOCK_REALTIME:
-            tp->tv_sec = boot_epoch_sec + (uint32_t) (ns / 1000000000ULL);
-            tp->tv_nsec = (uint32_t) (ns % 1000000000ULL);
-            return 0;
         case CLOCK_MONOTONIC:
-        case CLOCK_BOOTTIME:
-            tp->tv_sec = (uint32_t) (ns / 1000000000ULL);
-            tp->tv_nsec = (uint32_t) (ns % 1000000000ULL);
+        {
+            uint64_t tsc = rdtsc();
+            tp->tv_sec = (uint32_t)(tsc / tsc_hz);
+            tp->tv_nsec = (uint32_t)(((tsc % tsc_hz) * 1000000000ULL) / tsc_hz);
             return 0;
+        }
+
+        case CLOCK_BOOTTIME:
+        {
+            uint64_t now = rdtsc();
+            uint64_t delta = now - boot_tsc;
+            tp->tv_sec = (uint32_t)(delta / tsc_hz);
+
+            tp->tv_nsec = (uint32_t)(((delta % tsc_hz) * 1000000000ULL) / tsc_hz);
+            return 0;
+        }
+
+        case CLOCK_REALTIME:
+        {
+            uint64_t now = rdtsc();
+            uint64_t delta = now - boot_tsc;
+            uint64_t sec = delta / tsc_hz;
+            uint64_t rem = delta % tsc_hz;
+            uint64_t nsec = (rem * 1000000000ULL) / tsc_hz;
+
+            tp->tv_sec = boot_epoch_sec + (uint32_t)sec;
+            tp->tv_nsec = (uint32_t)nsec;
+            return 0;
+        }
+
         default:
             return -EINVAL;
     }

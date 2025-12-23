@@ -1,6 +1,6 @@
 // time.c
-#include "kernel/time.h"
 #include "kernel/libc.h"
+#include "kernel/time.h"
 
 /*
  * Expect these to come from your headers:
@@ -13,7 +13,7 @@
 
 static uint64_t ts_to_ns(const struct timespec *ts)
 {
-    return (uint64_t)ts->tv_sec * 1000000000ULL + (uint64_t)ts->tv_nsec;
+    return (uint64_t) ts->tv_sec * 1000000000ULL + (uint64_t) ts->tv_nsec;
 }
 
 static void print_default(uint64_t real_ns)
@@ -24,8 +24,8 @@ static void print_default(uint64_t real_ns)
     uint64_t rem_ms = ms % 1000ULL;
 
     printf("real\t%llu.%03llus\n",
-           (unsigned long long)sec,
-           (unsigned long long)rem_ms);
+           (unsigned long long) sec,
+           (unsigned long long) rem_ms);
 
     // Not available without CPU accounting
     printf("user\t?\n");
@@ -39,8 +39,8 @@ static void print_posix(uint64_t real_ns)
     uint64_t rem_ms = ms % 1000ULL;
 
     printf("real %llu.%03llu\n",
-           (unsigned long long)sec,
-           (unsigned long long)rem_ms);
+           (unsigned long long) sec,
+           (unsigned long long) rem_ms);
 
     printf("user ?\n");
     printf("sys  ?\n");
@@ -118,7 +118,7 @@ int main(int argc, char **argv, char **envp)
     pid_t res = waitpid(pid, &status, 0);
     if (res < 0)
     {
-        printf("time: waitpid failed for pid %d\n", (int)pid);
+        printf("time: waitpid failed for pid %d\n", (int) pid);
         return 1;
     }
 
@@ -130,7 +130,11 @@ int main(int argc, char **argv, char **envp)
         return (status >> 8) & 0xff;
     }
 
-    uint64_t real_ns = ts_to_ns(&end) - ts_to_ns(&start);
+    uint64_t start_ns = ts_to_ns(&start);
+    uint64_t end_ns = ts_to_ns(&end);
+    uint64_t real_ns = end_ns - start_ns;
+
+    char buf[32];
 
     if (posix_p)
         print_posix(real_ns);
