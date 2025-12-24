@@ -3,10 +3,10 @@ BITS 32
 global _kpremain
 extern kmain
 
-%define KSTACK_TOP_VA       0x00100000      ; 1 MB virtual stack
-%define KERNEL_BASE_PA      0x00100000      ; physical kernel base (1 MB)
+%define KSTACK_TOP_VA       0x00100000
+%define KERNEL_BASE_PA      0x00100000
 %define KERNEL_DS           0x10
-%define PAGE_SIZE           0x1000          ; 4KB page
+%define PAGE_SIZE           0x1000
 %define PAGE_CNT            1024
 %define VGA_PAGE_IDX        0xB8
 
@@ -16,86 +16,82 @@ page_table:     resd 1024
 page_directory: resd 1024
 
 section .text
+
 _kpremain:
     cli
 
-    ; Setup segments
     mov ax, KERNEL_DS
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x00090000              ; Physical stack before paging
+    mov esp, 0x00090000
 
-    ; Calculate trampoline page number
-    lea eax, [paging_trampoline]
-    add eax, KERNEL_BASE_PA             ; Convert to physical
-    shr eax, 12                      ; Get page index
-    mov [trampoline_page], eax
+    call map_offset_kernel
+    call map_identity_vga
+    call map_identity_trampoline
 
-    ; Build page table
-    xor eax, eax                     ; VA counter
+    jmp paging_trampoline
+
+map_offset_kernel:
+    xor eax, eax
     lea edi, [page_table]
     mov ecx, PAGE_CNT
 
-; Build page table
-; Inputs:
-;   eax = 0 (VA counter, increments by 0x1000 each iteration)
-;   edi = pointer to page_table
-;   ecx = 1024 (number of pages to map)
-.page_table_loop:
-    mov edx, eax                     ; Start with VA
-    mov ebx, eax
-    shr ebx, 12                      ; Get page index
-
-    ; Identity-map VGA text page (0xB8000..0xB8FFF)
-    cmp ebx, VGA_PAGE_IDX
-    je  .identity_map
-
-    ; Also identity-map trampoline page
-    cmp ebx, [trampoline_page]
-    je  .identity_map
-
-
-.offset_map:
-    ; Offset mapping: VA + 1MB = PA
+.loop:
+    mov edx, eax
     add edx, KERNEL_BASE_PA
-    jmp .write_pte
-
-.identity_map:
-    ; Identity mapping: VA = PA
-    ; edx already contains VA
-
-.write_pte:
-    or  edx, 0x03                    ; present + RW
+    or  edx, 0x03
     mov [edi], edx
     add eax, PAGE_SIZE
     add edi, 4
-    loop .page_table_loop
+    loop .loop
 
+    ret
+
+map_identity_vga:
+    lea edi, [page_table]
+    mov eax, VGA_PAGE_IDX * 4
+    add edi, eax
+    mov dword [edi], 0xB8003
+    ret
+
+map_identity_trampoline:
+    ; Calculate trampoline page index
+    lea eax, [paging_trampoline]
+    add eax, KERNEL_BASE_PA
+    shr eax, 12
+
+    ; Map it
+    lea edi, [page_table]
+    mov ebx, eax
+    shl ebx, 2
+    add edi, ebx
+
+    shl eax, 12
+    or  eax, 0x03
+    mov [edi], eax
+    ret
+
+align 4096
+paging_trampoline:
     ; Setup page directory
     lea eax, [page_table]
     or  eax, 0x03
     mov [page_directory], eax
 
+    ; Load CR3
     lea eax, [page_directory]
     mov cr3, eax
 
-    ; Jump to trampoline
-    jmp paging_trampoline
-
-align 4096
-paging_trampoline:
+    ; Enable paging
     mov eax, cr0
     or  eax, 0x80000000
-    mov cr0, eax                     ; Paging is ON
+    mov cr0, eax
 
-    ; fix the stack
-    ; the stack start at the end of the of VA space of the kernel
     mov esp, KSTACK_TOP_VA
 
-    ; Write OK
     mov edi, 0xB8000
     mov byte [edi], 'O'
     mov byte [edi+1], 0x0F
@@ -104,45 +100,37 @@ paging_trampoline:
     mov byte [edi+4], ' '
     mov byte [edi+5], 0x0F
 
-    ; Calculate correct address of post_paging
     lea ebx, [post_paging]
 
-    ; Print address as hex: 0x12345678
     mov byte [edi+6], '0'
     mov byte [edi+7], 0x0F
     mov byte [edi+8], 'x'
     mov byte [edi+9], 0x0F
 
-    mov edi, 0xB8000 + 10            ; Start after "0x"
-    mov ecx, 8                       ; 8 hex digits
+    mov edi, 0xB8000 + 10
+    mov ecx, 8
 
 .print_hex:
-    rol ebx, 4                       ; Rotate to get next nibble
+    rol ebx, 4
     mov eax, ebx
-    and eax, 0x0F                    ; Mask to get nibble
+    and eax, 0x0F
 
     cmp eax, 9
     jle .digit
-    add eax, 'A' - 10                ; A-F
+    add eax, 'A' - 10
     jmp .write_char
 .digit:
-    add eax, '0'                     ; 0-9
+    add eax, '0'
 
 .write_char:
-    mov [edi], al                    ; Write character
-    mov byte [edi+1], 0x0F           ; White on black
+    mov [edi], al
+    mov byte [edi+1], 0x0F
     add edi, 2
     loop .print_hex
-
-;    jmp post_paging
 
 .hang:
     hlt
     jmp .hang
-
-
-
-;    jmp post_paging
 
 align 4096
 post_paging:
@@ -151,8 +139,6 @@ post_paging:
     hlt
     jmp .hang
 
-
-    ; Write to confirm we're here
     mov edi, 0xB8000
     mov byte [edi+4], 'P'
     mov byte [edi+5], 0x0F
@@ -163,15 +149,5 @@ post_paging:
     mov byte [edi+10], 'T'
     mov byte [edi+11], 0x0F
 
-    ; Switch to virtual stack
     mov esp, KSTACK_TOP_VA
-
-    ; Call kernel main
     call kmain
-
-;.hang:
-;    hlt
-;    jmp .hang
-
-section .data
-trampoline_page: dd 0
