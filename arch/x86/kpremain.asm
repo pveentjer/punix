@@ -129,16 +129,19 @@ paging_trampoline:
     add edi, 2
     loop .print_hex
 
-.hang:
-    hlt
-    jmp .hang
+    lea eax, [post_paging]
+    jmp eax
+
+;.hang:
+;    hlt
+;    jmp .hang
 
 align 4096
 post_paging:
 
-.hang:
-    hlt
-    jmp .hang
+;.hang:
+;    hlt
+;    jmp .hang
 
     mov edi, 0xB8000
     mov byte [edi+4], 'P'
