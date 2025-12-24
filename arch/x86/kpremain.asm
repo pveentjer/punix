@@ -93,42 +93,6 @@ paging_trampoline:
 
     mov esp, KSTACK_TOP_VA
 
-    mov edi, 0xB8000
-    mov byte [edi], 'O'
-    mov byte [edi+1], 0x0F
-    mov byte [edi+2], 'K'
-    mov byte [edi+3], 0x0F
-    mov byte [edi+4], ' '
-    mov byte [edi+5], 0x0F
-
-    lea ebx, [post_paging]
-
-    mov byte [edi+6], '0'
-    mov byte [edi+7], 0x0F
-    mov byte [edi+8], 'x'
-    mov byte [edi+9], 0x0F
-
-    mov edi, 0xB8000 + 10
-    mov ecx, 8
-
-.print_hex:
-    rol ebx, 4
-    mov eax, ebx
-    and eax, 0x0F
-
-    cmp eax, 9
-    jle .digit
-    add eax, 'A' - 10
-    jmp .write_char
-.digit:
-    add eax, '0'
-
-.write_char:
-    mov [edi], al
-    mov byte [edi+1], 0x0F
-    add edi, 2
-    loop .print_hex
-
     lea eax, [post_paging]
     jmp eax
 
@@ -138,20 +102,6 @@ paging_trampoline:
 
 align 4096
 post_paging:
-
-;.hang:
-;    hlt
-;    jmp .hang
-
-    mov edi, 0xB8000
-    mov byte [edi+4], 'P'
-    mov byte [edi+5], 0x0F
-    mov byte [edi+6], 'O'
-    mov byte [edi+7], 0x0F
-    mov byte [edi+8], 'S'
-    mov byte [edi+9], 0x0F
-    mov byte [edi+10], 'T'
-    mov byte [edi+11], 0x0F
 
     mov esp, KSTACK_TOP_VA
     call kmain
