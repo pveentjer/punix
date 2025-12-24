@@ -3,8 +3,8 @@ BITS 32
 global _kpremain
 extern kmain
 
-%define KSTACK_TOP   0x00100000      ; 1 MB virtual stack
-%define KERNEL_BASE  0x00100000      ; physical kernel base (1 MB)
+%define KSTACK_TOP_VA   0x00100000      ; 1 MB virtual stack
+%define KERNEL_BASE_PA  0x00100000      ; physical kernel base (1 MB)
 %define KERNEL_DS    0x10
 
 section .bss
@@ -27,7 +27,7 @@ _kpremain:
 
     ; Calculate trampoline page number
     lea eax, [paging_trampoline]
-    add eax, KERNEL_BASE             ; Convert to physical
+    add eax, KERNEL_BASE_PA             ; Convert to physical
     shr eax, 12                      ; Get page index
     mov [trampoline_page], eax
 
@@ -52,7 +52,7 @@ _kpremain:
 
 .offset_map:
     ; Offset mapping: VA + 1MB = PA
-    add edx, KERNEL_BASE
+    add edx, KERNEL_BASE_PA
     jmp .write_pte
 
 .identity_map:
@@ -82,6 +82,10 @@ paging_trampoline:
     mov eax, cr0
     or  eax, 0x80000000
     mov cr0, eax                     ; Paging is ON
+
+    ; fix the stack
+    ; the stack start at the end of the of VA space of the kernel
+    mov esp, KSTACK_TOP_VA
 
     ; Write OK
     mov edi, 0xB8000
@@ -122,11 +126,11 @@ paging_trampoline:
     add edi, 2
     loop .print_hex
 
-    jmp post_paging
+;    jmp post_paging
 
-;.hang:
-;    hlt
-;    jmp .hang
+.hang:
+    hlt
+    jmp .hang
 
 
 
@@ -152,7 +156,7 @@ post_paging:
     mov byte [edi+11], 0x0F
 
     ; Switch to virtual stack
-    mov esp, KSTACK_TOP
+    mov esp, KSTACK_TOP_VA
 
     ; Call kernel main
     call kmain
