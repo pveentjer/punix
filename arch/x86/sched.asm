@@ -130,13 +130,6 @@ ctx_switch:
     pop edi
     pop ebp
 
-    ; Load next task's data selector into DS/ES/FS/GS
-    mov ax, [edx + OFF_DS]
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
     ; Restore next task's flags
     popfd
 
