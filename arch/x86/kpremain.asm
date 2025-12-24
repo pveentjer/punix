@@ -9,6 +9,7 @@ extern kmain
 %define PAGE_SIZE           0x1000
 %define PAGE_CNT            1024
 %define VGA_PAGE_IDX        0xB8
+%define PAGE_SHIFT          12
 
 section .bss
 align 4096
@@ -61,7 +62,7 @@ map_identity_trampoline:
     ; Calculate trampoline page index
     lea eax, [paging_trampoline]
     add eax, KERNEL_BASE_PA
-    shr eax, 12
+    shr eax, PAGE_SHIFT
 
     ; Map it
     lea edi, [page_table]
@@ -69,7 +70,7 @@ map_identity_trampoline:
     shl ebx, 2
     add edi, ebx
 
-    shl eax, 12
+    shl eax, PAGE_SHIFT
     or  eax, 0x03
     mov [edi], eax
     ret
