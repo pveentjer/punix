@@ -93,7 +93,7 @@ paging_trampoline:
     mov byte [edi+5], 0x0F
 
     ; Calculate correct address of post_paging
-    lea ebx, [post_paging]           ; Link address: 36,864
+    lea ebx, [post_paging]
 
     ; Print address as hex: 0x12345678
     mov byte [edi+6], '0'
@@ -122,9 +122,11 @@ paging_trampoline:
     add edi, 2
     loop .print_hex
 
-.hang:
-    hlt
-    jmp .hang
+    jmp post_paging
+
+;.hang:
+;    hlt
+;    jmp .hang
 
 
 
@@ -132,6 +134,12 @@ paging_trampoline:
 
 align 4096
 post_paging:
+
+.hang:
+    hlt
+    jmp .hang
+
+
     ; Write to confirm we're here
     mov edi, 0xB8000
     mov byte [edi+4], 'P'
@@ -149,9 +157,9 @@ post_paging:
     ; Call kernel main
     call kmain
 
-.hang:
-    hlt
-    jmp .hang
+;.hang:
+;    hlt
+;    jmp .hang
 
 section .data
 trampoline_page: dd 0
