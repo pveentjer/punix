@@ -78,19 +78,51 @@ _kpremain:
 
 align 4096
 paging_trampoline:
-    ; Enable paging
     mov eax, cr0
     or  eax, 0x80000000
     mov cr0, eax                     ; Paging is ON
 
-    ; Test VGA write after paging
+    ; Write OK
     mov edi, 0xB8000
     mov byte [edi], 'O'
     mov byte [edi+1], 0x0F
     mov byte [edi+2], 'K'
     mov byte [edi+3], 0x0F
+    mov byte [edi+4], ' '
+    mov byte [edi+5], 0x0F
 
-    ; Hang here to verify paging + VGA works
+    ; Calculate correct address of post_paging
+    lea ebx, [post_paging]           ; Link address: 36,864
+    add ebx, KERNEL_BASE             ; Physical address: 36,864 + 1,048,576 = 1,085,440
+
+    ; Print address as hex: 0x12345678
+    mov byte [edi+6], '0'
+    mov byte [edi+7], 0x0F
+    mov byte [edi+8], 'x'
+    mov byte [edi+9], 0x0F
+
+    mov edi, 0xB8000 + 10            ; Start after "0x"
+    mov ecx, 8                       ; 8 hex digits
+
+.print_hex:
+    rol ebx, 4                       ; Rotate to get next nibble
+    mov eax, ebx
+    and eax, 0x0F                    ; Mask to get nibble
+
+    cmp eax, 9
+    jle .digit
+    add eax, 'A' - 10                ; A-F
+    jmp .write_char
+.digit:
+    add eax, '0'                     ; 0-9
+
+.write_char:
+    mov [edi], al                    ; Write character
+    mov byte [edi+1], 0x0F           ; White on black
+    add edi, 2
+    loop .print_hex
+
+    ; Hang to view address
 .hang:
     hlt
     jmp .hang
