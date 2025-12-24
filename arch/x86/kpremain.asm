@@ -8,6 +8,7 @@ extern kmain
 %define KERNEL_DS           0x10
 %define PAGE_SIZE           0x1000          ; 4KB page
 %define PAGE_CNT            1024
+%define VGA_PAGE_IDX        0xB8
 
 section .bss
 align 4096
@@ -49,7 +50,7 @@ _kpremain:
     shr ebx, 12                      ; Get page index
 
     ; Identity-map VGA text page (0xB8000..0xB8FFF)
-    cmp ebx, 0xB8
+    cmp ebx, VGA_PAGE_IDX
     je  .identity_map
 
     ; Also identity-map trampoline page
