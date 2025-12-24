@@ -3,7 +3,6 @@
 #include "kernel/sched.h"
 #include "kernel/kutils.h"
 #include "kernel/vfs.h"
-#include "../../arch/x86/include/gdt.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
@@ -30,10 +29,6 @@ void task_table_init(struct task_table *task_table)
         task->addr_base = PROCESS_BASE + task_idx * PROCESS_SIZE;
         task->addr_end  = task->addr_base + PROCESS_SIZE;
         task->state     = TASK_POOLED;
-#ifdef ARCH_X86
-        // Initialize per-task GDT indices in cpu_ctx
-        gdt_init_task_ctx(&task->cpu_ctx, task_idx);
-#endif
 
         wait_queue_init(&task->wait_exit);
 
