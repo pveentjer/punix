@@ -3,9 +3,11 @@ BITS 32
 global _kpremain
 extern kmain
 
-%define KSTACK_TOP_VA   0x00100000      ; 1 MB virtual stack
-%define KERNEL_BASE_PA  0x00100000      ; physical kernel base (1 MB)
-%define KERNEL_DS    0x10
+%define KSTACK_TOP_VA       0x00100000      ; 1 MB virtual stack
+%define KERNEL_BASE_PA      0x00100000      ; physical kernel base (1 MB)
+%define KERNEL_DS           0x10
+%define PAGE_SIZE           0x1000          ; 4KB page
+%define PAGE_CNT            1024
 
 section .bss
 align 4096
@@ -34,7 +36,7 @@ _kpremain:
     ; Build page table
     xor eax, eax                     ; VA counter
     lea edi, [page_table]
-    mov ecx, 1024
+    mov ecx, PAGE_CNT
 
 ; Build page table
 ; Inputs:
@@ -67,7 +69,7 @@ _kpremain:
 .write_pte:
     or  edx, 0x03                    ; present + RW
     mov [edi], edx
-    add eax, 0x1000
+    add eax, PAGE_SIZE
     add edi, 4
     loop .page_table_loop
 
