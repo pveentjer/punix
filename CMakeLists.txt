@@ -110,7 +110,6 @@ set(KERNEL_SOURCES
 # Arch sources
 # ------------------------------------------------------------
 set(ARCH_SOURCES
-        ${ARCH_SRC_DIR}/gdt.c
         ${ARCH_SRC_DIR}/irq.c
         ${ARCH_SRC_DIR}/keyboard.c
         ${ARCH_SRC_DIR}/syscall.c
