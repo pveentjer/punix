@@ -68,6 +68,20 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
+# kpremain.asm -> kpremain_x86.o
+# ------------------------------------------------------------
+set(PREBOOT_ASM_SRC  ${ARCH_SRC_DIR}/kpremain.asm)
+set(PREBOOT_ASM_OBJ  ${BUILD_DIR}/kpremain_${ARCH}.o)
+
+add_custom_command(
+        OUTPUT ${PREBOOT_ASM_OBJ}
+        COMMAND ${NASM_EXECUTABLE} -f elf32 ${PREBOOT_ASM_SRC} -o ${PREBOOT_ASM_OBJ}
+        DEPENDS ${PREBOOT_ASM_SRC}
+        WORKING_DIRECTORY ${BUILD_DIR}
+        COMMENT "Assembling ${PREBOOT_ASM_OBJ}"
+)
+
+# ------------------------------------------------------------
 # Kernel core sources
 # ------------------------------------------------------------
 set(KERNEL_CORE_SOURCES
@@ -217,6 +231,7 @@ add_app(time)
 # ------------------------------------------------------------
 add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
+        ${PREBOOT_ASM_OBJ}
         ${SCHED_ASM_OBJ}
         ${init_OBJ}
         ${sh_OBJ}

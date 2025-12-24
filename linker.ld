@@ -9,8 +9,8 @@ SECTIONS
     .kernel_header : ALIGN(4) {
         __kernel_header_base = .;
 
-        /* 0x00100000: pointer to kernel entry (kmain) */
-        LONG(kmain)
+        /* 0x00100000: pointer to kernel entry (kpremain in kpremain.asm) */
+        LONG(_kpremain)
 
         /* 0x00100004: pointer to sys_enter */
         LONG(sys_enter)
