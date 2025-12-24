@@ -1,4 +1,3 @@
-; sched.asm
 BITS 32
 
 section .text
@@ -9,8 +8,6 @@ global ctx_init
 extern task_trampoline
 
 %define OFF_ESP  0
-%define OFF_SS   4
-%define OFF_DS   8
 
 ; ============================================================
 ; void ctx_init(struct cpu_ctx *cpu_ctx,
@@ -113,16 +110,8 @@ ctx_switch:
     ; Save current ESP into prev->cpu_ctx.esp
     mov [eax + OFF_ESP], esp
 
-    ; -------- CRITICAL TRANSITION (no stack use here) --------
-
-    ; Load next SS selector
-    mov ax, [edx + OFF_SS]
-    mov ss, ax
-
-    ; Load next ESP (must match SS)
+    ; Load next ESP
     mov esp, [edx + OFF_ESP]
-
-    ; -------- END CRITICAL TRANSITION --------
 
     ; Restore next task's registers from NEW stack
     pop ebx
