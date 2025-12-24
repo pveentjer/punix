@@ -36,18 +36,19 @@ _kpremain:
     lea edi, [page_table]
     mov ecx, 1024
 
-.pt_loop:
+.page_table_loop:
     mov edx, eax                     ; Start with VA
     mov ebx, eax
     shr ebx, 12                      ; Get page index
 
-    ; Identity-map first 1MB (pages 0-255) for VGA and low memory
-    cmp ebx, 256
-    jl .identity_map
+    ; Identity-map VGA text page (0xB8000..0xB8FFF)
+    cmp ebx, 0xB8
+    je  .identity_map
 
     ; Also identity-map trampoline page
     cmp ebx, [trampoline_page]
-    je .identity_map
+    je  .identity_map
+
 
 .offset_map:
     ; Offset mapping: VA + 1MB = PA
@@ -63,7 +64,7 @@ _kpremain:
     mov [edi], edx
     add eax, 0x1000
     add edi, 4
-    loop .pt_loop
+    loop .page_table_loop
 
     ; Setup page directory
     lea eax, [page_table]
@@ -93,7 +94,6 @@ paging_trampoline:
 
     ; Calculate correct address of post_paging
     lea ebx, [post_paging]           ; Link address: 36,864
-    add ebx, KERNEL_BASE             ; Physical address: 36,864 + 1,048,576 = 1,085,440
 
     ; Print address as hex: 0x12345678
     mov byte [edi+6], '0'
@@ -122,10 +122,13 @@ paging_trampoline:
     add edi, 2
     loop .print_hex
 
-    ; Hang to view address
 .hang:
     hlt
     jmp .hang
+
+
+
+;    jmp post_paging
 
 align 4096
 post_paging:
