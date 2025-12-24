@@ -6,7 +6,6 @@
 #include "kernel/sched.h"
 #include "kernel/syscall.h"
 #include "kernel/irq.h"
-#include "../../arch/x86/include/gdt.h"
 #include "kernel/tty.h"
 #include "kernel/vfs.h"
 #include "kernel/config.h"
@@ -42,11 +41,6 @@ void kmain(void)
     kprintf("PUnix 0.001\n");
 
     clock_init();
-
-#ifdef ARCH_X86
-    kprintf("Init Global Descriptor Table.\n");
-    gdt_init();
-#endif
 
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
