@@ -1,18 +1,18 @@
 ENTRY(kmain)
 
-/* Kernel linked to run at physical 1 MiB. */
+/* Kernel linked to run at physical 1 MiB, but virtual addresses start at 0 */
 SECTIONS
 {
-    . = 1M;                     /* 1 MiB = 0x00100000 */
+    . = 0;                     /* virtual base 0 */
 
     /* Small fixed header at the very start of the image */
     .kernel_header : ALIGN(4) {
         __kernel_header_base = .;
 
-        /* 0x00100000: pointer to kernel entry (kpremain in kpremain.asm) */
+        /* pointer to kernel entry (kpremain in kpremain.asm) */
         LONG(_kpremain)
 
-        /* 0x00100004: pointer to sys_enter */
+        /* pointer to sys_enter */
         LONG(sys_enter)
     }
 

@@ -54,14 +54,16 @@ void kmain(void)
     kprintf("Init scheduler.\n");
     sched_init();
 
+    panic("Stopping here for now");
+
 
 //    console_clear(&kconsole);
-    char *argv[] = {"/sbin/init", NULL};
-    sched_add_task("/sbin/init", 1, argv, 0);
-
-    kprintf("Enabling interrupts.\n");
-    interrupts_enable();
-
-
-    sched_schedule();
+//    char *argv[] = {"/sbin/init", NULL};
+//    sched_add_task("/sbin/init", 1, argv, 0);
+//
+//    kprintf("Enabling interrupts.\n");
+//    interrupts_enable();
+//
+//
+//    sched_schedule();
 }

@@ -254,6 +254,7 @@ kernel_start:
     ; jump to kernel entry at [1M]
     ; kmain is in the first 4 bytes
     mov eax, [SYS_CALLS_HDR_ADDR]
+    add eax, SYS_CALLS_HDR_ADDR
     jmp eax
 
 ; ========================================================================
