@@ -16,9 +16,7 @@ section .text
 _kpremain:
     cli
 
-    ; ------------------------------------------------------------
-    ; Setup segments first
-    ; ------------------------------------------------------------
+    ; Setup segments
     mov ax, KERNEL_DS
     mov ds, ax
     mov es, ax
@@ -27,14 +25,11 @@ _kpremain:
     mov ss, ax
     mov esp, 0x00090000              ; Physical stack before paging
 
-    ; ------------------------------------------------------------
-    ; Step 1 & 2: Build page table
-    ; First, calculate trampoline page number
-    ; ------------------------------------------------------------
+    ; Calculate trampoline page number
     lea eax, [paging_trampoline]
-    add eax, KERNEL_BASE             ; Convert link address to physical address!
+    add eax, KERNEL_BASE             ; Convert to physical
     shr eax, 12                      ; Get page index
-    mov [trampoline_page], eax       ; Save for later
+    mov [trampoline_page], eax
 
     ; Build page table
     xor eax, eax                     ; VA counter
@@ -46,31 +41,31 @@ _kpremain:
     mov ebx, eax
     shr ebx, 12                      ; Get page index
 
-    ; Check if this is the trampoline page
+    ; Identity-map first 1MB (pages 0-255) for VGA and low memory
+    cmp ebx, 256
+    jl .identity_map
+
+    ; Also identity-map trampoline page
     cmp ebx, [trampoline_page]
     je .identity_map
 
 .offset_map:
-    ; Normal offset mapping: VA + 1MB = PA
+    ; Offset mapping: VA + 1MB = PA
     add edx, KERNEL_BASE
     jmp .write_pte
 
 .identity_map:
     ; Identity mapping: VA = PA
-    ; edx already = VA, and for identity PA = VA
-    ; Don't add KERNEL_BASE!
+    ; edx already contains VA
 
 .write_pte:
     or  edx, 0x03                    ; present + RW
     mov [edi], edx
-
     add eax, 0x1000
     add edi, 4
     loop .pt_loop
 
-    ; ------------------------------------------------------------
     ; Setup page directory
-    ; ------------------------------------------------------------
     lea eax, [page_table]
     or  eax, 0x03
     mov [page_directory], eax
@@ -78,96 +73,43 @@ _kpremain:
     lea eax, [page_directory]
     mov cr3, eax
 
-    ; ------------------------------------------------------------
-    ; Step 3: Enable paging (jump to trampoline first)
-    ; ------------------------------------------------------------
+    ; Jump to trampoline
     jmp paging_trampoline
 
-; ------------------------------------------------------------
-; Trampoline page (identity-mapped)
-; ------------------------------------------------------------
 align 4096
 paging_trampoline:
-    ; Verify trampoline PTE
-    mov eax, [trampoline_page]
-    shl eax, 2
-    lea edi, [page_table]
-    add edi, eax
-
-    mov ebx, [edi]                   ; ebx = actual PTE value
-
-    ; Write to VGA: "PTE: 0x12345678"
-    mov edi, 0xB8000                 ; VGA text mode
-    mov byte [edi], 'P'
-    mov byte [edi+1], 0x0F           ; White on black
-    mov byte [edi+2], 'T'
-    mov byte [edi+3], 0x0F
-    mov byte [edi+4], 'E'
-    mov byte [edi+5], 0x0F
-    mov byte [edi+6], ':'
-    mov byte [edi+7], 0x0F
-    mov byte [edi+8], ' '
-    mov byte [edi+9], 0x0F
-    mov byte [edi+10], '0'
-    mov byte [edi+11], 0x0F
-    mov byte [edi+12], 'x'
-    mov byte [edi+13], 0x0F
-
-    ; Print ebx as 8 hex digits
-    mov edi, 0xB8000 + 14            ; Start after "0x"
-    mov ecx, 8                       ; 8 hex digits
-
-.print_hex:
-    rol ebx, 4                       ; Rotate to get next nibble
-    mov eax, ebx
-    and eax, 0x0F                    ; Mask to get nibble
-
-    cmp eax, 9
-    jle .digit
-    add eax, 'A' - 10                ; A-F
-    jmp .write_char
-.digit:
-    add eax, '0'                     ; 0-9
-
-.write_char:
-    mov [edi], al                    ; Write character
-    mov byte [edi+1], 0x0F           ; White on black
-    add edi, 2
-    loop .print_hex
-
-    ; Hang to view PTE
-.hang:
-    hlt
-    jmp .hang
-
+    ; Enable paging
     mov eax, cr0
     or  eax, 0x80000000
     mov cr0, eax                     ; Paging is ON
 
-    ; Step 4: Jump out of trampoline to offset-mapped region
-    jmp post_paging
+    ; Test VGA write after paging
+    mov edi, 0xB8000
+    mov byte [edi], 'O'
+    mov byte [edi+1], 0x0F
+    mov byte [edi+2], 'K'
+    mov byte [edi+3], 0x0F
 
-; Pad to next page boundary
+    ; Hang here to verify paging + VGA works
+.hang:
+    hlt
+    jmp .hang
+
 align 4096
-
-; ------------------------------------------------------------
-; Step 5 & 6: Unmap trampoline, continue with kernel
-; ------------------------------------------------------------
 post_paging:
-    ; Mark trampoline page as not present (garbage)
-    mov eax, [trampoline_page]
-    shl eax, 2                       ; Convert page index to byte offset
-    lea edi, [page_table]
-    add edi, eax                     ; edi = &page_table[trampoline_page]
+    ; Write to confirm we're here
+    mov edi, 0xB8000
+    mov byte [edi+4], 'P'
+    mov byte [edi+5], 0x0F
+    mov byte [edi+6], 'O'
+    mov byte [edi+7], 0x0F
+    mov byte [edi+8], 'S'
+    mov byte [edi+9], 0x0F
+    mov byte [edi+10], 'T'
+    mov byte [edi+11], 0x0F
 
-    mov dword [edi], 0               ; Clear PTE (not present)
-
-    ; Flush TLB
-    mov eax, cr3
-    mov cr3, eax
-
-    ; Update stack to virtual address
-    mov esp, KSTACK_TOP              ; Virtual stack
+    ; Switch to virtual stack
+    mov esp, KSTACK_TOP
 
     ; Call kernel main
     call kmain
