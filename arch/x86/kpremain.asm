@@ -36,6 +36,11 @@ _kpremain:
     lea edi, [page_table]
     mov ecx, 1024
 
+; Build page table
+; Inputs:
+;   eax = 0 (VA counter, increments by 0x1000 each iteration)
+;   edi = pointer to page_table
+;   ecx = 1024 (number of pages to map)
 .page_table_loop:
     mov edx, eax                     ; Start with VA
     mov ebx, eax
