@@ -124,29 +124,6 @@ _kpremain:
      mov edx, 7
      call vga_write_hex32
 
-     ; row 8 — kmain before paging
-     mov eax, kmain
-     mov ecx, 5
-     mov edx, 8
-     call vga_write_hex32
-
-     ; row 9 — Check PT[0x101] (premain mapping)
-     call get_pt_pa
-     mov edi, eax
-     mov ebx, 0x101 * 4
-     mov eax, [edi + ebx]
-     mov ecx, 0
-     mov edx, 9
-     call vga_write_hex32
-
-     ; row 10 — Check PT[0xB8] (VGA mapping)
-     call get_pt_pa
-     mov edi, eax
-     mov ebx, 0xB8 * 4
-     mov eax, [edi + ebx]
-     mov ecx, 0
-     mov edx, 10
-     call vga_write_hex32
 
      mov eax, cr0
      or  eax, (1 << PG_BIT)
