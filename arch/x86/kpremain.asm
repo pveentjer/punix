@@ -70,18 +70,19 @@ _kpremain:
      or  eax, (1 << PG_BIT)
      mov cr0, eax
 
-     mov word [VGA_VA], 0x1F40
 
      mov esp, KSTACK_TOP_VA
      jmp .pg_on
 
 .pg_on:
-     mov eax, kmain
-     mov ecx, 0
-     mov edx, 15
-     call vga_write_hex32
-
      mov word [VGA_VA], 0x1F40
+
+   ;  mov eax, kmain
+   ;  mov ecx, 0
+   ;  mov edx, 15
+   ;  call vga_write_hex32
+
+;     mov word [VGA_VA], 0x1F40
      jmp kmain
 
 ; --------------------------------------------------
