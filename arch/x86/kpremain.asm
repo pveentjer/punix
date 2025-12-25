@@ -6,10 +6,17 @@ extern kmain
 %define KSTACK_TOP_VA       0x00100000
 %define KERNEL_BASE_PA      0x00100000
 %define KERNEL_DS           0x10
+
 %define PAGE_SIZE           0x1000
 %define PAGE_CNT            1024
-%define VGA_PAGE_IDX        0xB8
 %define PAGE_SHIFT          12
+
+%define VGA_PAGE_IDX        0xB8
+
+; Page table / directory flags
+%define PTE_PRESENT         0x001
+%define PTE_RW              0x002
+%define PTE_FLAGS           (PTE_PRESENT | PTE_RW)
 
 section .bss
 align 4096
@@ -43,19 +50,18 @@ map_offset_kernel:
 .loop:
     mov edx, eax
     add edx, KERNEL_BASE_PA
-    or  edx, 0x03
+    or  edx, PTE_FLAGS
     mov [edi], edx
     add eax, PAGE_SIZE
     add edi, 4
     loop .loop
-
     ret
 
 map_identity_vga:
     lea edi, [page_table]
     mov eax, VGA_PAGE_IDX * 4
     add edi, eax
-    mov dword [edi], 0xB8003
+    mov dword [edi], 0xB8000 | PTE_FLAGS
     ret
 
 map_identity_trampoline:
@@ -71,7 +77,7 @@ map_identity_trampoline:
     add edi, ebx
 
     shl eax, PAGE_SHIFT
-    or  eax, 0x03
+    or  eax, PTE_FLAGS
     mov [edi], eax
     ret
 
@@ -79,7 +85,7 @@ align 4096
 paging_trampoline:
     ; Setup page directory
     lea eax, [page_table]
-    or  eax, 0x03
+    or  eax, PTE_FLAGS
     mov [page_directory], eax
 
     ; Load CR3
@@ -96,9 +102,7 @@ paging_trampoline:
     lea eax, [post_paging]
     jmp eax
 
-
 align 4096
 post_paging:
-
     mov esp, KSTACK_TOP_VA
     call kmain
