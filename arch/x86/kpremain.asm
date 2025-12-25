@@ -3,8 +3,8 @@ BITS 32
 global _kpremain
 extern kmain
 
-%define KSTACK_TOP_VA       0x00100000
-%define KERNEL_BASE_PA      0x00100000
+%define KSTACK_TOP_VA       0x00100000  ; 1MB
+%define KERNEL_BASE_PA      0x00100000  ; 1MB
 %define KERNEL_DS           0x10
 
 %define VGA_PA              0x000B8000
@@ -18,7 +18,7 @@ extern kmain
 %define PTE_RW              0x002
 %define PTE_FLAGS           (PTE_PRESENT | PTE_RW)
 
-; In CR0 register, the 31 bit determined if paging is enabled
+; In CR0 register, the 31 bit determines if paging is enabled
 %define PG_BIT 31
 
 section .bss
@@ -37,7 +37,7 @@ _kpremain:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x00090000
+    mov esp, 0x00090000 ; Set a temporary stack in lower memory
 
     call map_offset_kernel
     call map_identity_vga
@@ -51,25 +51,25 @@ map_offset_kernel:
     mov ecx, PAGE_CNT
 
 .loop:
-    mov edx, eax
-    add edx, KERNEL_BASE_PA
-    or  edx, PTE_FLAGS
-    mov [edi], edx
-    add eax, PAGE_SIZE
+    mov edx, eax                            ; edx = page offset
+    add edx, KERNEL_BASE_PA                 ; edx = physical address of page
+    or  edx, PTE_FLAGS                      ; mark page present + writable
+    mov [edi], edx                          ; write PTE
+
+    add eax, PAGE_SIZE                      ; move to the next page
     add edi, 4
     loop .loop
-    ret
 
 map_identity_vga:
     lea edi, [page_table]
 
     mov eax, VGA_PA
-    shr eax, PAGE_SHIFT          ; eax = vga page index
+    shr eax, PAGE_SHIFT                     ; eax = vga page index
 
-    shl eax, 2                   ; *4 for PTE offset
+    shl eax, 2                              ; *4 for PTE offset
     add edi, eax
 
-    mov dword [edi], VGA_PA | PTE_FLAGS
+    mov dword [edi], VGA_PA | PTE_FLAGS     ; write PTE
     ret
 
 map_identity_trampoline:
