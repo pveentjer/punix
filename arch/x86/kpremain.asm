@@ -49,31 +49,12 @@ _kpremain:
      mov ss, ax
      mov esp, 589824
 
-     ; row 0
-     call get_pt_pa
-     mov ecx, 0
-     mov edx, 0
-     call vga_write_hex32
-
-     ; row 1
-     call get_pd_pa
-     mov ecx, 0
-     mov edx, 1
-     call vga_write_hex32
-
      call clear_paging_structs
      call map_identity_kernel_hdr
      call map_identity_premain
      call map_kernel_high
      call map_identity_vga
 
-     ; row 2
-     call get_pd_pa
-     mov edi, eax
-     mov eax, [edi]
-     mov ecx, 0
-     mov edx, 2
-     call vga_write_hex32
 
      ; row 3
      call get_pd_pa
