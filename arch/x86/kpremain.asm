@@ -96,9 +96,6 @@ paging_trampoline:
     lea eax, [post_paging]
     jmp eax
 
-;.hang:
-;    hlt
-;    jmp .hang
 
 align 4096
 post_paging:
