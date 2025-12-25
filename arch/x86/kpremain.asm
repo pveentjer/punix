@@ -7,11 +7,11 @@ extern kmain
 %define KERNEL_BASE_PA      0x00100000
 %define KERNEL_DS           0x10
 
+%define VGA_PA              0x000B8000
+
 %define PAGE_SIZE           0x1000
 %define PAGE_CNT            1024
 %define PAGE_SHIFT          12
-
-%define VGA_PAGE_IDX        0xB8
 
 ; Page table / directory flags
 %define PTE_PRESENT         0x001
@@ -59,9 +59,14 @@ map_offset_kernel:
 
 map_identity_vga:
     lea edi, [page_table]
-    mov eax, VGA_PAGE_IDX * 4
+
+    mov eax, VGA_PA
+    shr eax, PAGE_SHIFT          ; eax = vga page index
+
+    shl eax, 2                   ; *4 for PTE offset
     add edi, eax
-    mov dword [edi], 0xB8000 | PTE_FLAGS
+
+    mov dword [edi], VGA_PA | PTE_FLAGS
     ret
 
 map_identity_trampoline:
