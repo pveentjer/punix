@@ -56,22 +56,8 @@ _kpremain:
      call map_identity_vga
 
 
-     ; row 3
-     call get_pd_pa
-     mov edi, eax
-     mov ebx, PDE_INDEX(KERNEL_VA)
-     shl ebx, 2
-     mov eax, [edi + ebx]
-     mov ecx, 0
-     mov edx, 3
-     call vga_write_hex32
 
-     ; row 4
-     call get_pt_pa
-     or  eax, PTE_FLAGS
-     mov ecx, 0
-     mov edx, 4
-     call vga_write_hex32
+
 
      call get_pd_pa
      mov edi, eax
@@ -84,20 +70,12 @@ _kpremain:
      shl ebx, 2
      mov [edi + ebx], eax
 
-     ; row 5
-     mov eax, [edi]
-     mov ecx, 0
-     mov edx, 5
-     call vga_write_hex32
+
 
      call get_pd_pa
      mov cr3, eax
 
-     ; row 6
-     mov eax, cr0
-     mov ecx, 0
-     mov edx, 6
-     call vga_write_hex32
+
 
      ; row 7
      mov eax, cr3
