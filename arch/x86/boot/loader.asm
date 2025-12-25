@@ -25,6 +25,12 @@ org 0x7E00
 %define KERNEL_START_LBA   3                  ; kernel starts at LBA 3
 %define KERNEL_STACK_TOP   MB(2)              ; the kernel stack top starts at 2MB
 
+
+
+
+%define KERNEL_VA            0x80000000
+%define KERNEL_BASE_PA       0x00100000
+
 ; ========================================================================
 ; Boot entry
 ; ========================================================================
@@ -253,8 +259,9 @@ kernel_start:
 
     ; jump to kernel entry at [1M]
     ; kmain is in the first 4 bytes
-    mov eax, [SYS_CALLS_HDR_ADDR]
-    add eax, SYS_CALLS_HDR_ADDR
+    mov eax, [SYS_CALLS_HDR_ADDR]     ; eax = entry VA (e.g. 0x8000xxxx)
+    sub eax, KERNEL_VA                ; convert VA -> offset
+    add eax, KERNEL_BASE_PA           ; convert offset -> PA (e.g. 0x0010xxxx)
     jmp eax
 
 ; ========================================================================

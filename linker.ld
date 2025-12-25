@@ -1,9 +1,9 @@
 ENTRY(kmain)
 
-/* Kernel linked to run at physical 1 MiB, but virtual addresses start at 0 */
+/* Kernel linked to run at physical 1 MiB, virtual addresses start at 2GB */
 SECTIONS
 {
-    . = 0;                     /* virtual base 0 */
+    . = 0x80000000;            /* virtual base at 2GB (higher half) */
 
     /* Small fixed header at the very start of the image */
     .kernel_header : ALIGN(4) {
@@ -16,7 +16,6 @@ SECTIONS
         LONG(sys_enter)
     }
 
-    /* Now put the actual code right after the header */
     .text : ALIGN(4) {
         *(.start)
         *(.text*)
