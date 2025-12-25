@@ -3,6 +3,8 @@ BITS 32
 global _kpremain
 extern kmain
 
+extern __kernel_va_start
+extern __kernel_pa_start
 extern __kernel_page_table_va
 extern __kernel_page_directory_va
 
@@ -128,11 +130,29 @@ _kpremain:
      mov edx, 8
      call vga_write_hex32
 
-     mov word [VGA_VA], 0x1F40
+     ; row 9 — Check PT[0x101] (premain mapping)
+     call get_pt_pa
+     mov edi, eax
+     mov ebx, 0x101 * 4
+     mov eax, [edi + ebx]
+     mov ecx, 0
+     mov edx, 9
+     call vga_write_hex32
+
+     ; row 10 — Check PT[0xB8] (VGA mapping)
+     call get_pt_pa
+     mov edi, eax
+     mov ebx, 0xB8 * 4
+     mov eax, [edi + ebx]
+     mov ecx, 0
+     mov edx, 10
+     call vga_write_hex32
 
      mov eax, cr0
      or  eax, (1 << PG_BIT)
      mov cr0, eax
+
+     mov word [VGA_VA], 0x1F40
 
      mov esp, KSTACK_TOP_VA
      jmp .pg_on
@@ -149,17 +169,23 @@ _kpremain:
 ; --------------------------------------------------
 
 va_to_pa:
-     sub eax, KERNEL_VA
-     add eax, KERNEL_LOAD_PA
+     push ebx
+     mov ebx, __kernel_va_start
+     sub eax, ebx
+     mov ebx, __kernel_pa_start
+     add eax, ebx
+     pop ebx
      ret
 
 get_pt_pa:
      mov eax, __kernel_page_table_va
-     jmp va_to_pa
+     call va_to_pa
+     ret
 
 get_pd_pa:
      mov eax, __kernel_page_directory_va
-     jmp va_to_pa
+     call va_to_pa
+     ret
 
 clear_paging_structs:
      xor eax, eax
@@ -214,7 +240,7 @@ map_identity_vga:
 
 map_kernel_high:
      mov esi, KERNEL_VA
-     mov edi, KERNEL_LOAD_PA
+     mov edi, __kernel_pa_start     ; FIX: match linker model (was KERNEL_LOAD_PA)
      mov ecx, PTE_FLAGS
 
      mov ebp, KERNEL_MEMORY_SIZE
