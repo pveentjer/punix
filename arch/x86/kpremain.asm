@@ -13,7 +13,7 @@ extern __kernel_page_directory_va
 
 %define KERNEL_VA            2148532224
 %define KERNEL_MEMORY_SIZE   1048576
-%define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE)
+%define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
 
 %define KERNEL_LOAD_PA       1048576
 %define KERNEL_HDR_PA        KERNEL_LOAD_PA
@@ -55,13 +55,13 @@ _kpremain:
      call map_kernel_high
      call map_identity_vga
 
-     call get_pd_pa
-     mov edi, eax
+     ; Install page table for identity mappings (first 4MB)
+     mov eax, 0
+     call install_pt_at_pde
 
-    ; hack to deal with the 'extra' page where the stack starts
-     call get_pt_pa
-     or  eax, PTE_FLAGS
-     mov [edi], eax
+     ; Install page table for high kernel (0x80100000+)
+     mov eax, PDE_INDEX(KERNEL_VA)
+     call install_pt_at_pde
 
      call get_pd_pa
      mov cr3, eax
@@ -117,6 +117,24 @@ clear_paging_structs:
      mov edi, eax
      mov ecx, PAGE_SIZE / 4
      rep stosd
+     ret
+
+; Install page table into page directory at given index
+; Input: eax = PDE index (0-1023)
+; Clobbers: eax, ebx, edi
+install_pt_at_pde:
+     push ebx
+     mov ebx, eax            ; save PDE index
+
+     call get_pd_pa
+     mov edi, eax
+
+     call get_pt_pa
+     or  eax, PTE_FLAGS
+
+     shl ebx, 2              ; index * 4
+     mov [edi + ebx], eax
+     pop ebx
      ret
 
 map_page:
