@@ -8,9 +8,6 @@ PAGE_SIZE      = 4096;
 
 KERNEL_HDR_PA  = KERNEL_LOAD_PA + 0 * PAGE_SIZE;
 PREMAIN_PA     = KERNEL_LOAD_PA + 1 * PAGE_SIZE;
-EARLY_PA       = KERNEL_LOAD_PA + 2 * PAGE_SIZE;
-
-BOOT_LIMIT     = 65536;
 
 SECTIONS
 {
@@ -19,8 +16,9 @@ SECTIONS
   {
     __kernel_header_base = .;
 
-    LONG(_kpremain)   /* +0 */
-    LONG(sys_enter)   /* +4 */
+    LONG(_kpremain)                 /* +0 */
+    LONG(sys_enter)                 /* +4 */
+    LONG(__kernel_page_directory_va)/* +8 */
 
     . = ALIGN(PAGE_SIZE);
     __kernel_hdr_end_pa = .;
@@ -35,9 +33,9 @@ SECTIONS
     KEEP(*(.text.premain))
     KEEP(*(.rodata.premain))
     KEEP(*(.data.premain))
-    KEEP(*(.early))
 
     . = ALIGN(PAGE_SIZE);
+
     __premain_pa_end = LOADADDR(.premain) + SIZEOF(.premain);
     __premain_va_end = ADDR(.premain) + SIZEOF(.premain);
   }
@@ -67,6 +65,17 @@ SECTIONS
     __data_start = .;
     *(.data .data.*)
     __data_end = .;
+  }
+
+  .kernel_pages ALIGN(PAGE_SIZE):
+  {
+    __kernel_page_table_va = .;
+    . += PAGE_SIZE;
+
+    __kernel_page_directory_va = .;
+    . += PAGE_SIZE;
+
+    . = ALIGN(PAGE_SIZE);
   }
 
   .bss ALIGN(PAGE_SIZE) (NOLOAD):
