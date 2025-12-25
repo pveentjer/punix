@@ -3,24 +3,28 @@ BITS 32
 global _kpremain
 extern kmain
 
-%define KERNEL_VA            0x80000000
-%define KERNEL_MEMORY_SIZE   0x00100000
+
+%define PAGE_SIZE            4096
+%define PAGE_SHIFT           12
+
+%define KERNEL_VA            2148532224        ; 0x80100000
+%define KERNEL_MEMORY_SIZE   1048576           ; 1 MiB
 %define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE)
 
-%define KERNEL_BASE_PA       0x00100000
+%define KERNEL_LOAD_PA       1048576           ; 1 MiB
+%define KERNEL_HDR_PA        KERNEL_LOAD_PA
+%define PREMAIN_PA           (KERNEL_LOAD_PA + PAGE_SIZE)
+
 %define KERNEL_DS            0x10
 
-%define VGA_VA               0x000B8000
-%define VGA_PA               0x000B8000
-%define VGA_TEXT_VA          VGA_VA
+%define VGA_PA               0xB8000
+%define VGA_VA               VGA_PA
 %define VGA_COLS             80
 %define VGA_ATTR             0x1F
 
-%define PAGE_SIZE            0x1000
-%define PAGE_SHIFT           12
 
-%define PTE_PRESENT          0x001
-%define PTE_RW               0x002
+%define PTE_PRESENT          1
+%define PTE_RW               2
 %define PTE_FLAGS            (PTE_PRESENT | PTE_RW)
 
 %define PTE_BITS             10
@@ -30,13 +34,16 @@ extern kmain
 %define PG_BIT               31
 
 section .bss
-align 4096
+align PAGE_SIZE
 page_table:     resd 1024
 page_directory: resd 1024
 
-section .text
+section .text.premain
 
 _kpremain:
+
+    mov word [753664], 0x1F40
+
     cli
 
     mov ax, KERNEL_DS
@@ -45,39 +52,43 @@ _kpremain:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x00090000
+    mov esp, 589824            ; 0x90000
+
 
     call clear_paging_structs
-    call map_kernel_pages
+
+    call map_identity_kernel_hdr
+    call map_identity_premain
     call map_identity_vga
-    call map_identity_trampoline
+    call map_kernel_high
 
-    lea eax, [paging_trampoline]
-    sub eax, KERNEL_VA
-    add eax, KERNEL_BASE_PA
-    jmp eax
+    ; debug hooks (optional)
+    ; mov eax, KERNEL_HDR_PA
+    ; mov ecx, 0
+    ; mov edx, 0
+    ; call vga_write_hex32
 
+    call enable_paging
+
+    mov esp, KSTACK_TOP_VA
+    jmp kmain
+
+; --------------------------------------------------
 
 clear_paging_structs:
     xor eax, eax
     lea edi, [page_table]
-    sub edi, KERNEL_VA
-    add edi, KERNEL_BASE_PA
     mov ecx, (PAGE_SIZE*2)/4
     rep stosd
     ret
 
-
-; eax=VA, ebx=PA, ecx=flags
+; eax = VA, ebx = PA, ecx = flags
 map_page:
     mov edx, eax
     shr edx, PAGE_SHIFT
     and edx, 0x3FF
 
     lea edi, [page_table]
-    sub edi, KERNEL_VA
-    add edi, KERNEL_BASE_PA
-
     shl edx, 2
     add edi, edx
 
@@ -85,11 +96,38 @@ map_page:
     mov [edi], ebx
     ret
 
+; --------------------------------------------------
+; Identity mappings
+; --------------------------------------------------
 
-map_kernel_pages:
+map_identity_kernel_hdr:
+    mov eax, KERNEL_HDR_PA
+    mov ebx, KERNEL_HDR_PA
+    mov ecx, PTE_FLAGS
+    call map_page
+    ret
+
+map_identity_premain:
+    mov eax, PREMAIN_PA
+    mov ebx, PREMAIN_PA
+    mov ecx, PTE_FLAGS
+    call map_page
+    ret
+
+map_identity_vga:
+    mov eax, VGA_VA
+    mov ebx, VGA_PA
+    mov ecx, PTE_FLAGS
+    call map_page
+    ret
+
+; --------------------------------------------------
+; High kernel mapping (VA -> PA)
+; --------------------------------------------------
+
+map_kernel_high:
     mov esi, KERNEL_VA
-    mov edi, KERNEL_BASE_PA
-    mov edx, KERNEL_BASE_PA
+    mov edi, KERNEL_LOAD_PA
     mov ecx, PTE_FLAGS
 
     mov ebp, KERNEL_MEMORY_SIZE
@@ -102,62 +140,36 @@ map_kernel_pages:
     call map_page
     pop ecx
 
-    mov eax, edx
-    mov ebx, edi
-    push ecx
-    call map_page
-    pop ecx
-
     add esi, PAGE_SIZE
-    add edx, PAGE_SIZE
     add edi, PAGE_SIZE
     dec ebp
     jnz .loop
     ret
 
+; --------------------------------------------------
 
-map_identity_vga:
-    mov eax, VGA_VA
-    mov ebx, VGA_PA
-    mov ecx, PTE_FLAGS
-    call map_page
+enable_paging:
+    lea eax, [page_table]
+    or  eax, PTE_FLAGS
+
+    lea edi, [page_directory]
+    mov [edi + 0*4], eax
+
+    mov ebx, PDE_INDEX(KERNEL_VA)
+    shl ebx, 2
+    mov [edi + ebx], eax
+
+    lea eax, [page_directory]
+    mov cr3, eax
+
+    mov eax, cr0
+    or  eax, (1 << PG_BIT)
+    mov cr0, eax
     ret
 
-
-map_identity_trampoline:
-    lea ebx, [paging_trampoline]
-    sub ebx, KERNEL_VA
-    add ebx, KERNEL_BASE_PA
-
-    mov eax, ebx
-    mov ecx, PTE_FLAGS
-    call map_page
-    ret
-
-
-; eax=VA -> edi=PA(&PTE)
-get_pte_ptr:
-    mov edx, eax
-    shr edx, PAGE_SHIFT
-    and edx, 0x3FF
-
-    lea edi, [page_table]
-    sub edi, KERNEL_VA
-    add edi, KERNEL_BASE_PA
-
-    shl edx, 2
-    add edi, edx
-    ret
-
-
-; eax=VA -> eax=PTE
-get_pte:
-    push eax
-    call get_pte_ptr
-    pop eax
-    mov eax, [edi]
-    ret
-
+; --------------------------------------------------
+; Debug VGA
+; --------------------------------------------------
 
 ; eax=value, ecx=x, edx=y
 vga_write_hex32:
@@ -165,7 +177,7 @@ vga_write_hex32:
     imul edi, VGA_COLS
     add edi, ecx
     shl edi, 1
-    add edi, VGA_TEXT_VA
+    add edi, VGA_VA
 
     mov esi, 8
 .hex_loop:
@@ -189,75 +201,3 @@ vga_write_hex32:
     dec esi
     jnz .hex_loop
     ret
-
-
-; esi=str, ecx=x, edx=y
-vga_write_str:
-    mov edi, edx
-    imul edi, VGA_COLS
-    add edi, ecx
-    shl edi, 1
-    add edi, VGA_TEXT_VA
-
-.str_loop:
-    mov al, [esi]
-    test al, al
-    jz .done
-
-    mov [edi], al
-    mov byte [edi + 1], VGA_ATTR
-    add esi, 1
-    add edi, 2
-    jmp .str_loop
-
-.done:
-    ret
-
-
-align 4096
-paging_trampoline:
-    lea eax, [page_table]
-    sub eax, KERNEL_VA
-    add eax, KERNEL_BASE_PA
-    or  eax, PTE_FLAGS
-
-    lea edi, [page_directory]
-    sub edi, KERNEL_VA
-    add edi, KERNEL_BASE_PA
-
-    mov [edi + 0*4], eax
-
-    mov ebx, PDE_INDEX(KERNEL_VA)
-    shl ebx, 2
-    mov [edi + ebx], eax
-
-    lea eax, [page_directory]
-    sub eax, KERNEL_VA
-    add eax, KERNEL_BASE_PA
-    mov cr3, eax
-
-    mov eax, cr0
-    or  eax, (1 << PG_BIT)
-    mov cr0, eax
-
-  mov word [0xB8000], 0x1F40   ; '@'
-
-    lea eax, [post_paging]
-    call get_pte
-    mov ecx, 0
-    mov edx, 1
-    call vga_write_hex32
-
-    mov esp, KSTACK_TOP_VA
-    lea eax, [post_paging]
-    jmp eax
-
-
-align 4096
-post_paging:
-    mov esp, KSTACK_TOP_VA
-    call kmain
-
-
-post_paging_msg:
-    db "post_paging PTE:", 0
