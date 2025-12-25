@@ -6,6 +6,7 @@ extern kmain
 %define KSTACK_TOP_VA       0x00100000  ; 1MB
 %define KERNEL_BASE_PA      0x00100000  ; 1MB
 %define KERNEL_DS           0x10
+%define KERNEL_VA           0x00000000  ; the virtual address the kernel starts
 
 %define VGA_PA              0x000B8000
 
@@ -39,14 +40,30 @@ _kpremain:
     mov ss, ax
     mov esp, 0x00090000 ; Set a temporary stack in lower memory
 
+    ; zero page_table + page_directory
+    xor eax, eax
+    lea edi, [page_table]
+    mov ecx, (PAGE_SIZE*2)/4
+    rep stosd
+
     call map_offset_kernel
     call map_identity_vga
     call map_identity_trampoline
 
     jmp paging_trampoline
 
+
+; pseudo code:
+
+; for (int i = 0; i < PAGE_CNT; i++)
+; {
+;       uint32_t phys = KERNEL_BASE_PA + (i << PAGE_SHIFT);
+;       uint32_t pte  = phys | PTE_FLAGS;
+;       page_table[i] = pte;
+; }
 map_offset_kernel:
-    xor eax, eax
+    xor eax, eax                            ; eax = page offset
+    mov esi, eax                            ; esi = kernel VA (currently same as offset)
     lea edi, [page_table]
     mov ecx, PAGE_CNT
 
@@ -56,9 +73,11 @@ map_offset_kernel:
     or  edx, PTE_FLAGS                      ; mark page present + writable
     mov [edi], edx                          ; write PTE
 
-    add eax, PAGE_SIZE                      ; move to the next page
+    add eax, PAGE_SIZE                      ; next offset
+    add esi, PAGE_SIZE                      ; keep VA in sync
     add edi, 4
-    loop .loop
+
+    loop .loop                            ; loop untill ecx=0
 
 map_identity_vga:
     lea edi, [page_table]
