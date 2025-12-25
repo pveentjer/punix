@@ -60,6 +60,7 @@ SECTIONS
   {
     __text_start = .;
     *(.text .text.*)
+    *(.start .start.*)
     __text_end = .;
   }
   __phys = ALIGN(__phys + SIZEOF(.text), PAGE_SIZE);
@@ -81,20 +82,20 @@ SECTIONS
   __phys = ALIGN(__phys + SIZEOF(.data), PAGE_SIZE);
 
   /* ------------------------------------------------------------
-   * Kernel paging structures (physically present, zeroed)
+   * Kernel paging structures (physically present)
    * ------------------------------------------------------------ */
-.kernel_pages ALIGN(PAGE_SIZE) : AT(__phys)
-{
-  FILL(0)
+  .kernel_pages ALIGN(PAGE_SIZE) : AT(__phys)
+  {
+    FILL(0)
 
-  __kernel_page_table_va = .;
-  LONG(0)                       /* force PROGBITS/LOAD */
-  . = __kernel_page_table_va + PAGE_SIZE;
+    __kernel_page_table_va = .;
+    LONG(0)                       /* force PROGBITS/LOAD */
+    . = __kernel_page_table_va + PAGE_SIZE;
 
-  __kernel_page_directory_va = .;
-  . = __kernel_page_directory_va + PAGE_SIZE;
-}
-__phys = ALIGN(__phys + SIZEOF(.kernel_pages), PAGE_SIZE);
+    __kernel_page_directory_va = .;
+    . = __kernel_page_directory_va + PAGE_SIZE;
+  }
+  __phys = ALIGN(__phys + SIZEOF(.kernel_pages), PAGE_SIZE);
 
   /* ------------------------------------------------------------
    * BSS (NOLOAD)
