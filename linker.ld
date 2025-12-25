@@ -83,19 +83,18 @@ SECTIONS
   /* ------------------------------------------------------------
    * Kernel paging structures (physically present, zeroed)
    * ------------------------------------------------------------ */
-  .kernel_pages ALIGN(PAGE_SIZE) : AT(__phys)
-  {
-    BYTE(0)
+.kernel_pages ALIGN(PAGE_SIZE) : AT(__phys)
+{
+  FILL(0)
 
-    __kernel_page_table_va = .;
-    . += PAGE_SIZE;
+  __kernel_page_table_va = .;
+  LONG(0)                       /* force PROGBITS/LOAD */
+  . = __kernel_page_table_va + PAGE_SIZE;
 
-    __kernel_page_directory_va = .;
-    . += PAGE_SIZE;
-
-    . = ALIGN(PAGE_SIZE);
-  }
-  __phys = ALIGN(__phys + SIZEOF(.kernel_pages), PAGE_SIZE);
+  __kernel_page_directory_va = .;
+  . = __kernel_page_directory_va + PAGE_SIZE;
+}
+__phys = ALIGN(__phys + SIZEOF(.kernel_pages), PAGE_SIZE);
 
   /* ------------------------------------------------------------
    * BSS (NOLOAD)
