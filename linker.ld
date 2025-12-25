@@ -3,7 +3,6 @@ ENTRY(_kpremain)
 
 KERNEL_LOAD_PA = 1048576;
 KERNEL_VMA     = 2148532224;
-
 PAGE_SIZE      = 4096;
 
 KERNEL_HDR_PA  = KERNEL_LOAD_PA + 0 * PAGE_SIZE;
@@ -11,21 +10,29 @@ PREMAIN_PA     = KERNEL_LOAD_PA + 1 * PAGE_SIZE;
 
 SECTIONS
 {
+  /* ------------------------------------------------------------
+   * Identity-mapped header page
+   * ------------------------------------------------------------ */
   . = KERNEL_HDR_PA;
-  .kernel_header KERNEL_HDR_PA : AT(KERNEL_HDR_PA) ALIGN(PAGE_SIZE)
+  .kernel_header : AT(KERNEL_HDR_PA) ALIGN(PAGE_SIZE)
   {
+    FILL(0)
+
     __kernel_header_base = .;
 
-    LONG(_kpremain)                 /* +0 */
-    LONG(sys_enter)                 /* +4 */
-    LONG(__kernel_page_directory_va)/* +8 */
+    LONG(_kpremain)                   /* +0 */
+    LONG(sys_enter)                   /* +4 */
+    LONG(__kernel_page_directory_va)  /* +8 */
 
     . = ALIGN(PAGE_SIZE);
     __kernel_hdr_end_pa = .;
   }
 
+  /* ------------------------------------------------------------
+   * Identity-mapped premain page(s)
+   * ------------------------------------------------------------ */
   . = PREMAIN_PA;
-  .premain PREMAIN_PA : AT(PREMAIN_PA) ALIGN(PAGE_SIZE)
+  .premain : AT(PREMAIN_PA) ALIGN(PAGE_SIZE)
   {
     __premain_pa_start = LOADADDR(.premain);
     __premain_va_start = ADDR(.premain);
@@ -40,35 +47,46 @@ SECTIONS
     __premain_va_end = ADDR(.premain) + SIZEOF(.premain);
   }
 
+  /* ------------------------------------------------------------
+   * High kernel VMA, packed LMA after premain
+   * ------------------------------------------------------------ */
   . = KERNEL_VMA;
   __kernel_va_start = .;
-  __kernel_pa_start = __premain_pa_end;
 
-  .text ALIGN(PAGE_SIZE) : AT(__kernel_pa_start)
+  __phys = __premain_pa_end;
+  __kernel_pa_start = __phys;
+
+  .text ALIGN(PAGE_SIZE) : AT(__phys)
   {
     __text_start = .;
     *(.text .text.*)
     __text_end = .;
   }
+  __phys = ALIGN(__phys + SIZEOF(.text), PAGE_SIZE);
 
-  .rodata ALIGN(PAGE_SIZE)
-    : AT(__kernel_pa_start + (__rodata_start - __kernel_va_start))
+  .rodata ALIGN(PAGE_SIZE) : AT(__phys)
   {
     __rodata_start = .;
     *(.rodata .rodata.*)
     __rodata_end = .;
   }
+  __phys = ALIGN(__phys + SIZEOF(.rodata), PAGE_SIZE);
 
-  .data ALIGN(PAGE_SIZE)
-    : AT(__kernel_pa_start + (__data_start - __kernel_va_start))
+  .data ALIGN(PAGE_SIZE) : AT(__phys)
   {
     __data_start = .;
     *(.data .data.*)
     __data_end = .;
   }
+  __phys = ALIGN(__phys + SIZEOF(.data), PAGE_SIZE);
 
-  .kernel_pages ALIGN(PAGE_SIZE):
+  /* ------------------------------------------------------------
+   * Kernel paging structures (physically present, zeroed)
+   * ------------------------------------------------------------ */
+  .kernel_pages ALIGN(PAGE_SIZE) : AT(__phys)
   {
+    BYTE(0)
+
     __kernel_page_table_va = .;
     . += PAGE_SIZE;
 
@@ -77,8 +95,12 @@ SECTIONS
 
     . = ALIGN(PAGE_SIZE);
   }
+  __phys = ALIGN(__phys + SIZEOF(.kernel_pages), PAGE_SIZE);
 
-  .bss ALIGN(PAGE_SIZE) (NOLOAD):
+  /* ------------------------------------------------------------
+   * BSS (NOLOAD)
+   * ------------------------------------------------------------ */
+  .bss ALIGN(PAGE_SIZE) (NOLOAD) :
   {
     __bss_start = .;
     *(.bss .bss.* COMMON)
@@ -86,6 +108,16 @@ SECTIONS
   }
 
   __kernel_va_end = .;
-  __kernel_pa_end =
-    __kernel_pa_start + (__kernel_va_end - __kernel_va_start);
+  __kernel_pa_end = __phys;
+
+  /* ------------------------------------------------------------
+   * HARD DISCARD: no junk in the image, ever
+   * ------------------------------------------------------------ */
+  /DISCARD/ :
+  {
+    *(.eh_frame .eh_frame.*)
+    *(.note.gnu.build-id)
+    *(.note.*)
+    *(.comment)
+  }
 }
