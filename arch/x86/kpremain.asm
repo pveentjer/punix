@@ -9,14 +9,17 @@ extern kmain
 
 %define VGA_PA              0x000B8000
 
-%define PAGE_SIZE           0x1000
+%define PAGE_SIZE           0x1000  ; 4 KB
 %define PAGE_CNT            1024
-%define PAGE_SHIFT          12
+%define PAGE_SHIFT          12      ; Needed to convert a PA to a page index or vice versa
 
 ; Page table / directory flags
 %define PTE_PRESENT         0x001
 %define PTE_RW              0x002
 %define PTE_FLAGS           (PTE_PRESENT | PTE_RW)
+
+; In CR0 register, the 31 bit determined if paging is enabled
+%define PG_BIT 31
 
 section .bss
 align 4096
@@ -99,7 +102,7 @@ paging_trampoline:
 
     ; Enable paging
     mov eax, cr0
-    or  eax, 0x80000000
+    or  eax, (1 << PG_BIT)
     mov cr0, eax
 
     mov esp, KSTACK_TOP_VA
