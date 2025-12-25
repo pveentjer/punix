@@ -58,13 +58,10 @@ _kpremain:
      call get_pd_pa
      mov edi, eax
 
+    ; hack to deal with the 'extra' page where the stack starts
      call get_pt_pa
      or  eax, PTE_FLAGS
      mov [edi], eax
-
-     mov ebx, PDE_INDEX(KERNEL_VA)
-     shl ebx, 2
-     mov [edi + ebx], eax
 
      call get_pd_pa
      mov cr3, eax
