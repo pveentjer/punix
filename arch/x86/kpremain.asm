@@ -55,10 +55,6 @@ _kpremain:
      call map_kernel_high
      call map_identity_vga
 
-
-
-
-
      call get_pd_pa
      mov edi, eax
 
@@ -70,19 +66,8 @@ _kpremain:
      shl ebx, 2
      mov [edi + ebx], eax
 
-
-
      call get_pd_pa
      mov cr3, eax
-
-
-
-     ; row 7
-     mov eax, cr3
-     mov ecx, 0
-     mov edx, 7
-     call vga_write_hex32
-
 
      mov eax, cr0
      or  eax, (1 << PG_BIT)
