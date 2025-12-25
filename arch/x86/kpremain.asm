@@ -6,21 +6,23 @@ extern kmain
 %define KSTACK_TOP_VA       0x00100000  ; 1MB
 %define KERNEL_BASE_PA      0x00100000  ; 1MB
 %define KERNEL_DS           0x10
-%define KERNEL_VA           0x00000000  ; the virtual address the kernel starts
+%define KERNEL_VA           0x00000000  ; change to e.g. 0x80000000 later
 
 %define VGA_PA              0x000B8000
 
-%define PAGE_SIZE           0x1000  ; 4 KB
+%define PAGE_SIZE           0x1000
 %define PAGE_CNT            1024
-%define PAGE_SHIFT          12      ; Needed to convert a PA to a page index or vice versa
+%define PAGE_SHIFT          12
 
-; Page table / directory flags
 %define PTE_PRESENT         0x001
 %define PTE_RW              0x002
 %define PTE_FLAGS           (PTE_PRESENT | PTE_RW)
 
-; In CR0 register, the 31 bit determines if paging is enabled
-%define PG_BIT 31
+%define PTE_BITS            10
+%define PDE_SHIFT           (PAGE_SHIFT + PTE_BITS)   ; 22
+%define PDE_INDEX(va)       ((va) >> PDE_SHIFT)
+
+%define PG_BIT              31
 
 section .bss
 align 4096
@@ -38,7 +40,7 @@ _kpremain:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, 0x00090000 ; Set a temporary stack in lower memory
+    mov esp, 0x00090000
 
     ; zero page_table + page_directory
     xor eax, eax
@@ -50,54 +52,49 @@ _kpremain:
     call map_identity_vga
     call map_identity_trampoline
 
-    jmp paging_trampoline
+    ; jump to trampoline using PHYSICAL address (paging OFF)
+    lea eax, [paging_trampoline]
+    sub eax, KERNEL_VA
+    add eax, KERNEL_BASE_PA
+    jmp eax
 
 
-; pseudo code:
-
-; for (int i = 0; i < PAGE_CNT; i++)
-; {
-;       uint32_t phys = KERNEL_BASE_PA + (i << PAGE_SHIFT);
-;       uint32_t pte  = phys | PTE_FLAGS;
-;       page_table[i] = pte;
-; }
 map_offset_kernel:
-    xor eax, eax                            ; eax = page offset
-    mov esi, eax                            ; esi = kernel VA (currently same as offset)
+    xor eax, eax
     lea edi, [page_table]
     mov ecx, PAGE_CNT
 
 .loop:
-    mov edx, eax                            ; edx = page offset
-    add edx, KERNEL_BASE_PA                 ; edx = physical address of page
-    or  edx, PTE_FLAGS                      ; mark page present + writable
-    mov [edi], edx                          ; write PTE
+    mov edx, eax
+    add edx, KERNEL_BASE_PA
+    or  edx, PTE_FLAGS
+    mov [edi], edx
 
-    add eax, PAGE_SIZE                      ; next offset
-    add esi, PAGE_SIZE                      ; keep VA in sync
+    add eax, PAGE_SIZE
     add edi, 4
+    loop .loop
+    ret
 
-    loop .loop                            ; loop untill ecx=0
 
 map_identity_vga:
     lea edi, [page_table]
 
     mov eax, VGA_PA
-    shr eax, PAGE_SHIFT                     ; eax = vga page index
-
-    shl eax, 2                              ; *4 for PTE offset
+    shr eax, PAGE_SHIFT
+    shl eax, 2
     add edi, eax
 
-    mov dword [edi], VGA_PA | PTE_FLAGS     ; write PTE
+    mov dword [edi], VGA_PA | PTE_FLAGS
     ret
 
+
 map_identity_trampoline:
-    ; Calculate trampoline page index
+    ; VA -> PA of paging_trampoline
     lea eax, [paging_trampoline]
+    sub eax, KERNEL_VA
     add eax, KERNEL_BASE_PA
     shr eax, PAGE_SHIFT
 
-    ; Map it
     lea edi, [page_table]
     mov ebx, eax
     shl ebx, 2
@@ -108,18 +105,25 @@ map_identity_trampoline:
     mov [edi], eax
     ret
 
+
 align 4096
 paging_trampoline:
-    ; Setup page directory
+    ; page_directory[PDE_INDEX(KERNEL_VA)] = page_table
     lea eax, [page_table]
     or  eax, PTE_FLAGS
-    mov [page_directory], eax
 
-    ; Load CR3
+    lea edi, [page_directory]
+    mov ebx, PDE_INDEX(KERNEL_VA)
+    shl ebx, 2
+    mov [edi + ebx], eax
+
+    ; load CR3 with PHYSICAL address
     lea eax, [page_directory]
+    sub eax, KERNEL_VA
+    add eax, KERNEL_BASE_PA
     mov cr3, eax
 
-    ; Enable paging
+    ; enable paging
     mov eax, cr0
     or  eax, (1 << PG_BIT)
     mov cr0, eax
@@ -128,6 +132,7 @@ paging_trampoline:
 
     lea eax, [post_paging]
     jmp eax
+
 
 align 4096
 post_paging:
