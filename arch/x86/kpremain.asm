@@ -18,7 +18,6 @@ extern __kernel_page_directory_va
 
 %define KERNEL_LOAD_PA       1048576             ; 0x00100000
 %define PREMAIN_PA           KERNEL_LOAD_PA
-%define KERNEL_HDR_PA        (KERNEL_LOAD_PA + PAGE_SIZE)
 
 %define KERNEL_DS            0x10
 
@@ -56,12 +55,13 @@ _kpremain:
     ; Zero PD + both PTs
     call clear_paging_structs
 
-    ; Fill low PT: identity map premain/header/VGA
+    ; Fill low PT: identity map premain/VGA only
+    ; (kernel header is no longer identity-mapped)
     call map_identity_premain
-    call map_identity_kernel_hdr
     call map_identity_vga
 
     ; Fill high PT: map 1MB window at KERNEL_VA -> __kernel_pa_start
+    ; This now includes the kernel header as the first page
     call map_kernel_high
 
     ; Install PDE[0] = low PT (identity mappings)
@@ -183,21 +183,12 @@ map_page_pt:
     mov [edi + edx], eax
     ret
 
-; Identity mappings all go through low PT
+; Identity mappings all go through low PT (only premain and VGA)
 map_identity_premain:
     call get_low_pt_pa
     mov edi, eax
     mov eax, PREMAIN_PA
     mov ebx, PREMAIN_PA
-    mov ecx, PTE_FLAGS
-    call map_page_pt
-    ret
-
-map_identity_kernel_hdr:
-    call get_low_pt_pa
-    mov edi, eax
-    mov eax, KERNEL_HDR_PA
-    mov ebx, KERNEL_HDR_PA
     mov ecx, PTE_FLAGS
     call map_page_pt
     ret
@@ -216,6 +207,7 @@ map_identity_vga:
 ;   VA: KERNEL_VA .. KERNEL_VA+KERNEL_MEMORY_SIZE
 ;   PA: __kernel_pa_start .. +KERNEL_MEMORY_SIZE
 ; Uses the high PT.
+; NOTE: This now includes the kernel header as the first page!
 map_kernel_high:
     call get_high_pt_pa
     mov edi, eax                 ; high PT base (PA)

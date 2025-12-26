@@ -5,31 +5,13 @@ KERNEL_LOAD_PA = 1048576;
 KERNEL_VMA     = 2148532224;
 PAGE_SIZE      = 4096;
 
-KERNEL_HDR_PA  = KERNEL_LOAD_PA + 0 * PAGE_SIZE;
-PREMAIN_PA     = KERNEL_LOAD_PA + 1 * PAGE_SIZE;
+PREMAIN_PA     = KERNEL_LOAD_PA + 0 * PAGE_SIZE;
+KERNEL_HDR_PA  = KERNEL_LOAD_PA + 1 * PAGE_SIZE;
 
 SECTIONS
 {
   /* ------------------------------------------------------------
-   * Identity-mapped header page
-   * ------------------------------------------------------------ */
-  . = KERNEL_HDR_PA;
-  .kernel_header : AT(KERNEL_HDR_PA) ALIGN(PAGE_SIZE)
-  {
-    FILL(0)
-
-    __kernel_header_base = .;
-
-    LONG(_kpremain)                   /* +0 */
-    LONG(sys_enter)                   /* +4 */
-    LONG(__kernel_page_directory_va)  /* +8 */
-
-    . = ALIGN(PAGE_SIZE);
-    __kernel_hdr_end_pa = .;
-  }
-
-  /* ------------------------------------------------------------
-   * Identity-mapped premain page(s)
+   * Identity-mapped premain page(s) - ONLY premain is identity-mapped
    * ------------------------------------------------------------ */
   . = PREMAIN_PA;
   .premain : AT(PREMAIN_PA) ALIGN(PAGE_SIZE)
@@ -48,13 +30,29 @@ SECTIONS
   }
 
   /* ------------------------------------------------------------
-   * High kernel VMA, packed LMA after premain
+   * High kernel VMA starts here - kernel header is now FIRST
+   * in the high address space, loaded at KERNEL_HDR_PA
    * ------------------------------------------------------------ */
   . = KERNEL_VMA;
   __kernel_va_start = .;
 
-  __phys = __premain_pa_end;
+  __phys = KERNEL_HDR_PA;
   __kernel_pa_start = __phys;
+
+  .kernel_header ALIGN(PAGE_SIZE) : AT(__phys)
+  {
+    FILL(0)
+
+    __kernel_header_va = .;
+    __kernel_header_pa = LOADADDR(.kernel_header);
+
+    LONG(_kpremain)                   /* +0 */
+    LONG(sys_enter)                   /* +4 */
+    LONG(__kernel_page_directory_va)  /* +8 */
+
+    . = ALIGN(PAGE_SIZE);
+  }
+  __phys = ALIGN(__phys + SIZEOF(.kernel_header), PAGE_SIZE);
 
   .text ALIGN(PAGE_SIZE) : AT(__phys)
   {
