@@ -3,7 +3,7 @@ BITS 32
 global _kpremain
 extern kmain
 
-extern __kernel_va_start
+extern __kernel_va_base
 extern __kernel_pa_start
 extern __kernel_low_page_table_va
 extern __kernel_high_page_table_va
@@ -13,30 +13,30 @@ extern __kernel_page_directory_va
 %define MB(x) ((x) << 20)
 %define GB(x) ((x) << 30)
 
-%define PAGE_SIZE            KB(4)
-%define PAGE_SHIFT           12
+%define PAGE_SIZE               KB(4)
+%define PAGE_SHIFT              12
 
-%define KERNEL_VA            GB(2)
-%define KERNEL_MEMORY_SIZE   MB(4)
-%define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
+%define KERNEL_VA_BASE          GB(2)
+%define KERNEL_VA_SIZE          MB(4)
+%define KERNEL_VA_STACK_TOP     (KERNEL_VA_BASE + KERNEL_VA_SIZE - PAGE_SIZE)
 
-%define KERNEL_LOAD_PA       MB(1)
-%define PREMAIN_PA           KERNEL_LOAD_PA
+%define KERNEL_LOAD_PA          MB(1)
+%define PREMAIN_PA              KERNEL_LOAD_PA
 
-%define KERNEL_DS            0x10
+%define KERNEL_DS               0x10
 
-%define VGA_PA               0xB8000
-%define VGA_VA               VGA_PA
-%define VGA_COLS             80
-%define VGA_ATTR             0x1F
+%define VGA_PA                  0xB8000
+%define VGA_VA                  VGA_PA
+%define VGA_COLS                80
+%define VGA_ATTR                0x1F
 
-%define PTE_PRESENT          1
-%define PTE_RW               2
-%define PTE_FLAGS            (PTE_PRESENT | PTE_RW)
+%define PTE_PRESENT             1
+%define PTE_RW                  2
+%define PTE_FLAGS               (PTE_PRESENT | PTE_RW)
 
-%define PTE_BITS             10
-%define PDE_SHIFT            (PAGE_SHIFT + PTE_BITS)
-%define PDE_INDEX(va)        ((va) >> PDE_SHIFT)
+%define PTE_BITS                10
+%define PDE_SHIFT               (PAGE_SHIFT + PTE_BITS)
+%define PDE_INDEX(va)           ((va) >> PDE_SHIFT)
 
 %define PG_BIT               31
 
@@ -64,7 +64,7 @@ _kpremain:
     call map_identity_premain
     call map_identity_vga
 
-    ; Fill high PT: map 1MB window at KERNEL_VA -> __kernel_pa_start
+    ; Fill high PT: map 1MB window at KERNEL_VA_BASE -> __kernel_pa_start
     ; This now includes the kernel header as the first page
     call map_kernel_high
 
@@ -74,10 +74,10 @@ _kpremain:
     mov eax, 0
     call install_pt_at_pde_pa
 
-    ; Install PDE[KERNEL_VA>>22] = high PT (high kernel window)
+    ; Install PDE[KERNEL_VA_BASE>>22] = high PT (high kernel window)
     call get_high_pt_pa
     mov ebx, eax
-    mov eax, PDE_INDEX(KERNEL_VA)
+    mov eax, PDE_INDEX(KERNEL_VA_BASE)
     call install_pt_at_pde_pa
 
     ; Load page directory base
@@ -93,7 +93,7 @@ _kpremain:
     ;mov word [VGA_VA], 0x1F40          ; '@'
 
     ; Switch to high virtual stack
-    mov esp, KSTACK_TOP_VA
+    mov esp, KERNEL_VA_STACK_TOP
     jmp .pg_on
 
 .pg_on:
@@ -106,7 +106,7 @@ _kpremain:
 ; Clobbers: ebx
 va_to_pa:
     push ebx
-    mov ebx, __kernel_va_start
+    mov ebx, __kernel_va_base
     sub eax, ebx
     mov ebx, __kernel_pa_start
     add eax, ebx
@@ -207,20 +207,20 @@ map_identity_vga:
     ret
 
 ; --------------------------------------------------
-; Map KERNEL_MEMORY_SIZE bytes at:
-;   VA: KERNEL_VA .. KERNEL_VA+KERNEL_MEMORY_SIZE
-;   PA: __kernel_pa_start .. +KERNEL_MEMORY_SIZE
+; Map KERNEL_VA_SIZE bytes at:
+;   VA: KERNEL_VA_BASE .. KERNEL_VA_BASE+KERNEL_VA_SIZE
+;   PA: __kernel_pa_start .. +KERNEL_VA_SIZE
 ; Uses the high PT.
 ; NOTE: This now includes the kernel header as the first page!
 map_kernel_high:
     call get_high_pt_pa
     mov edi, eax                 ; high PT base (PA)
 
-    mov esi, KERNEL_VA           ; VA cursor
+    mov esi, KERNEL_VA_BASE           ; VA cursor
     mov ebx, __kernel_pa_start   ; PA cursor
     mov ecx, PTE_FLAGS
 
-    mov ebp, KERNEL_MEMORY_SIZE
+    mov ebp, KERNEL_VA_SIZE
     shr ebp, PAGE_SHIFT          ; number of pages
 
 .loop:

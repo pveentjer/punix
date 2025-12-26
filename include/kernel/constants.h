@@ -32,18 +32,19 @@
 /*
  * Kernel is linked at 1 MiB and allowed to grow up to 1 MiB
  */
-#define KERNEL_BASE         LOW_MEM_SIZE
-#define KERNEL_SIZE         MB(4)
+#define KERNEL_VA_BASE      GB(2)
+#define KERNEL_VA_SIZE      MB(4)
 
 /*
  * User processes start right after the kernel
  */
-#define PROCESS_BASE        (KERNEL_BASE + KERNEL_SIZE)
+// This should turn into 4MB
+#define PROCESS_VA_BASE     MB(4)
 
 /*
  * Each process gets a fixed 1 MiB region
  */
-#define PROCESS_SIZE        MB(1)
+#define PROCESS_VA_SIZE     MB(1)
 
 #define KERNEL_STACK_TOP    MB(4)
 
@@ -52,11 +53,11 @@
 /* -------------------------------------------------- */
 
 /* Should be power of 2 */
-#define MAX_PROCESS_CNT 64
+#define MAX_PROCESS_CNT     64
 
-#define PID_NONE -1
+#define PID_NONE            -1
 
-#define MAX_SIGNALS 32
+#define MAX_SIGNALS         32
 
 /* -------------------------------------------------- */
 /* Filesystem limits                                  */

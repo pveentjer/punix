@@ -263,7 +263,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     uint32_t main_addr = elf_info.entry;
     uint32_t environ_addr = elf_info.environ_addr;
 
-    uint32_t region_end = task->addr_base + PROCESS_SIZE;
+    uint32_t region_end = task->addr_base + PROCESS_VA_SIZE;
     uint32_t stackTop = align_down(region_end, 16);
 
     uint32_t program_end = task->addr_base + elf_info.max_offset;

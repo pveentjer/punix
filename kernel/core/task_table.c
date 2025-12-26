@@ -26,8 +26,8 @@ void task_table_init(struct task_table *task_table)
         k_memset(task, 0, sizeof(struct task));
 
         task->pid       = PID_NONE;
-        task->addr_base = PROCESS_BASE + task_idx * PROCESS_SIZE;
-        task->addr_end  = task->addr_base + PROCESS_SIZE;
+        task->addr_base = PROCESS_VA_BASE + task_idx * PROCESS_VA_SIZE;
+        task->addr_end  = task->addr_base + PROCESS_VA_SIZE;
         task->state     = TASK_POOLED;
 
         wait_queue_init(&task->wait_exit);

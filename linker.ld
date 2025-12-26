@@ -34,7 +34,7 @@ SECTIONS
    * in the high address space, loaded at KERNEL_HDR_PA
    * ------------------------------------------------------------ */
   . = KERNEL_VMA;
-  __kernel_va_start = .;
+  __kernel_va_base = .;
 
   __phys = KERNEL_HDR_PA;
   __kernel_pa_start = __phys;

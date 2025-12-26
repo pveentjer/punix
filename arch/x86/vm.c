@@ -10,7 +10,7 @@ extern uint32_t __kernel_page_directory_va;
 extern uint32_t __kernel_low_page_table_va;
 extern uint32_t __kernel_high_page_table_va;
 extern uint32_t __kernel_pa_start;
-extern uint32_t __kernel_va_start;
+extern uint32_t __kernel_va_base;
 
 extern uint32_t __premain_pa_start;
 extern uint32_t __premain_pa_end;
@@ -147,7 +147,7 @@ static inline uintptr_t kernel_pa_base(void)
 
 static inline uintptr_t kernel_va_base(void)
 {
-    return (uintptr_t)&__kernel_va_start;
+    return (uintptr_t)&__kernel_va_base;
 }
 
 static inline uintptr_t pa_to_va(uintptr_t pa)
