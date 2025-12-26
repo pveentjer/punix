@@ -9,14 +9,18 @@ extern __kernel_low_page_table_va
 extern __kernel_high_page_table_va
 extern __kernel_page_directory_va
 
-%define PAGE_SIZE            4096
+%define KB(x) ((x) << 10)
+%define MB(x) ((x) << 20)
+%define GB(x) ((x) << 30)
+
+%define PAGE_SIZE            KB(4)
 %define PAGE_SHIFT           12
 
-%define KERNEL_VA            2148532224          ; 0x80100000
-%define KERNEL_MEMORY_SIZE   1048576             ; 1MB window
+%define KERNEL_VA            GB(2)
+%define KERNEL_MEMORY_SIZE   MB(1)
 %define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
 
-%define KERNEL_LOAD_PA       1048576             ; 0x00100000
+%define KERNEL_LOAD_PA       MB(1)
 %define PREMAIN_PA           KERNEL_LOAD_PA
 
 %define KERNEL_DS            0x10
