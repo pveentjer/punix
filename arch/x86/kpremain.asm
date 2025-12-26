@@ -17,8 +17,8 @@ extern __kernel_page_directory_va
 %define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
 
 %define KERNEL_LOAD_PA       1048576             ; 0x00100000
-%define KERNEL_HDR_PA        KERNEL_LOAD_PA
-%define PREMAIN_PA           (KERNEL_LOAD_PA + PAGE_SIZE)
+%define PREMAIN_PA           KERNEL_LOAD_PA
+%define KERNEL_HDR_PA        (KERNEL_LOAD_PA + PAGE_SIZE)
 
 %define KERNEL_DS            0x10
 
@@ -56,9 +56,9 @@ _kpremain:
     ; Zero PD + both PTs
     call clear_paging_structs
 
-    ; Fill low PT: identity map header/premain/VGA
-    call map_identity_kernel_hdr
+    ; Fill low PT: identity map premain/header/VGA
     call map_identity_premain
+    call map_identity_kernel_hdr
     call map_identity_vga
 
     ; Fill high PT: map 1MB window at KERNEL_VA -> __kernel_pa_start
@@ -184,20 +184,20 @@ map_page_pt:
     ret
 
 ; Identity mappings all go through low PT
-map_identity_kernel_hdr:
-    call get_low_pt_pa
-    mov edi, eax
-    mov eax, KERNEL_HDR_PA
-    mov ebx, KERNEL_HDR_PA
-    mov ecx, PTE_FLAGS
-    call map_page_pt
-    ret
-
 map_identity_premain:
     call get_low_pt_pa
     mov edi, eax
     mov eax, PREMAIN_PA
     mov ebx, PREMAIN_PA
+    mov ecx, PTE_FLAGS
+    call map_page_pt
+    ret
+
+map_identity_kernel_hdr:
+    call get_low_pt_pa
+    mov edi, eax
+    mov eax, KERNEL_HDR_PA
+    mov ebx, KERNEL_HDR_PA
     mov ecx, PTE_FLAGS
     call map_page_pt
     ret

@@ -17,13 +17,20 @@ org 0x7E00
 ;     sector 0 : bootsector
 ;     sectors 1–2 : loader
 ;     sector 3 : kernel.bin start
+;
+;   New kernel layout (starting at LBA 3):
+;     page 0 : premain (_kpremain entry at start)
+;     page 1 : kernel header
+;     page 2+ : high kernel (.text, .rodata, .data, paging structs, etc.)
 ; ------------------------------------------------------------------------
-%define SYS_CALLS_HDR_ADDR MB(1)              ; final run address (1 MiB)
-%define KERNEL_LOAD_TEMP   KB(64)             ; we temporary load the kernel at addres 64KB
+%define KERNEL_LOAD_ADDR   MB(1)              ; final run address (1 MiB)
+%define KERNEL_LOAD_TEMP   KB(64)             ; temporary load address (64KB)
 %define KERNEL_SECTORS     512                ; the kernel can now be up to 256 KB
 %define KERNEL_SIZE_BYTES  (KERNEL_SECTORS * 512)
 %define KERNEL_START_LBA   3                  ; kernel starts at LBA 3
 %define KERNEL_STACK_TOP   MB(2)              ; the kernel stack top starts at 2MB
+
+%define PREMAIN_PA         KERNEL_LOAD_ADDR   ; premain is now at offset 0
 
 ; ========================================================================
 ; Boot entry
@@ -82,7 +89,7 @@ clear_screen:
     ; init destination address (physical) and LBA
     mov dword [dest_phys], KERNEL_LOAD_TEMP
     mov dword [cur_lba],   KERNEL_START_LBA
-    mov cx, KERNEL_SECTORS          ; sectors remaining (136)
+    mov cx, KERNEL_SECTORS          ; sectors remaining
 
 read_lba_loop:
     ; batch size: at most 127 sectors per BIOS call (safe limit)
@@ -247,12 +254,13 @@ kernel_start:
 
     ; copy kernel from temp to 1 MiB
     mov esi, KERNEL_LOAD_TEMP
-    mov edi, SYS_CALLS_HDR_ADDR
+    mov edi, KERNEL_LOAD_ADDR
     mov ecx, KERNEL_SIZE_BYTES / 4
     rep movsd
 
-    mov eax, [SYS_CALLS_HDR_ADDR]   ; now contains _kpremain PA
-    jmp eax
+    ; Jump directly to _kpremain at start of kernel image
+    ; With new layout: premain is first, so _kpremain is at KERNEL_LOAD_ADDR
+    jmp PREMAIN_PA
 
 ; ========================================================================
 ; GDT entry helpers
