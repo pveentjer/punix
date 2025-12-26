@@ -11,16 +11,6 @@
 #include "kernel/mm.h"
 #include "kernel/clock.h"
 
-static inline void *uaddr(uint32_t user_ptr, struct task *current)
-{
-    return (void *)user_ptr;
-}
-
-static inline const void *uaddr_ro(uint32_t user_ptr, struct task *current)
-{
-    return (const void *)uaddr(user_ptr, current);
-}
-
 __attribute__((used))
 uint32_t sys_enter_dispatch_c(uint32_t nr,
                               uint32_t a1,
@@ -43,21 +33,21 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         {
             sched_schedule();
             return (uint32_t)vfs_write((int)a1,
-                                       (const char *)uaddr_ro(a2, current),
+                                       (const char *)a2,
                                        (size_t)a3);
         }
         case SYS_read:
         {
             sched_schedule();
             return (uint32_t)vfs_read((int)a1,
-                                      uaddr(a2, current),
+                                      (void *)a2,
                                       (size_t)a3);
         }
         case SYS_open:
         {
             return (uint32_t)vfs_open(&vfs,
                                       current,
-                                      (const char *)uaddr_ro(a1, current),
+                                      (const char *)a1,
                                       (int)a2,
                                       (int)a3);
         }
@@ -68,16 +58,16 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_getdents:
         {
             return (uint32_t)vfs_getdents((int)a1,
-                                          (struct dirent *)uaddr(a2, current),
+                                          (struct dirent *)a2,
                                           (unsigned int)a3);
         }
         case SYS_add_task:
         {
             sched_schedule();
-            return (uint32_t)sched_add_task((const char *)uaddr_ro(a1, current),
+            return (uint32_t)sched_add_task((const char *)a1,
                                             (int)a2,
-                                            (char **)uaddr(a3, current),
-                                            (char **)uaddr(a4, current));
+                                            (char **)a3,
+                                            (char **)a4);
         }
         case SYS_fork:
         {
@@ -99,7 +89,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_waitpid:
         {
             return (uint32_t)sched_waitpid((pid_t)a1,
-                                           (int *)uaddr(a2, current),
+                                           (int *)a2,
                                            (int)a3);
         }
         case SYS_getpid:
@@ -119,24 +109,24 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         }
         case SYS_brk:
         {
-            return (uint32_t)mm_brk(uaddr(a1, current));
+            return (uint32_t)mm_brk((void *)a1);
         }
         case SYS_chdir:
         {
             sched_schedule();
-            return (uint32_t)vfs_chdir((const char *)uaddr_ro(a1, current));
+            return (uint32_t)vfs_chdir((const char *)a1);
         }
         case SYS_getcwd:
         {
             sched_schedule();
-            return (uint32_t)vfs_getcwd((char *)uaddr(a1, current),
+            return (uint32_t)vfs_getcwd((char *)a1,
                                         (size_t)a2);
         }
         case SYS_clock_gettime:
         {
             sched_schedule();
             return (uint32_t)kclock_gettime((clockid_t)a1,
-                                            (struct timespec *) uaddr(a2, current));
+                                            (struct timespec *)a2);
         }
         default:
             return (uint32_t)-ENOSYS;
