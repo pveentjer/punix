@@ -175,12 +175,12 @@ install_pt_at_pde_pa:
 map_page_pt:
     mov edx, eax
     shr edx, PAGE_SHIFT
-    and edx, 0x3FF               ; PT index within PT (0..1023)
-    shl edx, 2                   ; dword offset
+    and edx, 0x3FF
+    shl edx, 2
 
-    mov esi, ebx
-    or  esi, ecx                 ; PA | flags
-    mov [edi + edx], esi
+    mov eax, ebx
+    or  eax, ecx
+    mov [edi + edx], eax
     ret
 
 ; Identity mappings all go through low PT
