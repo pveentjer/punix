@@ -22,10 +22,22 @@ extern uint32_t __premain_pa_end;
 #define PAGE_SIZE          4096
 #define PAGE_TABLE_ENTRIES 1024
 #define PAGE_DIR_ENTRIES   1024
+#define PAGE_SHIFT 12
+#define PAGE_MASK       (~(PAGE_SIZE - 1))
 
 #define PTE_P 0x001
 #define PTE_W 0x002
 #define PTE_U 0x004
+
+
+#define PTE_INDEX(va) (((va) >> PAGE_SHIFT) & 0x3FF)
+#define FRAME_TO_PA(frame)   ((uintptr_t)(frame) << PAGE_SHIFT)
+#define PDE_INDEX(va) ((va) >> 22)
+/* Frame → physical address */
+
+/* Page alignment helpers */
+#define PAGE_ALIGN_DOWN(x)   ((x) & PAGE_MASK)
+#define PAGE_ALIGN_UP(x)     (((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
 /* ------------------------------------------------------------
  * Paging structures
@@ -127,7 +139,6 @@ static inline struct page_directory *kernel_pd(void)
     return (struct page_directory *)&__kernel_page_directory_va;
 }
 
-#define PAGE_SHIFT 12
 
 static inline uintptr_t kernel_pa_base(void)
 {
@@ -149,9 +160,10 @@ static inline uintptr_t va_to_pa(uintptr_t va)
     return va - kernel_va_base() + kernel_pa_base();
 }
 
-#define PTE_INDEX(va) (((va) >> PAGE_SHIFT) & 0x3FF)
-#define FRAME_TO_PA(frame)   ((uintptr_t)(frame) << PAGE_SHIFT)
-#define PDE_INDEX(va) ((va) >> 22)
+static inline struct page_table *pde_to_pt(struct pde *pde)
+{
+    return (struct page_table *)pa_to_va(FRAME_TO_PA(pde->frame));
+}
 
 /* ------------------------------------------------------------
  * VM init
@@ -161,22 +173,20 @@ void vm_init(void)
 {
     kernel_vm.pd = kernel_pd();
 
-    uintptr_t premain_pa = (uintptr_t)&__premain_pa_start;
-    uintptr_t premain_va = premain_pa;
+    uintptr_t premain_pa_start = (uintptr_t)&__premain_pa_start;
+    uintptr_t premain_pa_end   = (uintptr_t)&__premain_pa_end;
 
-    uint32_t pde_index = PDE_INDEX(premain_va);
-    struct pde *pde = &kernel_vm.pd->e[pde_index];
+    uintptr_t premain_va_start = premain_pa_start;   /* identity mapped */
+    uintptr_t premain_va_end   = premain_pa_end;
 
-    uintptr_t pt_pa = FRAME_TO_PA(pde->frame);
-    uintptr_t pt_va = pa_to_va(pt_pa);
-    struct page_table *pt = (struct page_table *)pt_va;
+    uintptr_t premain_va_page_start = PAGE_ALIGN_DOWN(premain_va_start);
+    uintptr_t premain_va_page_end   = PAGE_ALIGN_UP(premain_va_end);
 
-    uint32_t pte_index = PTE_INDEX(premain_va);
-    struct pte *pte = &pt->e[pte_index];
-
-    pte->present = 0;
-    invlpg(premain_va);
+    vm_unmap(&kernel_vm,
+             premain_va_page_start,
+             premain_va_page_end - premain_va_page_start);
 }
+
 
 /* ------------------------------------------------------------
  * Public API
@@ -195,13 +205,14 @@ void vm_activate(struct vm_space *vm)
 void vm_map(struct vm_space *vm, uintptr_t va, uintptr_t pa, size_t size)
 {
     while (size) {
-        uint32_t pde = pde_index(va);
-        uint32_t pte = pte_index(va);
+        uint32_t pde_idx = PDE_INDEX(va);
+        uint32_t pte_idx = PTE_INDEX(va);
 
-        struct page_table *pt =
-                (struct page_table *)(uintptr_t)(vm->pd->e[pde].frame << 12);
+        struct pde *pde = &vm->pd->e[pde_idx];
+        struct page_table *pt = pde_to_pt(pde);
+        struct pte *pte = &pt->e[pte_idx];
 
-        pte_set(&pt->e[pte], pa, PTE_P | PTE_W);
+        pte_set(pte, pa, PTE_P | PTE_W);
 
         invlpg(va);
 
@@ -214,14 +225,14 @@ void vm_map(struct vm_space *vm, uintptr_t va, uintptr_t pa, size_t size)
 void vm_unmap(struct vm_space *vm, uintptr_t va, size_t size)
 {
     while (size) {
-        uint32_t pde = pde_index(va);
-        uint32_t pte = pte_index(va);
+        uint32_t pde_idx = PDE_INDEX(va);
+        uint32_t pte_idx = PTE_INDEX(va);
 
-        struct page_table *pt =
-                (struct page_table *)(uintptr_t)(vm->pd->e[pde].frame << 12);
+        struct pde *pde = &vm->pd->e[pde_idx];
+        struct page_table *pt = pde_to_pt(pde);
+        struct pte *pte = &pt->e[pte_idx];
 
-        pte_clear(&pt->e[pte]);
-
+        pte_clear(pte);
         invlpg(va);
 
         va += PAGE_SIZE;
