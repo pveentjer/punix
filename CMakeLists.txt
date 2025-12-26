@@ -128,6 +128,7 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/keyboard.c
         ${ARCH_SRC_DIR}/syscall.c
         ${ARCH_SRC_DIR}/clock.c
+        ${ARCH_SRC_DIR}/vm.c
 )
 
 add_library(kernel_objs OBJECT

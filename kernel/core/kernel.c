@@ -11,6 +11,7 @@
 #include "kernel/config.h"
 #include "kernel/panic.h"
 #include "kernel/clock.h"
+#include "kernel/vm.h"
 
 
 extern uint8_t __bss_start;
@@ -44,6 +45,9 @@ void kmain(void)
     kprintf("PUnix 0.001\n");
 
     clock_init();
+
+    kprintf("Init VM.\n");
+    vm_init();
 
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
