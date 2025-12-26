@@ -21,3 +21,9 @@ The kernel will boot into a very primitive shell. Available commands
 To count the number of C lines:
 
 cloc kernel/
+
+
+Useful to inspect the kernel:
+
+nm -n kernel.elf
+readelf -l kernel.elf
