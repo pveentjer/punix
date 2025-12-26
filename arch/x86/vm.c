@@ -1,4 +1,5 @@
 #include "kernel/vm.h"
+#include "kernel/console.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -8,6 +9,8 @@
 extern uint32_t __kernel_page_directory_va;
 extern uint32_t __kernel_low_page_table_va;
 extern uint32_t __kernel_high_page_table_va;
+extern uint32_t __kernel_pa_start;
+extern uint32_t __kernel_va_start;
 
 extern uint32_t __premain_pa_start;
 extern uint32_t __premain_pa_end;
@@ -124,6 +127,32 @@ static inline struct page_directory *kernel_pd(void)
     return (struct page_directory *)&__kernel_page_directory_va;
 }
 
+#define PAGE_SHIFT 12
+
+static inline uintptr_t kernel_pa_base(void)
+{
+    return (uintptr_t)&__kernel_pa_start;
+}
+
+static inline uintptr_t kernel_va_base(void)
+{
+    return (uintptr_t)&__kernel_va_start;
+}
+
+static inline uintptr_t pa_to_va(uintptr_t pa)
+{
+    return pa - kernel_pa_base() + kernel_va_base();
+}
+
+static inline uintptr_t va_to_pa(uintptr_t va)
+{
+    return va - kernel_va_base() + kernel_pa_base();
+}
+
+#define PTE_INDEX(va) (((va) >> PAGE_SHIFT) & 0x3FF)
+#define FRAME_TO_PA(frame)   ((uintptr_t)(frame) << PAGE_SHIFT)
+#define PDE_INDEX(va) ((va) >> 22)
+
 /* ------------------------------------------------------------
  * VM init
  * ------------------------------------------------------------ */
@@ -132,21 +161,21 @@ void vm_init(void)
 {
     kernel_vm.pd = kernel_pd();
 
-//    /* Unmap premain from identity mapping */
-//    struct page_table *low_pt =
-//            (struct page_table *)(uintptr_t)(kernel_vm.pd->e[0].frame << 12);
-//
-//    uintptr_t va  = (uintptr_t)&__premain_pa_start;
-//    uintptr_t end = (uintptr_t)&__premain_pa_end;
-//
-//    va  &= ~(PAGE_SIZE - 1);
-//    end = (end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-//
-//    while (va < end) {
-//        pte_clear(&low_pt->e[pte_index(va)]);
-//        invlpg(va);
-//        va += PAGE_SIZE;
-//    }
+    uintptr_t premain_pa = (uintptr_t)&__premain_pa_start;
+    uintptr_t premain_va = premain_pa;
+
+    uint32_t pde_index = PDE_INDEX(premain_va);
+    struct pde *pde = &kernel_vm.pd->e[pde_index];
+
+    uintptr_t pt_pa = FRAME_TO_PA(pde->frame);
+    uintptr_t pt_va = pa_to_va(pt_pa);
+    struct page_table *pt = (struct page_table *)pt_va;
+
+    uint32_t pte_index = PTE_INDEX(premain_va);
+    struct pte *pte = &pt->e[pte_index];
+
+    pte->present = 0;
+    invlpg(premain_va);
 }
 
 /* ------------------------------------------------------------
