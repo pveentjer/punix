@@ -86,7 +86,7 @@ _kpremain:
     mov cr0, eax
 
     ; If you don't see '@', paging died before/at this store
-    mov word [VGA_VA], 0x1F40          ; '@'
+    ;mov word [VGA_VA], 0x1F40          ; '@'
 
     ; Switch to high virtual stack
     mov esp, KSTACK_TOP_VA
