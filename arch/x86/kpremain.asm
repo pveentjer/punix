@@ -12,11 +12,11 @@ extern __kernel_page_directory_va
 %define PAGE_SIZE            4096
 %define PAGE_SHIFT           12
 
-%define KERNEL_VA            2148532224
-%define KERNEL_MEMORY_SIZE   1048576
+%define KERNEL_VA            2148532224          ; 0x80100000
+%define KERNEL_MEMORY_SIZE   1048576             ; 1MB window
 %define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
 
-%define KERNEL_LOAD_PA       1048576
+%define KERNEL_LOAD_PA       1048576             ; 0x00100000
 %define KERNEL_HDR_PA        KERNEL_LOAD_PA
 %define PREMAIN_PA           (KERNEL_LOAD_PA + PAGE_SIZE)
 
@@ -40,285 +40,229 @@ extern __kernel_page_directory_va
 section .text.premain
 
 _kpremain:
-     cli
+    cli
 
-     mov ax, KERNEL_DS
-     mov ds, ax
-     mov es, ax
-     mov fs, ax
-     mov gs, ax
-     mov ss, ax
-     mov esp, 589824
+    ; Flat segments
+    mov ax, KERNEL_DS
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
 
-     call clear_paging_structs
-     call map_identity_kernel_hdr
-     call map_identity_premain
-     call map_kernel_high
-     call map_identity_vga
+    ; Temporary stack in identity-mapped low memory
+    mov esp, 589824
 
-     ; DEBUG: Print kmain address BEFORE paging
-     mov eax, kmain
-     mov ecx, 0
-     mov edx, 10
-     call vga_write_hex32
+    ; Zero PD + both PTs
+    call clear_paging_structs
 
-    ; Install low page table for identity mappings (first 4MB)
+    ; Fill low PT: identity map header/premain/VGA
+    call map_identity_kernel_hdr
+    call map_identity_premain
+    call map_identity_vga
+
+    ; Fill high PT: map 1MB window at KERNEL_VA -> __kernel_pa_start
+    call map_kernel_high
+
+    ; Install PDE[0] = low PT (identity mappings)
     call get_low_pt_pa
-    mov ebx, eax          ; ebx = PT PA
-    mov eax, 0            ; eax = PDE index
+    mov ebx, eax
+    mov eax, 0
     call install_pt_at_pde_pa
 
-    ; Install high page table for high kernel (0x80100000+)
+    ; Install PDE[KERNEL_VA>>22] = high PT (high kernel window)
     call get_high_pt_pa
-    mov ebx, eax          ; ebx = PT PA
-    mov eax, PDE_INDEX(KERNEL_VA)  ; eax = PDE index
+    mov ebx, eax
+    mov eax, PDE_INDEX(KERNEL_VA)
     call install_pt_at_pde_pa
 
+    ; Load page directory base
     call get_pd_pa
-     mov cr3, eax
+    mov cr3, eax
 
-     mov eax, cr0
-     or  eax, (1 << PG_BIT)
+    ; Enable paging
+    mov eax, cr0
+    or  eax, (1 << PG_BIT)
+    mov cr0, eax
 
-mov word [VGA_VA], 0x1F40
+    ; If you don't see '@', paging died before/at this store
+    mov word [VGA_VA], 0x1F40          ; '@'
 
-
-     mov cr0, eax
-
-
-
-     mov esp, KSTACK_TOP_VA
-     jmp .pg_on
+    ; Switch to high virtual stack
+    mov esp, KSTACK_TOP_VA
+    jmp .pg_on
 
 .pg_on:
-     jmp kmain
+    jmp kmain
 
 ; --------------------------------------------------
-; Convert virtual address to physical address
-; Input:  eax = virtual address
-; Output: eax = physical address
+; VA->PA translation for symbols that live in the high kernel window.
+; Input : eax = VA
+; Output: eax = PA
 ; Clobbers: ebx
 va_to_pa:
-     push ebx
-     mov ebx, __kernel_va_start
-     sub eax, ebx
-     mov ebx, __kernel_pa_start
-     add eax, ebx
-     pop ebx
-     ret
+    push ebx
+    mov ebx, __kernel_va_start
+    sub eax, ebx
+    mov ebx, __kernel_pa_start
+    add eax, ebx
+    pop ebx
+    ret
 
-; --------------------------------------------------
-; Get physical address of low page table (for identity mappings)
-; Input:  none
-; Output: eax = physical address of low page table
-; Clobbers: ebx (via va_to_pa)
+; Page table / directory physical addresses (from linker VAs)
 get_low_pt_pa:
-     mov eax, __kernel_low_page_table_va
-     call va_to_pa
-     ret
+    mov eax, __kernel_low_page_table_va
+    call va_to_pa
+    ret
 
-; --------------------------------------------------
-; Get physical address of high page table (for high kernel mappings)
-; Input:  none
-; Output: eax = physical address of high page table
-; Clobbers: ebx (via va_to_pa)
 get_high_pt_pa:
-     mov eax, __kernel_high_page_table_va
-     call va_to_pa
-     ret
+    mov eax, __kernel_high_page_table_va
+    call va_to_pa
+    ret
 
-; --------------------------------------------------
-; Get physical address of page directory
-; Input:  none
-; Output: eax = physical address of page directory
-; Clobbers: ebx (via va_to_pa)
 get_pd_pa:
-     mov eax, __kernel_page_directory_va
-     call va_to_pa
-     ret
+    mov eax, __kernel_page_directory_va
+    call va_to_pa
+    ret
 
 ; --------------------------------------------------
-; Clear all paging structures (both page tables and page directory)
-; Input:  none
-; Output: none
-; Clobbers: eax, ecx, edi, ebx (via get_*_pa calls)
+; Clear paging structures: low PT, high PT, PD.
+; Clobbers: eax, ecx, edi
 clear_paging_structs:
-     xor eax, eax
+    xor eax, eax
 
-     ; Clear low page table
-     call get_low_pt_pa
-     mov edi, eax
-     mov ecx, PAGE_SIZE / 4
-     rep stosd
+    call get_low_pt_pa
+    mov edi, eax
+    mov ecx, PAGE_SIZE / 4
+    rep stosd
 
-     ; Clear high page table
-     call get_high_pt_pa
-     mov edi, eax
-     mov ecx, PAGE_SIZE / 4
-     rep stosd
+    call get_high_pt_pa
+    mov edi, eax
+    mov ecx, PAGE_SIZE / 4
+    rep stosd
 
-     ; Clear page directory
-     call get_pd_pa
-     mov edi, eax
-     mov ecx, PAGE_SIZE / 4
-     rep stosd
-     ret
+    call get_pd_pa
+    mov edi, eax
+    mov ecx, PAGE_SIZE / 4
+    rep stosd
+    ret
 
 ; --------------------------------------------------
-; Install a page table into the page directory at the given index
-; Input:  eax = PDE index (0-1023)
-;         ebx = page table physical address
-; Output: none
-; Clobbers: eax, ecx, edi, ebx (via get_pd_pa)
+; Install a PT into PD at PDE index.
+; Input: eax = pde_index, ebx = pt_pa
 install_pt_at_pde_pa:
-     push ebx
-     push ecx
-     mov ecx, eax            ; save PDE index
-     mov ebx, ebx            ; PT PA already in ebx
+    push ecx
+    push edi
 
-     call get_pd_pa
-     mov edi, eax
+    mov ecx, eax                 ; pde index
 
-     mov eax, ebx
-     or  eax, PTE_FLAGS
+    call get_pd_pa
+    mov edi, eax                 ; PD base (PA)
 
-     shl ecx, 2              ; index * 4
-     mov [edi + ecx], eax
-     pop ecx
-     pop ebx
-     ret
+    mov eax, ebx                 ; PT physical address
+    or  eax, PTE_FLAGS           ; PDE flags
+
+    shl ecx, 2                   ; index * 4
+    mov [edi + ecx], eax
+
+    pop edi
+    pop ecx
+    ret
 
 ; --------------------------------------------------
-; Map a single page using the specified page table
-; Input:  eax = virtual address
-;         ebx = physical address
-;         ecx = PTE flags (e.g., PTE_PRESENT | PTE_RW)
-;         edi = page table physical address
-; Output: none
-; Clobbers: edx, esi, edi
+; Write a PTE into a given PT.
+; Input: eax = VA, ebx = PA, ecx = flags, edi = pt_base_pa
 map_page_pt:
-     mov edx, eax
-     shr edx, PAGE_SHIFT
-     and edx, 0x3FF
+    mov edx, eax
+    shr edx, PAGE_SHIFT
+    and edx, 0x3FF               ; PT index within PT (0..1023)
+    shl edx, 2                   ; dword offset
 
-     shl edx, 2
-     add edi, edx
+    mov esi, ebx
+    or  esi, ecx                 ; PA | flags
+    mov [edi + edx], esi
+    ret
 
-     mov esi, ebx
-     or  esi, ecx
-     mov [edi], esi
-     ret
-
-; --------------------------------------------------
-; Map kernel header page (identity mapping at 1MB)
-; Input:  none
-; Output: none
-; Clobbers: eax, ebx, ecx, edi, edx, esi (via map_page_pt)
+; Identity mappings all go through low PT
 map_identity_kernel_hdr:
-     mov eax, KERNEL_HDR_PA
-     mov ebx, KERNEL_HDR_PA
-     mov ecx, PTE_FLAGS
-     call get_low_pt_pa
-     mov edi, eax
-     call map_page_pt
-     ret
+    call get_low_pt_pa
+    mov edi, eax
+    mov eax, KERNEL_HDR_PA
+    mov ebx, KERNEL_HDR_PA
+    mov ecx, PTE_FLAGS
+    call map_page_pt
+    ret
 
-; --------------------------------------------------
-; Map premain page (identity mapping at 1MB + 4KB)
-; Input:  none
-; Output: none
-; Clobbers: eax, ebx, ecx, edi, edx, esi (via map_page_pt)
 map_identity_premain:
-     mov eax, PREMAIN_PA
-     mov ebx, PREMAIN_PA
-     mov ecx, PTE_FLAGS
-     call get_low_pt_pa
-     mov edi, eax
-     call map_page_pt
-     ret
+    call get_low_pt_pa
+    mov edi, eax
+    mov eax, PREMAIN_PA
+    mov ebx, PREMAIN_PA
+    mov ecx, PTE_FLAGS
+    call map_page_pt
+    ret
 
-; --------------------------------------------------
-; Map VGA text buffer (identity mapping at 0xB8000)
-; Input:  none
-; Output: none
-; Clobbers: eax, ebx, ecx, edi, edx, esi (via map_page_pt)
 map_identity_vga:
-     mov eax, VGA_VA
-     mov ebx, VGA_PA
-     mov ecx, PTE_FLAGS
-     call get_low_pt_pa
-     mov edi, eax
-     call map_page_pt
-     ret
+    call get_low_pt_pa
+    mov edi, eax
+    mov eax, VGA_VA
+    mov ebx, VGA_PA
+    mov ecx, PTE_FLAGS
+    call map_page_pt
+    ret
 
 ; --------------------------------------------------
-; Map entire kernel to high memory (starting at KERNEL_VA)
-; Maps KERNEL_MEMORY_SIZE bytes from physical __kernel_pa_start
-; to virtual KERNEL_VA
-; Input:  none
-; Output: none
-; Clobbers: eax, ebx, ecx, edi, esi, ebp, edx (via map_page_pt)
+; Map KERNEL_MEMORY_SIZE bytes at:
+;   VA: KERNEL_VA .. KERNEL_VA+KERNEL_MEMORY_SIZE
+;   PA: __kernel_pa_start .. +KERNEL_MEMORY_SIZE
+; Uses the high PT.
 map_kernel_high:
-     call get_high_pt_pa
-     push eax                ; save high PT PA
+    call get_high_pt_pa
+    mov edi, eax                 ; high PT base (PA)
 
-     mov esi, KERNEL_VA
-     mov edi, __kernel_pa_start
-     mov ecx, PTE_FLAGS
+    mov esi, KERNEL_VA           ; VA cursor
+    mov ebx, __kernel_pa_start   ; PA cursor
+    mov ecx, PTE_FLAGS
 
-     mov ebp, KERNEL_MEMORY_SIZE
-     shr ebp, PAGE_SHIFT
+    mov ebp, KERNEL_MEMORY_SIZE
+    shr ebp, PAGE_SHIFT          ; number of pages
 
 .loop:
-     mov eax, esi
-     mov ebx, edi
-     push ecx
-     pop ecx                 ; restore flags
+    mov eax, esi
+    call map_page_pt
 
-     pop edi                 ; get high PT PA
-     push edi                ; save it again
-     push ecx
-     call map_page_pt
-     pop ecx
-
-     add esi, PAGE_SIZE
-     add edi, PAGE_SIZE
-     dec ebp
-     jnz .loop
-
-     pop eax                 ; clean up stack
-     ret
+    add esi, PAGE_SIZE
+    add ebx, PAGE_SIZE
+    dec ebp
+    jnz .loop
+    ret
 
 ; --------------------------------------------------
-; Write a 32-bit hex value to VGA text buffer
-; Input:  eax = 32-bit value to display
-;         ecx = column (0-79)
-;         edx = row (0-24)
-; Output: none
-; Clobbers: eax, ebx, ecx, edx, edi, esi
+; Debug helper (kept, unused here)
+; eax=value, ecx=col, edx=row
 vga_write_hex32:
-     mov edi, edx
-     imul edi, VGA_COLS
-     add edi, ecx
-     shl edi, 1
-     add edi, VGA_VA
+    mov edi, edx
+    imul edi, VGA_COLS
+    add edi, ecx
+    shl edi, 1
+    add edi, VGA_VA
 
-     mov esi, 8
+    mov esi, 8
 .hex_loop:
-     mov ebx, eax
-     shr ebx, 28
-     and ebx, 0xF
-     cmp bl, 9
-     jbe .digit
-     add bl, ('A' - 10)
-     jmp .emit
+    mov ebx, eax
+    shr ebx, 28
+    and ebx, 0xF
+    cmp bl, 9
+    jbe .digit
+    add bl, ('A' - 10)
+    jmp .emit
 .digit:
-     add bl, '0'
+    add bl, '0'
 .emit:
-     mov byte [edi], bl
-     mov byte [edi + 1], VGA_ATTR
-     add edi, 2
-     shl eax, 4
-     dec esi
-     jnz .hex_loop
-     ret
+    mov byte [edi], bl
+    mov byte [edi + 1], VGA_ATTR
+    add edi, 2
+    shl eax, 4
+    dec esi
+    jnz .hex_loop
+    ret
