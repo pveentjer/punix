@@ -22,13 +22,18 @@
 /* Physical memory layout                             */
 /* -------------------------------------------------- */
 
-#define LOW_MEM_SIZE        (1u * 1024u * 1024u)
+#define KB(x)  ((x) * 1024UL)
+#define MB(x)  ((x) * 1024UL * 1024UL)
+#define GB(x)  ((x) * 1024UL * 1024UL * 1024UL)
+
+
+#define LOW_MEM_SIZE        MB(1)
 
 /*
  * Kernel is linked at 1 MiB and allowed to grow up to 1 MiB
  */
 #define KERNEL_BASE         LOW_MEM_SIZE
-#define KERNEL_SIZE         (1u * 1024u * 1024u)
+#define KERNEL_SIZE         MB(4)
 
 /*
  * User processes start right after the kernel
@@ -38,9 +43,9 @@
 /*
  * Each process gets a fixed 1 MiB region
  */
-#define PROCESS_SIZE        (1u * 1024u * 1024u)
+#define PROCESS_SIZE        MB(1)
 
-#define KERNEL_STACK_TOP       (2u * 1024u * 1024u)  /* 2 MiB */
+#define KERNEL_STACK_TOP    MB(4)
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */

@@ -17,7 +17,7 @@ extern __kernel_page_directory_va
 %define PAGE_SHIFT           12
 
 %define KERNEL_VA            GB(2)
-%define KERNEL_MEMORY_SIZE   MB(1)
+%define KERNEL_MEMORY_SIZE   MB(4)
 %define KSTACK_TOP_VA        (KERNEL_VA + KERNEL_MEMORY_SIZE - PAGE_SIZE)
 
 %define KERNEL_LOAD_PA       MB(1)
