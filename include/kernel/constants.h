@@ -30,15 +30,16 @@
 #define LOW_MEM_SIZE        MB(1)
 
 /*
- * Kernel is linked at 1 MiB and allowed to grow up to 1 MiB
+ * The base virtual address of the kernel
  */
 #define KERNEL_VA_BASE      GB(2)
 #define KERNEL_VA_SIZE      MB(4)
 
 /*
- * User processes start right after the kernel
+ * The base virtual address of the process
+ *
+ * Processes always have a different virtual address than the kernel
  */
-// This should turn into 4MB
 #define PROCESS_VA_BASE     MB(4)
 
 /*
@@ -46,7 +47,7 @@
  */
 #define PROCESS_VA_SIZE     MB(1)
 
-#define KERNEL_STACK_TOP    MB(4)
+#define KERNEL_STACK_TOP    (MB(4)-KB(4))
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */
