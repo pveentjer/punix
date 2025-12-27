@@ -163,13 +163,13 @@ function(add_app name)
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
             -ffunction-sections -fdata-sections
-            -fPIE
+            -fno-pic -fno-pie
             -fno-asynchronous-unwind-tables
     )
 
     target_link_options(${name}.elf PRIVATE
             -m32 -nostdlib
-            -pie
+            -no-pie
             -Wl,-e,_start
             -Wl,-u,main
             -Wl,--gc-sections
@@ -205,6 +205,7 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
+
 
 # ------------------------------------------------------------
 # Build user apps

@@ -3,6 +3,7 @@
 #include "kernel/sched.h"
 #include "kernel/kutils.h"
 #include "kernel/vfs.h"
+#include "kernel/vm.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 
@@ -16,6 +17,7 @@ void task_table_init(struct task_table *task_table)
     task_table->free_head = 0;
     task_table->free_tail = MAX_PROCESS_CNT;
 
+    uint32_t process_free_pa = MB(2);
     for (int task_idx = 0; task_idx < MAX_PROCESS_CNT; task_idx++)
     {
         struct task_slot *slot = &task_table->slots[task_idx];
@@ -26,8 +28,8 @@ void task_table_init(struct task_table *task_table)
         k_memset(task, 0, sizeof(struct task));
 
         task->pid       = PID_NONE;
-        task->addr_base = PROCESS_VA_BASE + task_idx * PROCESS_VA_SIZE;
-        task->addr_end  = task->addr_base + PROCESS_VA_SIZE;
+
+        task->vm_space = vm_create(process_free_pa, PROCESS_VA_SIZE);
         task->state     = TASK_POOLED;
 
         wait_queue_init(&task->wait_exit);

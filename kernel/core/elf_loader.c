@@ -1,7 +1,6 @@
 #include "kernel/kutils.h"
 #include "kernel/console.h"
 #include "kernel/elf_loader.h"
-#include "kernel/kutils.h"
 
 /* ELF binary symbols from objcopy */
 extern unsigned char _binary_swapper_elf_start[];
@@ -39,7 +38,6 @@ extern unsigned char _binary_clear_elf_end[];
 extern unsigned char _binary_time_elf_start[];
 extern unsigned char _binary_time_elf_end[];
 
-
 const struct embedded_app embedded_apps[] = {
         {"/sbin/swapper",    _binary_swapper_elf_start,     _binary_swapper_elf_end},
         {"/sbin/init",       _binary_init_elf_start,        _binary_init_elf_end},
@@ -57,7 +55,7 @@ const struct embedded_app embedded_apps[] = {
         {"/bin/date",        _binary_date_elf_start,        _binary_date_elf_end},
         {"/bin/uptime",      _binary_uptime_elf_start,      _binary_uptime_elf_end},
         {"/bin/clear",       _binary_clear_elf_start,       _binary_clear_elf_end},
-        {"/bin/time",       _binary_time_elf_start,         _binary_time_elf_end},
+        {"/bin/time",        _binary_time_elf_start,        _binary_time_elf_end},
 };
 
 const size_t embedded_app_count =
@@ -73,46 +71,46 @@ const struct embedded_app *find_app(const char *name)
     return NULL;
 }
 
-/* --------------------------------------------------------------------
- * ELF loader with relocation fixups and symbol table parsing
- * -------------------------------------------------------------------- */
+/* ------------------------------------------------------------
+ * ELF loader
+ * ------------------------------------------------------------ */
 
-int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info *out)
+int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *out)
 {
     (void) size;
 
-    const Elf32_Ehdr *eh = (const Elf32_Ehdr *) image;
+    const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
 
-    // Basic ELF magic check
-    if (eh->e_ident[0] != 0x7F || eh->e_ident[1] != 'E' ||
-        eh->e_ident[2] != 'L' || eh->e_ident[3] != 'F')
+    if (eh->e_ident[0] != 0x7F ||
+        eh->e_ident[1] != 'E' ||
+        eh->e_ident[2] != 'L' ||
+        eh->e_ident[3] != 'F')
     {
         kprintf("Invalid ELF magic\n");
         return -1;
     }
 
     const Elf32_Phdr *ph =
-            (const Elf32_Phdr *) ((uintptr_t) image + eh->e_phoff);
+            (const Elf32_Phdr *)((uintptr_t)image + eh->e_phoff);
 
     uint32_t max_end = 0;
     uint32_t total_copied = 0;
 
-    // Copy all PT_LOAD segments to load_base + p_vaddr
     for (int i = 0; i < eh->e_phnum; i++, ph++)
     {
         if (ph->p_type != PT_LOAD)
             continue;
 
-        uint32_t dest_addr = load_base + ph->p_vaddr;
-        void *dest = (void *) dest_addr;
-        const void *src = (const void *) ((uintptr_t) image + ph->p_offset);
+        uint32_t dest_va = base_va + ph->p_vaddr;
+        void *dest = (void *)dest_va;
+        const void *src = (const void *)((uintptr_t)image + ph->p_offset);
 
         k_memcpy(dest, src, ph->p_filesz);
         total_copied += ph->p_filesz;
 
         if (ph->p_memsz > ph->p_filesz)
         {
-            k_memset((uint8_t *) dest + ph->p_filesz, 0,
+            k_memset((uint8_t *)dest + ph->p_filesz, 0,
                      ph->p_memsz - ph->p_filesz);
         }
 
@@ -123,61 +121,57 @@ int elf_load(const void *image, size_t size, uint32_t load_base, struct elf_info
 
     if (out)
     {
-        out->base = load_base;
-        out->entry = load_base + eh->e_entry;
-        out->max_offset = max_end;       // still in "process space"
+        out->base_va = base_va;
+        out->entry_va = base_va + eh->e_entry;
+        out->max_offset = max_end;
         out->size = total_copied;
-        out->environ_addr = 0;  // default to 0 if not found
+        out->environ_off = 0;
+        out->curbrk_off = 0;
     }
 
-    // Parse symbol table to find 'environ'
-    if (eh->e_shoff != 0 && eh->e_shnum > 0 && out)
+    /* Parse symbol table for environ / __curbrk */
+    if (eh->e_shoff && eh->e_shnum && out)
     {
-        const Elf32_Shdr *sh = (const Elf32_Shdr *) ((uintptr_t) image + eh->e_shoff);
+        const Elf32_Shdr *sh =
+                (const Elf32_Shdr *)((uintptr_t)image + eh->e_shoff);
 
         const Elf32_Shdr *symtab = NULL;
         const Elf32_Shdr *strtab = NULL;
 
-        // Find symbol table and its associated string table
         for (int i = 0; i < eh->e_shnum; i++)
         {
             if (sh[i].sh_type == SHT_SYMTAB)
             {
                 symtab = &sh[i];
-                // sh_link points to the string table for this symbol table
                 if (sh[i].sh_link < eh->e_shnum)
-                {
                     strtab = &sh[sh[i].sh_link];
-                }
                 break;
             }
         }
 
-        // If we found both symbol table and string table, search for 'environ' and '__curbrk'
         if (symtab && strtab && symtab->sh_entsize >= sizeof(Elf32_Sym))
         {
             const Elf32_Sym *symbols =
-                    (const Elf32_Sym *) ((uintptr_t) image + symtab->sh_offset);
+                    (const Elf32_Sym *)((uintptr_t)image + symtab->sh_offset);
             const char *strings =
-                    (const char *) ((uintptr_t) image + strtab->sh_offset);
+                    (const char *)((uintptr_t)image + strtab->sh_offset);
 
-            uint32_t sym_count = symtab->sh_size / symtab->sh_entsize;
+            uint32_t count = symtab->sh_size / symtab->sh_entsize;
 
-            for (uint32_t i = 0; i < sym_count; i++)
+            for (uint32_t i = 0; i < count; i++)
             {
-                // Check if symbol name index is valid
-                if (symbols[i].st_name < strtab->sh_size)
-                {
-                    const char *sym_name = strings + symbols[i].st_name;
+                if (symbols[i].st_name >= strtab->sh_size)
+                    continue;
 
-                    if (k_strcmp(sym_name, "environ") == 0)
-                    {
-                        out->environ_addr = symbols[i].st_value;
-                    }
-                    else if (k_strcmp(sym_name, "__curbrk") == 0)
-                    {
-                        out->curbrk_addr = symbols[i].st_value;
-                    }
+                const char *name = strings + symbols[i].st_name;
+
+                if (k_strcmp(name, "environ") == 0)
+                {
+                    out->environ_off = symbols[i].st_value;
+                }
+                else if (k_strcmp(name, "__curbrk") == 0)
+                {
+                    out->curbrk_off = symbols[i].st_value;
                 }
             }
         }

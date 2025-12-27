@@ -6,6 +6,7 @@
 #include "constants.h"
 #include "files.h"
 #include "cpu_ctx.h"
+#include "vm.h"
 
 typedef int pid_t;
 typedef uint32_t sigset_t;
@@ -34,11 +35,7 @@ struct task
 
     char cwd[MAX_FILENAME_LEN];
 
-    // The start of the process memory (inclusive)
-    uint32_t addr_base;
-
-    // The end of the process memory (exclusive)
-    uint32_t addr_end;
+    struct vm_space *vm_space;
 
     char name[MAX_FILENAME_LEN];
 
@@ -54,6 +51,7 @@ struct task
     uint64_t ctxt;
 
     uint32_t brk;
+    uint32_t brk_limit;
 
     struct wait_queue wait_exit;
 };

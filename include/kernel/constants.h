@@ -47,7 +47,10 @@
  */
 #define PROCESS_VA_SIZE     MB(1)
 
+#define PROCESS_HEAP_SIZE   KB(128)
+
 #define KERNEL_STACK_TOP    (MB(4)-KB(4))
+
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */

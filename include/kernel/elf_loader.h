@@ -14,53 +14,53 @@
 #define EI_NIDENT 16
 
 typedef struct {
-    unsigned char e_ident[EI_NIDENT]; /* Magic number and other info */
+    unsigned char e_ident[EI_NIDENT];
     uint16_t      e_type;
     uint16_t      e_machine;
     uint32_t      e_version;
-    uint32_t      e_entry;    /* Entry point address */
-    uint32_t      e_phoff;    /* Program header table file offset */
-    uint32_t      e_shoff;    /* Section header table file offset */
+    uint32_t      e_entry;    /* entry virtual address within the image */
+    uint32_t      e_phoff;
+    uint32_t      e_shoff;
     uint32_t      e_flags;
     uint16_t      e_ehsize;
     uint16_t      e_phentsize;
-    uint16_t      e_phnum;    /* Number of program headers */
+    uint16_t      e_phnum;
     uint16_t      e_shentsize;
-    uint16_t      e_shnum;    /* Number of section headers */
-    uint16_t      e_shstrndx; /* Section header string table index */
+    uint16_t      e_shnum;
+    uint16_t      e_shstrndx;
 } Elf32_Ehdr;
 
 typedef struct {
-    uint32_t p_type;   /* Segment type */
-    uint32_t p_offset; /* Offset in file */
-    uint32_t p_vaddr;  /* Virtual address in memory */
-    uint32_t p_paddr;
-    uint32_t p_filesz; /* Size of segment in file */
-    uint32_t p_memsz;  /* Size of segment in memory */
+    uint32_t p_type;
+    uint32_t p_offset;
+    uint32_t p_vaddr;   /* segment virtual address within the image */
+    uint32_t p_paddr;   /* ignored */
+    uint32_t p_filesz;
+    uint32_t p_memsz;
     uint32_t p_flags;
     uint32_t p_align;
 } Elf32_Phdr;
 
 typedef struct {
-    uint32_t sh_name;      /* Section name (string table index) */
-    uint32_t sh_type;      /* Section type */
-    uint32_t sh_flags;     /* Section flags */
-    uint32_t sh_addr;      /* Section virtual address at execution */
-    uint32_t sh_offset;    /* Section file offset */
-    uint32_t sh_size;      /* Section size in bytes */
-    uint32_t sh_link;      /* Link to another section */
-    uint32_t sh_info;      /* Additional section information */
-    uint32_t sh_addralign; /* Section alignment */
-    uint32_t sh_entsize;   /* Entry size if section holds table */
+    uint32_t sh_name;
+    uint32_t sh_type;
+    uint32_t sh_flags;
+    uint32_t sh_addr;      /* section virtual address within the image */
+    uint32_t sh_offset;
+    uint32_t sh_size;
+    uint32_t sh_link;
+    uint32_t sh_info;
+    uint32_t sh_addralign;
+    uint32_t sh_entsize;
 } Elf32_Shdr;
 
 typedef struct {
-    uint32_t st_name;   /* Symbol name (string table index) */
-    uint32_t st_value;  /* Symbol value (address) */
-    uint32_t st_size;   /* Symbol size */
-    uint8_t  st_info;   /* Symbol type and binding */
-    uint8_t  st_other;  /* Symbol visibility */
-    uint16_t st_shndx;  /* Section index */
+    uint32_t st_name;
+    uint32_t st_value;  /* symbol virtual address within the image */
+    uint32_t st_size;
+    uint8_t  st_info;
+    uint8_t  st_other;
+    uint16_t st_shndx;
 } Elf32_Sym;
 
 #define PT_LOAD 1
@@ -78,22 +78,31 @@ typedef struct {
 #define SHT_SHLIB    10
 #define SHT_DYNSYM   11
 
+/*
+ * elf_info contract:
+ * - All values are virtual addresses.
+ * - Offsets are relative to the provided load_base (i.e. within the process).
+ */
 struct elf_info {
-    uint32_t entry;          // entry point (absolute address)
-    uint32_t base;           // process base address (load_base)
-    uint32_t max_offset;     // highest p_vaddr + p_memsz in ELF
-    uint32_t size;           // total bytes copied (optional)
-    uint32_t environ_addr;   // address of environ variable (0 if not found)
-    uint32_t curbrk_addr;    // address of __curbrk variable (0 if not found)
-};
+    uint32_t entry_va;        /* entry virtual address (load_base + e_entry) */
+    uint32_t base_va;         /* the load_base passed to elf_load() */
+    uint32_t max_offset;      /* highest (p_vaddr + p_memsz) within the image */
+    uint32_t size;            /* total bytes copied from file (optional) */
 
+    uint32_t environ_off;     /* offset of 'environ' from base_va (0 if absent) */
+    uint32_t curbrk_off;      /* offset of '__curbrk' from base_va (0 if absent) */
+};
 
 /* ------------------------------------------------------------
  * ELF Loader
  * ------------------------------------------------------------ */
 
+/*
+ * Load ELF image into memory at base_va.
+ * Returns 0 on success, <0 on error.
+ */
 int elf_load(const void *image, size_t size,
-             uint32_t load_base, struct elf_info *out);
+             uint32_t base_va, struct elf_info *out);
 
 /* ------------------------------------------------------------
  * Embedded application table
@@ -105,10 +114,9 @@ struct embedded_app {
     const unsigned char *end;
 };
 
-/* Defined in elf.c */
 extern const struct embedded_app embedded_apps[];
 extern const size_t embedded_app_count;
 
 const struct embedded_app *find_app(const char *name);
 
-#endif // ELF_LOADER_H
+#endif /* ELF_LOADER_H */

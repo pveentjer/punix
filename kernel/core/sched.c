@@ -180,7 +180,7 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
  * ------------------------------------------------------------ */
 static char **task_init_env(struct task *task,
                             char **envp,
-                            uint32_t environ_addr)
+                            uint32_t environ_off)
 {
     int envc = 0;
     while (envp && envp[envc] != NULL)
@@ -189,38 +189,42 @@ static char **task_init_env(struct task *task,
     }
 
     /* Reserve space for envp pointer array */
-    char **heap_envp = (char **) task->brk;
+    char **task_heap_envp = (char **)task->brk;
     task->brk += sizeof(char *) * (envc + 1);
 
     /* Copy each string */
     for (int i = 0; i < envc; i++)
     {
-        size_t len = k_strlen(envp[i]) + 1;  // include '\0'
-        char *dst = (char *) task->brk;
+        size_t len = k_strlen(envp[i]) + 1; /* include '\0' */
+        char *dst = (char *)task->brk;
         k_memcpy(dst, envp[i], len);
-        heap_envp[i] = dst;
+        task_heap_envp[i] = dst;
         task->brk += len;
     }
 
-    heap_envp[envc] = NULL;
+    task_heap_envp[envc] = NULL;
 
     /* Initialize program's global 'environ' if present */
-    if (environ_addr != 0)
+    if (environ_off != 0)
     {
-        uint32_t absoluteEnvironAddr = task->addr_base + environ_addr;
-        char ***environPtr = (char ***) absoluteEnvironAddr;
-        *environPtr = heap_envp;
+        uintptr_t environ_va = task->vm_space->base_va + (uintptr_t)environ_off;
+        char ***environ_ptr = (char ***)environ_va;
+        *environ_ptr = task_heap_envp;
     }
 
-    return heap_envp;
+    return task_heap_envp;
 }
 
+
+/* ------------------------------------------------------------
+ * task_new
+ * ------------------------------------------------------------ */
 /* ------------------------------------------------------------
  * task_new
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
-    if (tty_id >= (int) TTY_COUNT)
+    if (tty_id >= (int)TTY_COUNT)
     {
         kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
         return NULL;
@@ -240,6 +244,15 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
+    if (task->vm_space == NULL)
+    {
+        task_table_free(&sched.task_table, task);
+        kprintf("task_new: no vm_space for %s\n", filename);
+        return NULL;
+    }
+
+    uintptr_t base_va = task->vm_space->base_va;
+
     k_strcpy(task->name, filename);
     task->ctxt = 0;
     task->pending_signals = 0;
@@ -250,26 +263,27 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     /* Load ELF */
     const void *image = app->start;
-    size_t image_size = (size_t) (app->end - app->start);
+    size_t image_size = (size_t)(app->end - app->start);
 
     struct elf_info elf_info;
-    if (elf_load(image, image_size, task->addr_base, &elf_info) < 0)
+    if (elf_load(image, image_size, (uint32_t)base_va, &elf_info) < 0)
     {
         task_table_free(&sched.task_table, task);
         kprintf("task_new: Failed to load the binary %s\n", filename);
         return NULL;
     }
 
-    uint32_t main_addr = elf_info.entry;
-    uint32_t environ_addr = elf_info.environ_addr;
+    uint32_t main_addr = elf_info.entry_va;
+    uint32_t environ_off = elf_info.environ_off;
 
-    uint32_t region_end = task->addr_base + PROCESS_VA_SIZE;
-    uint32_t stackTop = align_down(region_end, 16);
+    uintptr_t region_end = base_va + (uintptr_t)PROCESS_VA_SIZE;
+    uint32_t stack_top = (uint32_t)align_down(region_end, 16);
 
-    uint32_t program_end = task->addr_base + elf_info.max_offset;
-    task->brk = align_up(program_end, 16);
+    uintptr_t program_end = base_va + (uintptr_t)elf_info.max_offset;
+    task->brk = (uint32_t)align_up(program_end, 16);
+    task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
-    if (task->brk >= stackTop)
+    if ((uintptr_t)task->brk >= (uintptr_t)stack_top)
     {
         kprintf("task_new: not enough space between program and stack for %s\n",
                 filename);
@@ -279,19 +293,20 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     int argc = 0;
     char **heap_argv = task_init_args(task, argv, &argc);
-    char **heap_envp = task_init_env(task, envp, environ_addr);
+    char **heap_envp = task_init_env(task, envp, environ_off);
 
-    if (elf_info.curbrk_addr != 0)
+    if (elf_info.curbrk_off != 0)
     {
-        uint32_t absoluteCurbrkAddr = task->addr_base + elf_info.curbrk_addr;
-        char **curbrk_ptr = (char **) absoluteCurbrkAddr;
-        *curbrk_ptr = (char *) task->brk;
+        uintptr_t curbrk_va = base_va + (uintptr_t)elf_info.curbrk_off;
+        char **curbrk_ptr = (char **)curbrk_va;
+        *curbrk_ptr = (char *)task->brk;
     }
 
-    ctx_init(&task->cpu_ctx, stackTop, main_addr, argc, heap_argv, heap_envp);
+    ctx_init(&task->cpu_ctx, stack_top, main_addr, argc, heap_argv, heap_envp);
 
     return task;
 }
+
 
 void task_init_cwd(struct task *task)
 {
