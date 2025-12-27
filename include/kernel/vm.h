@@ -36,4 +36,14 @@ struct vm_kernel_space *vm_kernel(void);
 /* Create a new process address space */
 struct vm_space *vm_create(uint32_t base_pa, size_t size);
 
+/* ------------------------------------------------------------
+ * Activation (switch current address space)
+ * ------------------------------------------------------------ */
+
+/* Activate a process address space (switch to it) */
+void vm_activate(struct vm_space *vm);
+
+/* Activate the kernel address space (switch back to kernel-only) */
+void vm_activate_kernel(void);
+
 #endif /* VM_H */

@@ -251,6 +251,10 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
+    kprintf("Activating task vm\n");
+    vm_activate(task->vm_space);
+    kprintf("Activating task vm: done\n");
+
     uintptr_t base_va = task->vm_space->base_va;
 
     k_strcpy(task->name, filename);
@@ -261,15 +265,18 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task_init_tty(task, tty_id);
     task_init_cwd(task);
 
+
     /* Load ELF */
     const void *image = app->start;
     size_t image_size = (size_t)(app->end - app->start);
 
     struct elf_info elf_info;
+
     if (elf_load(image, image_size, (uint32_t)base_va, &elf_info) < 0)
     {
         task_table_free(&sched.task_table, task);
         kprintf("task_new: Failed to load the binary %s\n", filename);
+        vm_activate_kernel();
         return NULL;
     }
 
@@ -288,6 +295,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         kprintf("task_new: not enough space between program and stack for %s\n",
                 filename);
         task_table_free(&sched.task_table, task);
+        vm_activate_kernel();
         return NULL;
     }
 
@@ -304,6 +312,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     ctx_init(&task->cpu_ctx, stack_top, main_addr, argc, heap_argv, heap_envp);
 
+    vm_activate_kernel();
     return task;
 }
 

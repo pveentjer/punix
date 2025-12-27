@@ -168,17 +168,19 @@ function(add_app name)
     )
 
     target_link_options(${name}.elf PRIVATE
-            -m32 -nostdlib
+            -m32
+            -nostdlib
             -no-pie
             -Wl,-e,_start
             -Wl,-u,main
             -Wl,--gc-sections
+            -Wl,--build-id=none
+            -Wl,--no-dynamic-linker
             -Wl,-z,max-page-size=0x1
             -Wl,-z,common-page-size=0x1
-            -Wl,--build-id=none
-            -Wl,--strip-all
-            -Wl,--no-dynamic-linker
-            -nostartfiles
+
+            # force virtual base
+            -Wl,-Ttext=0x00400000
     )
 
     set_target_properties(${name}.elf PROPERTIES
@@ -205,6 +207,7 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
+
 
 
 # ------------------------------------------------------------

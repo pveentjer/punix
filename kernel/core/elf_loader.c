@@ -64,20 +64,17 @@ const size_t embedded_app_count =
 const struct embedded_app *find_app(const char *name)
 {
     for (size_t i = 0; i < embedded_app_count; i++)
-    {
         if (k_strcmp(embedded_apps[i].name, name) == 0)
             return &embedded_apps[i];
-    }
     return NULL;
 }
 
-/* ------------------------------------------------------------
- * ELF loader
- * ------------------------------------------------------------ */
-
 int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *out)
 {
-    (void) size;
+    (void)size;
+    (void)base_va;
+
+    kprintf("elf_load\n");
 
     const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
 
@@ -86,7 +83,13 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
         eh->e_ident[2] != 'L' ||
         eh->e_ident[3] != 'F')
     {
-        kprintf("Invalid ELF magic\n");
+        kprintf("Not elf\n");
+        return -1;
+    }
+
+    if (eh->e_type != ET_EXEC)
+    {
+        kprintf("Not ET_XEC\n");
         return -1;
     }
 
@@ -96,85 +99,52 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
     uint32_t max_end = 0;
     uint32_t total_copied = 0;
 
+    kprintf("e_phnum: %u\n", eh->e_phnum);
+    kprintf("e_type=%u e_phoff=%u e_phnum=%u\n", eh->e_type, eh->e_phoff, eh->e_phnum);
+
     for (int i = 0; i < eh->e_phnum; i++, ph++)
     {
         if (ph->p_type != PT_LOAD)
-            continue;
-
-        uint32_t dest_va = base_va + ph->p_vaddr;
-        void *dest = (void *)dest_va;
-        const void *src = (const void *)((uintptr_t)image + ph->p_offset);
-
-        k_memcpy(dest, src, ph->p_filesz);
-        total_copied += ph->p_filesz;
-
-        if (ph->p_memsz > ph->p_filesz)
         {
-            k_memset((uint8_t *)dest + ph->p_filesz, 0,
-                     ph->p_memsz - ph->p_filesz);
+            kprintf("ph->p_type: %u\n", ph->p_type);
+            continue;
         }
 
-        uint32_t seg_end = ph->p_vaddr + ph->p_memsz;
-        if (seg_end > max_end)
-            max_end = seg_end;
+        uint32_t dest_va = ph->p_vaddr;
+        const void *src  = (const void *)((uintptr_t)image + ph->p_offset);
+
+        kprintf("ELF LOAD:\n");
+        kprintf("  image        = 0x%08x\n", (uint32_t)image);
+        kprintf("  p_vaddr      = 0x%08x\n", ph->p_vaddr);
+        kprintf("  p_offset     = 0x%08x\n", ph->p_offset);
+        kprintf("  p_filesz     = 0x%08x\n", ph->p_filesz);
+        kprintf("  p_memsz      = 0x%08x\n", ph->p_memsz);
+        kprintf("  dest_va      = 0x%08x\n", dest_va);
+        kprintf("  src          = 0x%08x\n", (uint32_t)src);
+        kprintf("  dest_end     = 0x%08x\n", dest_va + ph->p_filesz);
+
+        kprintf("k_memcpy start\n");
+        k_memcpy((void *)dest_va, src, ph->p_filesz);
+        kprintf("k_memcpy end\n");
+        if (ph->p_memsz > ph->p_filesz)
+            k_memset((void *)(dest_va + ph->p_filesz), 0,
+                     ph->p_memsz - ph->p_filesz);
+
+        uint32_t end = ph->p_vaddr + ph->p_memsz;
+        if (end > max_end)
+            max_end = end;
+
+        total_copied += ph->p_filesz;
     }
 
     if (out)
     {
-        out->base_va = base_va;
-        out->entry_va = base_va + eh->e_entry;
-        out->max_offset = max_end;
-        out->size = total_copied;
+        out->base_va     = 0;
+        out->entry_va    = eh->e_entry;
+        out->max_offset  = max_end;
+        out->size        = total_copied;
         out->environ_off = 0;
-        out->curbrk_off = 0;
-    }
-
-    /* Parse symbol table for environ / __curbrk */
-    if (eh->e_shoff && eh->e_shnum && out)
-    {
-        const Elf32_Shdr *sh =
-                (const Elf32_Shdr *)((uintptr_t)image + eh->e_shoff);
-
-        const Elf32_Shdr *symtab = NULL;
-        const Elf32_Shdr *strtab = NULL;
-
-        for (int i = 0; i < eh->e_shnum; i++)
-        {
-            if (sh[i].sh_type == SHT_SYMTAB)
-            {
-                symtab = &sh[i];
-                if (sh[i].sh_link < eh->e_shnum)
-                    strtab = &sh[sh[i].sh_link];
-                break;
-            }
-        }
-
-        if (symtab && strtab && symtab->sh_entsize >= sizeof(Elf32_Sym))
-        {
-            const Elf32_Sym *symbols =
-                    (const Elf32_Sym *)((uintptr_t)image + symtab->sh_offset);
-            const char *strings =
-                    (const char *)((uintptr_t)image + strtab->sh_offset);
-
-            uint32_t count = symtab->sh_size / symtab->sh_entsize;
-
-            for (uint32_t i = 0; i < count; i++)
-            {
-                if (symbols[i].st_name >= strtab->sh_size)
-                    continue;
-
-                const char *name = strings + symbols[i].st_name;
-
-                if (k_strcmp(name, "environ") == 0)
-                {
-                    out->environ_off = symbols[i].st_value;
-                }
-                else if (k_strcmp(name, "__curbrk") == 0)
-                {
-                    out->curbrk_off = symbols[i].st_value;
-                }
-            }
-        }
+        out->curbrk_off  = 0;
     }
 
     return 0;

@@ -12,6 +12,7 @@
  * ------------------------------------------------------------ */
 
 #define EI_NIDENT 16
+#define ET_EXEC 2
 
 typedef struct {
     unsigned char e_ident[EI_NIDENT];

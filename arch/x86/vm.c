@@ -2,6 +2,7 @@
 #include "kernel/console.h"
 #include "kernel/config.h"
 #include "kernel/constants.h"
+#include "kernel/panic.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -327,6 +328,117 @@ struct vm_kernel_space *vm_kernel(void)
     return &kernel_vm;
 }
 
+/* ------------------------------------------------------------
+ * VM verification
+ * ------------------------------------------------------------ */
+
+static inline uintptr_t read_eip(void)
+{
+    uintptr_t eip;
+    __asm__ volatile("call 1f\n1: pop %0" : "=r"(eip));
+    return eip;
+}
+
+static inline uintptr_t read_esp(void)
+{
+    uintptr_t esp;
+    __asm__ volatile("mov %%esp, %0" : "=r"(esp));
+    return esp;
+}
+
+static int vm_is_mapped(struct page_directory *pd, uintptr_t va, uint32_t *pte_out)
+{
+    uint32_t pdi = PDE_INDEX(va);
+    uint32_t pti = PTE_INDEX(va);
+
+    struct pde *pde = &pd->e[pdi];
+    if (!pde->present)
+        return 0;
+
+    struct page_table *pt = pde_to_pt(pde);
+    struct pte *pte = &pt->e[pti];
+
+    if (pte_out)
+        *pte_out = *(uint32_t *)pte;
+
+    return pte->present;
+}
+
+static void vm_verify(struct vm_space *vm)
+{
+    struct vm_impl *impl = vm->impl;
+    struct page_directory *pd = impl->pd_va;
+    struct page_directory *kpd = kernel_impl.pd_va;
+
+    /* 1. Kernel PDEs must match exactly */
+    uint32_t kstart = kernel_impl.kernel_pde_start;
+
+    for (uint32_t i = kstart; i < PAGE_DIR_ENTRIES; i++) {
+        if (kpd->e[i].present) {
+            uint32_t a = *(uint32_t *)&pd->e[i];
+            uint32_t b = *(uint32_t *)&kpd->e[i];
+
+            if (a != b) {
+                kprintf("vm_verify: kernel PDE mismatch idx=%u\n", i);
+                panic("vm_verify");
+            }
+        }
+    }
+
+    /* 2. Current instruction must be mapped */
+    uintptr_t eip = read_eip();
+    if (!vm_is_mapped(pd, eip, NULL))
+    {
+        kprintf("vm_verify: EIP not mapped: %x\n", (uint32_t)eip);
+        panic("vm_verify");
+    }
+
+    /* 3. Stack must be mapped */
+    uintptr_t esp = read_esp();
+    if (!vm_is_mapped(pd, esp, NULL))
+    {
+        kprintf("vm_verify: ESP not mapped: %x\n", (uint32_t)esp);
+        panic("vm_verify");
+    }
+
+    /* 4. User range must exist + be user-accessible */
+    uintptr_t start = PROCESS_VA_BASE;
+    uintptr_t end   = PROCESS_VA_BASE + PROCESS_VA_SIZE;
+
+    for (uintptr_t va = start; va < end; va += PAGE_SIZE)
+    {
+        uint32_t pte;
+        if (!vm_is_mapped(pd, va, &pte))
+        {
+            kprintf("vm_verify: user VA unmapped %x\n", (uint32_t)va);
+            panic("vm_verify");
+        }
+
+        if (!(pte & PTE_U))
+        {
+            kprintf("vm_verify: user VA not user-accessible %x\n", (uint32_t)va);
+            panic("vm_verify");
+        }
+    }
+
+    /* 5. Kernel mappings must NOT be user accessible */
+    for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
+    {
+        if (!kpd->e[i].present)
+            continue;
+
+        if ((i << 22) >= kernel_va_base())
+        {
+            if (pd->e[i].user)
+            {
+                kprintf("vm_verify: kernel PDE user-accessible idx=%u\n", i);
+                panic("vm_verify");
+            }
+        }
+    }
+}
+
+
 struct vm_space *vm_create(uint32_t base_pa, size_t size)
 {
     struct vm_space *vm = vm_alloc_process_vm();
@@ -367,11 +479,10 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
 
     /* Copy kernel half mappings verbatim */
     impl->kernel_pde_start = kernel_impl.kernel_pde_start;
-    uint32_t kstart = kernel_impl.kernel_pde_start;
-
-    for (uint32_t i = kstart; i < PAGE_DIR_ENTRIES; i++)
+    for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
     {
-        impl->pd_va->e[i] = kernel_impl.pd_va->e[i];
+        if (kernel_impl.pd_va->e[i].present)
+            impl->pd_va->e[i] = kernel_impl.pd_va->e[i];
     }
 
     /* Map provided physical memory as user memory at PROCESS_VA_BASE */
@@ -389,5 +500,74 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
         }
     }
 
+    vm_verify(vm);
+
     return vm;
+}
+
+
+
+/* ------------------------------------------------------------
+ * VM activation
+ * ------------------------------------------------------------ */
+
+void vm_activate(struct vm_space *vm)
+{
+    struct vm_impl *impl = (struct vm_impl *)vm->impl;
+
+    kprintf("vm_activate:\n");
+    kprintf("  vm=%p\n", vm);
+    kprintf("  impl=%p\n", impl);
+    kprintf("  pd_pa=0x%08x\n", (uint32_t)impl->pd_pa);
+
+    /* --- Validate stack is mapped in new PD --- */
+    uintptr_t esp;
+    __asm__ volatile("mov %%esp, %0" : "=r"(esp));
+
+    uint32_t pde_idx = PDE_INDEX(esp);
+    uint32_t pte_idx = PTE_INDEX(esp);
+
+    struct pde *pd = impl->pd_va->e;
+    if (!pd[pde_idx].present)
+    {
+        kprintf("FATAL: stack PDE not present (esp=0x%08x)\n", esp);
+        while (1);
+    }
+
+    struct page_table *pt = pde_to_pt(&pd[pde_idx]);
+
+    if (!pt->e[pte_idx].present)
+    {
+        kprintf("FATAL: stack PTE not present (esp=0x%08x)\n", esp);
+        while (1);
+    }
+
+    /* --- Disable interrupts during CR3 switch --- */
+    __asm__ volatile("cli");
+
+    /* --- Flush global mappings by clearing PGE --- */
+    uint32_t cr4;
+    __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
+    __asm__ volatile("mov %0, %%cr4" :: "r"(cr4 & ~(1 << 7)));
+
+    /* --- Load new page directory --- */
+    __asm__ volatile("mov %0, %%cr3" :: "r"(impl->pd_pa) : "memory");
+
+    /* --- Restore CR4 (re-enable PGE if used) --- */
+    __asm__ volatile("mov %0, %%cr4" :: "r"(cr4));
+
+    __asm__ volatile("sti");
+
+    kprintf("vm_activate: OK\n");
+}
+
+
+void vm_activate_kernel(void)
+{
+    __asm__ volatile(
+            "mov %0, %%cr3"
+            :
+            : "r"(kernel_impl.pd_pa)
+            : "memory"
+            );
 }
