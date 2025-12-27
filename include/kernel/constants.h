@@ -50,7 +50,7 @@
 
 #define PROCESS_HEAP_SIZE   KB(512)
 
-#define PROCESS_STACK_TOP    (PROCESS_VA_SIZE-KB(4))
+#define PROCESS_STACK_TOP   (PROCESS_VA_BASE+PROCESS_VA_SIZE-KB(4))
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */

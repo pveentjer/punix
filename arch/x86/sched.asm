@@ -18,6 +18,7 @@ extern task_trampoline
 ;               char **heap_envp);
 ; ============================================================
 ctx_init:
+
     push ebp
     mov  ebp, esp
 
@@ -32,10 +33,12 @@ ctx_init:
     mov  eax, [ebp+12]       ; stack_top
     mov  ecx, eax            ; working stack pointer
 
+
     ; *(--sp32) = (uint32_t) heap_envp;
     sub  ecx, 4
     mov  edx, [ebp+28]
     mov  [ecx], edx
+    mov word [0xB8000], 0x0740
 
     ; *(--sp32) = (uint32_t) heap_argv;
     sub  ecx, 4
@@ -46,6 +49,7 @@ ctx_init:
     sub  ecx, 4
     mov  edx, [ebp+20]
     mov  [ecx], edx
+
 
     ; *(--sp32) = main_addr;
     sub  ecx, 4

@@ -151,16 +151,16 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
 
     // todo: I think this is rotten
     /* Reserve space for argv pointer array */
-    kprintf("task->brk %u\n", task->brk);
+//    kprintf("task->brk %u\n", task->brk);
     char **heap_argv = (char **) task->brk;
 
 
     size_t len = sizeof(char *) * (argc + 1);
-    kprintf("len: %u\n", len);
+//    kprintf("len: %u\n", len);
     task->brk += len;
 
-    kprintf("task_init_args after: task=%p argc=%d heap_argv=%p brk(after argv[])=%p\n",
-            task, argc, heap_argv, (void*)task->brk);
+//    kprintf("task_init_args after: task=%p argc=%d heap_argv=%p brk(after argv[])=%p\n",
+//            task, argc, heap_argv, (void*)task->brk);
 
     /* Copy each string */
     for (int i = 0; i < argc; i++)
@@ -169,23 +169,23 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
         size_t len = k_strlen(src) + 1;  /* include '\0' */
         char *dst = (char *) task->brk;
 
-        kprintf("task_init_args[%d]: src=%p dst=%p len=%u brk(before)=%p\n",
-                i, src, dst, (unsigned)len, (void*)task->brk);
-
-        kprintf("k_memcpy before\n");
+//        kprintf("task_init_args[%d]: src=%p dst=%p len=%u brk(before)=%p\n",
+//                i, src, dst, (unsigned)len, (void*)task->brk);
+//
+//        kprintf("k_memcpy before\n");
         k_memcpy(dst, src, len);
-        kprintf("k_memcpy after\n");
+//        kprintf("k_memcpy after\n");
 
         heap_argv[i] = dst;
         task->brk += len;
 
-        kprintf("task_init_args[%d]: heap_argv[%d]=%p brk(after)=%p\n",
-                i, i, heap_argv[i], (void*)task->brk);
+//        kprintf("task_init_args[%d]: heap_argv[%d]=%p brk(after)=%p\n",
+//                i, i, heap_argv[i], (void*)task->brk);
     }
 
     heap_argv[argc] = NULL;
-    kprintf("task_init_args: heap_argv[%d]=NULL heap_argv=%p final brk=%p\n",
-            argc, heap_argv, (void*)task->brk);
+//    kprintf("task_init_args: heap_argv[%d]=NULL heap_argv=%p final brk=%p\n",
+//            argc, heap_argv, (void*)task->brk);
 
     if (argc_out)
     {
@@ -309,7 +309,6 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     uintptr_t program_end = (uintptr_t)elf_info.max_offset;
     task->brk = (uint32_t)align_up(program_end, 16);
-
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
     kprintf("task_new fresh brk: %u, brk_limit: %u\n", task->brk, task->brk_limit);
@@ -341,11 +340,12 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     }
 
 
-    kprintf("cpu_ctx init\n");
+//    kprintf("cpu_ctx init PROCESS_STACK_TOP %u\n", PROCESS_STACK_TOP);
     ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc, heap_argv, heap_envp);
+//    kprintf("cpu_ctx init: done\n");
 
     vm_activate_kernel();
-    kprintf("task_new: done\n");
+//    kprintf("task_new: done\n");
     return task;
 }
 
