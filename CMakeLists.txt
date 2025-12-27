@@ -161,9 +161,16 @@ function(add_app name)
     )
 
     target_compile_options(${name}.elf PRIVATE
-            -ffreestanding -nostdlib -m32 -O2 -Wall -Wextra
-            -ffunction-sections -fdata-sections
-            -fno-pic -fno-pie
+            -ffreestanding
+            -nostdlib
+            -m32
+            -O2
+            -Wall
+            -Wextra
+            -ffunction-sections
+            -fdata-sections
+            -fno-pic
+            -fno-pie
             -fno-asynchronous-unwind-tables
     )
 
@@ -171,16 +178,11 @@ function(add_app name)
             -m32
             -nostdlib
             -no-pie
+            -T ${CMAKE_SOURCE_DIR}/app.ld
             -Wl,-e,_start
-            -Wl,-u,main
             -Wl,--gc-sections
             -Wl,--build-id=none
             -Wl,--no-dynamic-linker
-            -Wl,-z,max-page-size=0x1
-            -Wl,-z,common-page-size=0x1
-
-            # force virtual base
-            -Wl,-Ttext=0x00400000
     )
 
     set_target_properties(${name}.elf PROPERTIES
@@ -191,7 +193,6 @@ function(add_app name)
             COMMAND ${CMAKE_STRIP} --strip-all ${BUILD_DIR}/${name}.elf
             COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.comment ${BUILD_DIR}/${name}.elf
             COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.note.gnu.property ${BUILD_DIR}/${name}.elf
-            COMMAND ${OBJCOPY_EXECUTABLE} -R .shstrtab -R .strtab ${BUILD_DIR}/${name}.elf
             COMMENT "Stripping ${name}.elf"
     )
 
@@ -207,6 +208,7 @@ function(add_app name)
 
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
+
 
 
 
