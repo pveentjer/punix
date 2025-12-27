@@ -178,8 +178,9 @@ function(add_app name)
             -m32
             -nostdlib
             -no-pie
-            -T ${CMAKE_SOURCE_DIR}/app.ld
+            -Wl,-T,${CMAKE_SOURCE_DIR}/app.ld
             -Wl,-e,_start
+            -Wl,-u,main
             -Wl,--gc-sections
             -Wl,--build-id=none
             -Wl,--no-dynamic-linker
@@ -190,9 +191,10 @@ function(add_app name)
     )
 
     add_custom_command(TARGET ${name}.elf POST_BUILD
-            COMMAND ${CMAKE_STRIP} --strip-all ${BUILD_DIR}/${name}.elf
+            COMMAND ${CMAKE_STRIP} --strip-debug ${BUILD_DIR}/${name}.elf
             COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.comment ${BUILD_DIR}/${name}.elf
             COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.note.gnu.property ${BUILD_DIR}/${name}.elf
+            COMMAND ${OBJCOPY_EXECUTABLE} --remove-section=.note.GNU-stack ${BUILD_DIR}/${name}.elf
             COMMENT "Stripping ${name}.elf"
     )
 

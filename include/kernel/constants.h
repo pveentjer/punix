@@ -34,6 +34,7 @@
  */
 #define KERNEL_VA_BASE      GB(2)
 #define KERNEL_VA_SIZE      MB(4)
+#define KERNEL_STACK_TOP    (KERNEL_VA_SIZE-KB(4))
 
 /*
  * The base virtual address of the process
@@ -47,10 +48,9 @@
  */
 #define PROCESS_VA_SIZE     MB(1)
 
-#define PROCESS_HEAP_SIZE   KB(128)
+#define PROCESS_HEAP_SIZE   KB(512)
 
-#define KERNEL_STACK_TOP    (MB(4)-KB(4))
-
+#define PROCESS_STACK_TOP    (PROCESS_VA_SIZE-KB(4))
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */

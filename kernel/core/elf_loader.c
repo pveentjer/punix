@@ -74,7 +74,7 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
     (void)size;
     (void)base_va;
 
-    kprintf("elf_load\n");
+//    kprintf("elf_load\n");
 
     const Elf32_Ehdr *eh = (const Elf32_Ehdr *)image;
 
@@ -83,13 +83,13 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
         eh->e_ident[2] != 'L' ||
         eh->e_ident[3] != 'F')
     {
-        kprintf("Not elf\n");
+//        kprintf("Not elf\n");
         return -1;
     }
 
     if (eh->e_type != ET_EXEC)
     {
-        kprintf("Not ET_XEC\n");
+//        kprintf("Not ET_XEC\n");
         return -1;
     }
 
@@ -99,33 +99,33 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
     uint32_t max_end = 0;
     uint32_t total_copied = 0;
 
-    kprintf("e_phnum: %u\n", eh->e_phnum);
-    kprintf("e_type=%u e_phoff=%u e_phnum=%u\n", eh->e_type, eh->e_phoff, eh->e_phnum);
+//    kprintf("e_phnum: %u\n", eh->e_phnum);
+//    kprintf("e_type=%u e_phoff=%u e_phnum=%u\n", eh->e_type, eh->e_phoff, eh->e_phnum);
 
     for (int i = 0; i < eh->e_phnum; i++, ph++)
     {
         if (ph->p_type != PT_LOAD)
         {
-            kprintf("ph->p_type: %u\n", ph->p_type);
+//            kprintf("ph->p_type: %u\n", ph->p_type);
             continue;
         }
 
         uint32_t dest_va = ph->p_vaddr;
         const void *src  = (const void *)((uintptr_t)image + ph->p_offset);
 
-        kprintf("ELF LOAD:\n");
-        kprintf("  image        = 0x%08x\n", (uint32_t)image);
-        kprintf("  p_vaddr      = 0x%08x\n", ph->p_vaddr);
-        kprintf("  p_offset     = 0x%08x\n", ph->p_offset);
-        kprintf("  p_filesz     = 0x%08x\n", ph->p_filesz);
-        kprintf("  p_memsz      = 0x%08x\n", ph->p_memsz);
-        kprintf("  dest_va      = 0x%08x\n", dest_va);
-        kprintf("  src          = 0x%08x\n", (uint32_t)src);
-        kprintf("  dest_end     = 0x%08x\n", dest_va + ph->p_filesz);
+//        kprintf("ELF LOAD:\n");
+//        kprintf("  image        = 0x%08x\n", (uint32_t)image);
+//        kprintf("  p_vaddr      = 0x%08x\n", ph->p_vaddr);
+//        kprintf("  p_offset     = 0x%08x\n", ph->p_offset);
+//        kprintf("  p_filesz     = 0x%08x\n", ph->p_filesz);
+//        kprintf("  p_memsz      = 0x%08x\n", ph->p_memsz);
+//        kprintf("  dest_va      = 0x%08x\n", dest_va);
+//        kprintf("  src          = 0x%08x\n", (uint32_t)src);
+//        kprintf("  dest_end     = 0x%08x\n", dest_va + ph->p_filesz);
 
-        kprintf("k_memcpy start\n");
+//        kprintf("k_memcpy start\n");
         k_memcpy((void *)dest_va, src, ph->p_filesz);
-        kprintf("k_memcpy end\n");
+//        kprintf("k_memcpy end\n");
         if (ph->p_memsz > ph->p_filesz)
             k_memset((void *)(dest_va + ph->p_filesz), 0,
                      ph->p_memsz - ph->p_filesz);
@@ -146,6 +146,9 @@ int elf_load(const void *image, size_t size, uint32_t base_va, struct elf_info *
         out->environ_off = 0;
         out->curbrk_off  = 0;
     }
+
+//    kprintf("elf_load:success\n");
+
 
     return 0;
 }

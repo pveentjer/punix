@@ -142,27 +142,50 @@ void task_init_tty(struct task *task, int tty_id)
  * ------------------------------------------------------------ */
 static char **task_init_args(struct task *task, char **argv, int *argc_out)
 {
+
     int argc = 0;
     while (argv && argv[argc] != NULL)
     {
         argc++;
     }
 
+    // todo: I think this is rotten
     /* Reserve space for argv pointer array */
+    kprintf("task->brk %u\n", task->brk);
     char **heap_argv = (char **) task->brk;
-    task->brk += sizeof(char *) * (argc + 1);
+
+
+    size_t len = sizeof(char *) * (argc + 1);
+    kprintf("len: %u\n", len);
+    task->brk += len;
+
+    kprintf("task_init_args after: task=%p argc=%d heap_argv=%p brk(after argv[])=%p\n",
+            task, argc, heap_argv, (void*)task->brk);
 
     /* Copy each string */
     for (int i = 0; i < argc; i++)
     {
-        size_t len = k_strlen(argv[i]) + 1;  // include '\0'
+        const char *src = argv[i];
+        size_t len = k_strlen(src) + 1;  /* include '\0' */
         char *dst = (char *) task->brk;
-        k_memcpy(dst, argv[i], len);
+
+        kprintf("task_init_args[%d]: src=%p dst=%p len=%u brk(before)=%p\n",
+                i, src, dst, (unsigned)len, (void*)task->brk);
+
+        kprintf("k_memcpy before\n");
+        k_memcpy(dst, src, len);
+        kprintf("k_memcpy after\n");
+
         heap_argv[i] = dst;
         task->brk += len;
+
+        kprintf("task_init_args[%d]: heap_argv[%d]=%p brk(after)=%p\n",
+                i, i, heap_argv[i], (void*)task->brk);
     }
 
     heap_argv[argc] = NULL;
+    kprintf("task_init_args: heap_argv[%d]=NULL heap_argv=%p final brk=%p\n",
+            argc, heap_argv, (void*)task->brk);
 
     if (argc_out)
     {
@@ -171,6 +194,7 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
 
     return heap_argv;
 }
+
 
 /* ------------------------------------------------------------
  * task_init_env
@@ -283,24 +307,30 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     uint32_t main_addr = elf_info.entry_va;
     uint32_t environ_off = elf_info.environ_off;
 
-    uintptr_t region_end = base_va + (uintptr_t)PROCESS_VA_SIZE;
-    uint32_t stack_top = (uint32_t)align_down(region_end, 16);
-
-    uintptr_t program_end = base_va + (uintptr_t)elf_info.max_offset;
+    uintptr_t program_end = (uintptr_t)elf_info.max_offset;
     task->brk = (uint32_t)align_up(program_end, 16);
+
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
-    if ((uintptr_t)task->brk >= (uintptr_t)stack_top)
+    kprintf("task_new fresh brk: %u, brk_limit: %u\n", task->brk, task->brk_limit);
+
+
+    // todo: this is a weird check; if the program would be bigger then the amount of memory,
+    // the elf_load should have failed
+    if ((uintptr_t)task->brk > task->brk_limit)
     {
-        kprintf("task_new: not enough space between program and stack for %s\n",
-                filename);
+        kprintf("task_new: not enough space on heap for program %s. brk=%u, brk_limit %u\n",
+                filename, task->brk, task->brk_limit);
         task_table_free(&sched.task_table, task);
         vm_activate_kernel();
         return NULL;
     }
 
+
     int argc = 0;
+    kprintf("init args\n");
     char **heap_argv = task_init_args(task, argv, &argc);
+    kprintf("init env\n");
     char **heap_envp = task_init_env(task, envp, environ_off);
 
     if (elf_info.curbrk_off != 0)
@@ -310,9 +340,12 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         *curbrk_ptr = (char *)task->brk;
     }
 
-    ctx_init(&task->cpu_ctx, stack_top, main_addr, argc, heap_argv, heap_envp);
+
+    kprintf("cpu_ctx init\n");
+    ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc, heap_argv, heap_envp);
 
     vm_activate_kernel();
+    kprintf("task_new: done\n");
     return task;
 }
 

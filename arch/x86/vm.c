@@ -515,6 +515,9 @@ void vm_activate(struct vm_space *vm)
 {
     struct vm_impl *impl = (struct vm_impl *)vm->impl;
 
+    kprintf("vm_activate ESP = 0x%08x\n", read_esp());
+
+
     kprintf("vm_activate:\n");
     kprintf("  vm=%p\n", vm);
     kprintf("  impl=%p\n", impl);
@@ -528,6 +531,14 @@ void vm_activate(struct vm_space *vm)
     uint32_t pte_idx = PTE_INDEX(esp);
 
     struct pde *pd = impl->pd_va->e;
+
+
+
+
+
+
+
+
     if (!pd[pde_idx].present)
     {
         kprintf("FATAL: stack PDE not present (esp=0x%08x)\n", esp);
@@ -559,6 +570,8 @@ void vm_activate(struct vm_space *vm)
     __asm__ volatile("sti");
 
     kprintf("vm_activate: OK\n");
+
+    kprintf("vm_activate POST ESP = 0x%08x\n", read_esp());
 }
 
 
