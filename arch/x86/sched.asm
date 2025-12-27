@@ -38,7 +38,6 @@ ctx_init:
     sub  ecx, 4
     mov  edx, [ebp+28]
     mov  [ecx], edx
-    mov word [0xB8000], 0x0740
 
     ; *(--sp32) = (uint32_t) heap_argv;
     sub  ecx, 4

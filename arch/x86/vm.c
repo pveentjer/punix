@@ -514,14 +514,14 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
 void vm_activate(struct vm_space *vm)
 {
     struct vm_impl *impl = (struct vm_impl *)vm->impl;
-
-    kprintf("vm_activate ESP = 0x%08x\n", read_esp());
-
-
-    kprintf("vm_activate:\n");
-    kprintf("  vm=%p\n", vm);
-    kprintf("  impl=%p\n", impl);
-    kprintf("  pd_pa=0x%08x\n", (uint32_t)impl->pd_pa);
+//
+//    kprintf("vm_activate ESP = 0x%08x\n", read_esp());
+//
+//
+//    kprintf("vm_activate:\n");
+//    kprintf("  vm=%p\n", vm);
+//    kprintf("  impl=%p\n", impl);
+//    kprintf("  pd_pa=0x%08x\n", (uint32_t)impl->pd_pa);
 
     /* --- Validate stack is mapped in new PD --- */
     uintptr_t esp;
@@ -569,9 +569,9 @@ void vm_activate(struct vm_space *vm)
 
     __asm__ volatile("sti");
 
-    kprintf("vm_activate: OK\n");
-
-    kprintf("vm_activate POST ESP = 0x%08x\n", read_esp());
+//    kprintf("vm_activate: OK\n");
+//
+//    kprintf("vm_activate POST ESP = 0x%08x\n", read_esp());
 }
 
 

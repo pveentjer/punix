@@ -213,14 +213,14 @@ static char **task_init_env(struct task *task,
     }
 
     /* Reserve space for envp pointer array */
-    char **task_heap_envp = (char **)task->brk;
+    char **task_heap_envp = (char **) task->brk;
     task->brk += sizeof(char *) * (envc + 1);
 
     /* Copy each string */
     for (int i = 0; i < envc; i++)
     {
         size_t len = k_strlen(envp[i]) + 1; /* include '\0' */
-        char *dst = (char *)task->brk;
+        char *dst = (char *) task->brk;
         k_memcpy(dst, envp[i], len);
         task_heap_envp[i] = dst;
         task->brk += len;
@@ -231,8 +231,8 @@ static char **task_init_env(struct task *task,
     /* Initialize program's global 'environ' if present */
     if (environ_off != 0)
     {
-        uintptr_t environ_va = task->vm_space->base_va + (uintptr_t)environ_off;
-        char ***environ_ptr = (char ***)environ_va;
+        uintptr_t environ_va = task->vm_space->base_va + (uintptr_t) environ_off;
+        char ***environ_ptr = (char ***) environ_va;
         *environ_ptr = task_heap_envp;
     }
 
@@ -248,7 +248,7 @@ static char **task_init_env(struct task *task,
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
-    if (tty_id >= (int)TTY_COUNT)
+    if (tty_id >= (int) TTY_COUNT)
     {
         kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
         return NULL;
@@ -275,9 +275,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    kprintf("Activating task vm\n");
     vm_activate(task->vm_space);
-    kprintf("Activating task vm: done\n");
 
     uintptr_t base_va = task->vm_space->base_va;
 
@@ -292,11 +290,11 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     /* Load ELF */
     const void *image = app->start;
-    size_t image_size = (size_t)(app->end - app->start);
+    size_t image_size = (size_t) (app->end - app->start);
 
     struct elf_info elf_info;
 
-    if (elf_load(image, image_size, (uint32_t)base_va, &elf_info) < 0)
+    if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
     {
         task_table_free(&sched.task_table, task);
         kprintf("task_new: Failed to load the binary %s\n", filename);
@@ -307,19 +305,14 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     uint32_t main_addr = elf_info.entry_va;
     uint32_t environ_off = elf_info.environ_off;
 
-    uintptr_t program_end = (uintptr_t)elf_info.max_offset;
-    task->brk = (uint32_t)align_up(program_end, 16);
+    uintptr_t program_end = (uintptr_t) elf_info.max_offset;
+    task->brk = (uint32_t) align_up(program_end, 16);
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
-
-    kprintf("task_new fresh brk: %u, brk_limit: %u\n", task->brk, task->brk_limit);
-
 
     // todo: this is a weird check; if the program would be bigger then the amount of memory,
     // the elf_load should have failed
-    if ((uintptr_t)task->brk > task->brk_limit)
+    if ((uintptr_t) task->brk > task->brk_limit)
     {
-        kprintf("task_new: not enough space on heap for program %s. brk=%u, brk_limit %u\n",
-                filename, task->brk, task->brk_limit);
         task_table_free(&sched.task_table, task);
         vm_activate_kernel();
         return NULL;
@@ -327,25 +320,17 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
 
     int argc = 0;
-    kprintf("init args\n");
     char **heap_argv = task_init_args(task, argv, &argc);
-    kprintf("init env\n");
     char **heap_envp = task_init_env(task, envp, environ_off);
 
     if (elf_info.curbrk_off != 0)
     {
-        uintptr_t curbrk_va = base_va + (uintptr_t)elf_info.curbrk_off;
-        char **curbrk_ptr = (char **)curbrk_va;
-        *curbrk_ptr = (char *)task->brk;
+        uintptr_t curbrk_va = base_va + (uintptr_t) elf_info.curbrk_off;
+        char **curbrk_ptr = (char **) curbrk_va;
+        *curbrk_ptr = (char *) task->brk;
     }
-
-
-//    kprintf("cpu_ctx init PROCESS_STACK_TOP %u\n", PROCESS_STACK_TOP);
     ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc, heap_argv, heap_envp);
-//    kprintf("cpu_ctx init: done\n");
-
     vm_activate_kernel();
-//    kprintf("task_new: done\n");
     return task;
 }
 

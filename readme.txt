@@ -27,3 +27,7 @@ Useful to inspect the kernel:
 
 nm -n kernel.elf
 readelf -l kernel.elf
+
+Useful for assembly debugging
+
+mov word [0xB8000], 0x0740
