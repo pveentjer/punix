@@ -33,18 +33,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_write:
         {
             sched_schedule();
-
-            kprintf("SYS_write:fd %d\n",(int)a1);
-            size_t len = k_strlen((const char *) a2);
-            kprintf("SYS_write:len %u\n",len);
-            kprintf("SYS_write:count %u\n",(size_t) a3);
-
-            uint32_t res = (uint32_t) vfs_write((int) a1, (const char *) a2, (size_t) a3);
-            kprintf("res: %d\n",res);
-
-//            *(volatile uint16_t*)0xB8000 = 0x1F51;  // 'Q'
-
-            return res;
+            return (uint32_t) vfs_write((int) a1, (const char *) a2, (size_t) a3);
         }
         case SYS_read:
         {

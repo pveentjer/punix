@@ -141,8 +141,6 @@ size_t tty_write(struct tty *tty, const char *buf, size_t maxlen)
 
         written++;
 
-        kprintf("tty_write: tty_idx: %u %u\n", tty->idx, ctx.active->idx);
-
         /* Forward to console only if this is the ACTIVE TTY. */
         if (tty_is_active(tty) && (tty->console != NULL))
         {

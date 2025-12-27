@@ -65,7 +65,7 @@ void kmain(void)
 
     console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};
-    sched_add_task("/sbin/init", 1, argv, 0);
+    sched_add_task("/sbin/init", 0, argv, 0);
 
 //    panic("Stopping here for now");
 
