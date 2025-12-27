@@ -123,10 +123,13 @@ ctx_switch:
     ; --------------------------------------------------
     ; Switch address space
     ; --------------------------------------------------
-
-    mov ecx, [ecx]          ; vm_space->impl
+    ; struct vm_space:
+    ;   +0 base_va
+    ;   +4 size
+    ;   +8 impl
+    mov ecx, [ecx + 8]      ; vm_space->impl
     mov ecx, [ecx + 4]      ; impl->pd_pa
-    mov word [0xB8000], 0x0740
+
     mov cr3, ecx            ; TLB flush happens here
 
     ; --------------------------------------------------
@@ -143,5 +146,7 @@ ctx_switch:
 
     sti
     xor eax, eax
+
     ret
+
 

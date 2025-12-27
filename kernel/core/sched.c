@@ -393,6 +393,7 @@ pid_t sched_getpid(void)
 {
     return sched.current->pid;
 }
+struct vm_impl { void *pd_va; uintptr_t pd_pa; uint32_t kernel_pde_start; };
 
 void sched_schedule(void)
 {
@@ -444,6 +445,10 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
+
+//    struct vm_impl *impl = next->vm_space->impl;
+//    kprintf("ctx_switch: pd_pa = 0x%08x pd_va = 0x%08x\n", impl->pd_pa, impl->pd_va);
+
     ctx_switch(&prev->cpu_ctx, &next->cpu_ctx, next->vm_space);
 }
 

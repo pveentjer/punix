@@ -68,7 +68,10 @@ uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
 
 uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
 {
+
     sys_enter_fn_t fn = sys_enter_fn();
+    *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
+
 
     uint32_t eax = nr;
     uint32_t ebx = a1, ecx = a2, edx = a3, esi = 0, edi = 0;

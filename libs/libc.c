@@ -282,7 +282,9 @@ int printf(const char *fmt, ...)
     va_end(args);
 
     if (len)
+    {
         write(FD_STDOUT, buf, len);
+    }
 
     return (int)len;
 }

@@ -10,6 +10,8 @@
  * Implementation-specific state is carried via `impl`.
  */
 
+struct vm_impl;
+
 /* Process address space */
 struct vm_space {
     uintptr_t base_va;   /* base virtual address */
