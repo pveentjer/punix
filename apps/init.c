@@ -10,8 +10,10 @@ int main(int argc, char **argv)
 
     printf("init started\n");
 
+
     for (int tty_id = 0; tty_id < TTY_COUNT; tty_id++)
     {
+
         sched_add_task("/bin/sh", tty_id, sh_argv, sh_envp);
     }
 

@@ -23,9 +23,7 @@ static struct tty_context ctx;
  * Internal helpers
  * ------------------------------------------------------------------ */
 
-static void tty_init(
-        struct tty *tty,
-        size_t idx)
+static void tty_init(struct tty *tty, size_t idx)
 {
     if (!tty)
     {
@@ -42,8 +40,7 @@ static void tty_init(
     wait_queue_init(&tty->in_wait_queue);
 }
 
-static int tty_is_active(
-        const struct tty *tty)
+static int tty_is_active(const struct tty *tty)
 {
     return (tty != NULL) && (tty == ctx.active);
 }
@@ -52,8 +49,7 @@ static int tty_is_active(
  * TTY input
  * ------------------------------------------------------------------ */
 
-void tty_input_put(
-        struct tty *tty, char c)
+void tty_input_put(struct tty *tty, char c)
 {
     if (tty == NULL)
     {
@@ -77,14 +73,11 @@ void tty_input_put(
 
 static bool tty_input_available(void *obj)
 {
-    struct tty *tty = (struct tty *)obj;
+    struct tty *tty = (struct tty *) obj;
     return (tty->in_head - tty->in_tail) != 0u;
 }
 
-size_t tty_read(
-        struct tty *tty,
-        char *buf,
-        size_t maxlen)
+size_t tty_read(struct tty *tty, char *buf, size_t maxlen)
 {
     if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
     {
@@ -111,15 +104,11 @@ size_t tty_read(
 }
 
 
-
 /* ------------------------------------------------------------------
  * TTY output
  * ------------------------------------------------------------------ */
 
-size_t tty_write(
-        struct tty *tty,
-        const char *buf,
-        size_t maxlen)
+size_t tty_write(struct tty *tty, const char *buf, size_t maxlen)
 {
     if ((tty == NULL) || (buf == NULL) || (maxlen == 0u))
     {
@@ -152,6 +141,8 @@ size_t tty_write(
 
         written++;
 
+        kprintf("tty_write: tty_idx: %u %u\n", tty->idx, ctx.active->idx);
+
         /* Forward to console only if this is the ACTIVE TTY. */
         if (tty_is_active(tty) && (tty->console != NULL))
         {
@@ -168,12 +159,7 @@ size_t tty_write(
  * Keyboard handler
  * ------------------------------------------------------------------ */
 
-static void tty_keyboard_handler(
-        char value,
-        enum keyboard_code code,
-        bool ctrl,
-        bool alt,
-        bool shift)
+static void tty_keyboard_handler(char value, enum keyboard_code code, bool ctrl, bool alt, bool shift)
 {
     struct tty *active = tty_active();
 

@@ -46,9 +46,8 @@ SECTIONS
     __kernel_header_va = .;
     __kernel_header_pa = LOADADDR(.kernel_header);
 
-    LONG(_kpremain)                   /* +0 */
-    LONG(sys_enter)                   /* +4 */
-    LONG(__kernel_page_directory_va)  /* +8 */
+    LONG(sys_enter)                   /* +0 */
+    LONG(__kernel_page_directory_va)  /* +4 */
 
     . = ALIGN(PAGE_SIZE);
   }

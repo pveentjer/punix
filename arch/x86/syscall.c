@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "kernel/syscall.h"
+#include "kernel/console.h"
 
 __attribute__((naked, used))
 uint32_t sys_enter(void)
