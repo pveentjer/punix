@@ -19,7 +19,6 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
                               uint32_t a4,
                               uint32_t a5)
 {
-
     (void) a5;
 
     struct task *current = sched_current();
@@ -55,7 +54,10 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_add_task:
         {
             sched_schedule();
-            return (uint32_t) sched_add_task((const char *) a1, (int) a2, (char **) a3, (char **) a4);
+            kprintf("SYS_add_task esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+            uint32_t res= sched_add_task((const char *) a1, (int) a2, (char **) a3, (char **) a4);
+            kprintf("SYS_add_task res %d, esp: %u, pd: %d\n",res, read_esp(), vm_debug_read_pd_pa());
+            return res;
         }
         case SYS_fork:
         {

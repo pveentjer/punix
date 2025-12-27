@@ -584,3 +584,10 @@ void vm_activate_kernel(void)
             : "memory"
             );
 }
+
+uint32_t vm_debug_read_pd_pa(void)
+{
+    uint32_t cr3;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
+    return cr3;
+}

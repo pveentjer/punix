@@ -47,5 +47,6 @@ void vm_activate(struct vm_space *vm);
 
 /* Activate the kernel address space (switch back to kernel-only) */
 void vm_activate_kernel(void);
+uint32_t vm_debug_read_pd_pa(void);
 
 #endif /* VM_H */

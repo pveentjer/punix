@@ -14,6 +14,7 @@ uint32_t sys_enter(void)
             "pushl %%ebx\n\t"
             "pushl %%eax\n\t"
             "call  sys_enter_dispatch_c\n\t"
+            "movw $0x1F40, 0xB8000\n\t"   /* '@' = 0x40, attr = 0x1F */
             "addl  $24, %%esp\n\t"
             "ret\n\t"
             :

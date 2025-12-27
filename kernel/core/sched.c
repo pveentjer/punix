@@ -17,7 +17,6 @@ void ctx_init(
         char **heap_argv,
         char **heap_envp);
 
-
 void task_init_cwd(struct task *task);
 
 /* ---------------- Run queue ---------------- */
@@ -237,10 +236,6 @@ static char **task_init_env(struct task *task,
     return task_heap_envp;
 }
 
-
-/* ------------------------------------------------------------
- * task_new
- * ------------------------------------------------------------ */
 /* ------------------------------------------------------------
  * task_new
  * ------------------------------------------------------------ */
@@ -273,6 +268,12 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
+//    kprintf("task_new\n");
+
+
+    struct task *parent = sched_current();
+
+//    kprintf("task_new:vm_activate\n");
     vm_activate(task->vm_space);
 
     uintptr_t base_va = task->vm_space->base_va;
@@ -291,6 +292,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     size_t image_size = (size_t) (app->end - app->start);
 
     struct elf_info elf_info;
+
+//    kprintf("task_new:elf_load\n");
 
     if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
     {
@@ -318,7 +321,10 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
 
     int argc = 0;
+//    kprintf("task_new:task_init_args\n");
     char **heap_argv = task_init_args(task, argv, &argc);
+//    kprintf("task_new:task_init_env\n");
+
     char **heap_envp = task_init_env(task, envp, environ_off);
 
     if (elf_info.curbrk_off != 0)
@@ -327,8 +333,23 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         char **curbrk_ptr = (char **) curbrk_va;
         *curbrk_ptr = (char *) task->brk;
     }
+//    kprintf("task_new:ctx_init\n");
+
     ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc, heap_argv, heap_envp);
-    vm_activate_kernel();
+//    kprintf("task_new:ctx_init: done\n");
+
+//    kprintf("task_new:activate kernel\n");
+    // todo: You don't want to activate the kernel, you want to activate the previous vm_space
+    // which might be the kernel pd, but also a process pd
+    if (parent == NULL)
+    {
+        vm_activate_kernel();
+    }
+    else
+    {
+        vm_activate(parent->vm_space);
+    }
+//    kprintf("task_new:activate kernel:done\n");
     return task;
 }
 
@@ -348,6 +369,7 @@ void task_init_cwd(struct task *task)
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
     struct task *task = task_new(filename, tty_id, argv, envp);
+
     if (!task)
     {
         return -1;
@@ -393,7 +415,13 @@ pid_t sched_getpid(void)
 {
     return sched.current->pid;
 }
-struct vm_impl { void *pd_va; uintptr_t pd_pa; uint32_t kernel_pde_start; };
+
+struct vm_impl
+{
+    void *pd_va;
+    uintptr_t pd_pa;
+    uint32_t kernel_pde_start;
+};
 
 void sched_schedule(void)
 {

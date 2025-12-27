@@ -114,6 +114,8 @@ uint32_t syscall_4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t 
     : "memory", "cc"
     );
 
+    *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
+
     return eax;
 }
 
