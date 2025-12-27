@@ -93,38 +93,55 @@ ctx_init:
 
 
 ; ============================================================
-; int ctx_switch(struct cpu_ctx *prev, struct cpu_ctx *next);
+; int ctx_switch(struct cpu_ctx *prev,
+;                struct cpu_ctx *next,
+;                struct vm_space *vm_space);
 ; ============================================================
 ctx_switch:
+
     cli
 
-    ; Save callee-saved registers and flags on OLD stack
+    ; Save old task context
     pushfd
     push ebp
     push edi
     push esi
     push ebx
 
-    ; esp+24 = prev pointer
-    ; esp+28 = next pointer
-    mov eax, [esp + 24]      ; prev
-    mov edx, [esp + 28]      ; next
+    ; Stack layout now:
+    ; esp+24 = prev
+    ; esp+28 = next
+    ; esp+32 = vm_space
 
-    ; Save current ESP into prev->cpu_ctx.esp
+    mov eax, [esp + 24]     ; prev
+    mov edx, [esp + 28]     ; next
+    mov ecx, [esp + 32]     ; vm_space
+
+    ; Save old ESP
     mov [eax + OFF_ESP], esp
 
-    ; Load next ESP
+    ; --------------------------------------------------
+    ; Switch address space
+    ; --------------------------------------------------
+
+    mov ecx, [ecx]          ; vm_space->impl
+    mov ecx, [ecx + 4]      ; impl->pd_pa
+    mov word [0xB8000], 0x0740
+    mov cr3, ecx            ; TLB flush happens here
+
+    ; --------------------------------------------------
+    ; Switch to new stack
+    ; --------------------------------------------------
     mov esp, [edx + OFF_ESP]
 
-    ; Restore next task's registers from NEW stack
+    ; Restore registers of new task
     pop ebx
     pop esi
     pop edi
     pop ebp
-
-    ; Restore next task's flags
     popfd
 
     sti
     xor eax, eax
     ret
+

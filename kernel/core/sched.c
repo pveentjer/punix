@@ -9,8 +9,6 @@
 
 struct scheduler sched;
 
-int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
-
 void ctx_init(
         struct cpu_ctx *cpu_ctx,
         uint32_t stack_top,
@@ -446,9 +444,8 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
-    ctx_switch(&prev->cpu_ctx, &next->cpu_ctx);
+    ctx_switch(&prev->cpu_ctx, &next->cpu_ctx, next->vm_space);
 }
-
 
 void sched_stat(struct sched_stat *stat)
 {

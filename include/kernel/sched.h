@@ -135,7 +135,7 @@ void ctx_init(
         char **heap_argv,
         char **heap_envp);
 
-int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next);
+int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct vm_space *vm_space);
 
 pid_t sched_waitpid(pid_t pid, int *status, int options);
 

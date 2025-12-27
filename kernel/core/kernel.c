@@ -32,7 +32,7 @@ static void bss_zero(void)
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
-   // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
+    // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
 
 
     struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
@@ -62,16 +62,14 @@ void kmain(void)
     kprintf("Init scheduler.\n");
     sched_init();
 
-    panic("Stopping here for now");
+    console_clear(&kconsole);
+    char *argv[] = {"/sbin/init", NULL};
+    sched_add_task("/sbin/init", 1, argv, 0);
 
+//    panic("Stopping here for now");
 
-//    console_clear(&kconsole);
-//    char *argv[] = {"/sbin/init", NULL};
-//    sched_add_task("/sbin/init", 1, argv, 0);
-//
 //    kprintf("Enabling interrupts.\n");
-//    interrupts_enable();
-//
-//
-//    sched_schedule();
+    interrupts_enable();
+
+    sched_schedule();
 }
