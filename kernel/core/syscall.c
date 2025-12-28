@@ -12,16 +12,14 @@
 #include "kernel/clock.h"
 
 __attribute__((used))
+__attribute__((noinline))
 uint32_t sys_enter_dispatch_c(uint32_t nr,
                               uint32_t a1,
                               uint32_t a2,
                               uint32_t a3,
-                              uint32_t a4,
-                              uint32_t a5)
+                              uint32_t a4)
 {
-    (void) a5;
-
-    struct task *current = sched_current();
+      struct task *current = sched_current();
     if (current == NULL)
     {
         return (uint32_t) -1;
@@ -31,8 +29,12 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
     {
         case SYS_write:
         {
-            sched_schedule();
-            return (uint32_t) vfs_write((int) a1, (const char *) a2, (size_t) a3);
+            //sched_schedule();
+
+            kprintf("SYS_write in esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+            uint32_t res = (uint32_t) vfs_write((int) a1, (const char *) a2, (size_t) a3);
+            kprintf("SYS_write out esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+            return res;
         }
         case SYS_read:
         {
@@ -53,10 +55,13 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         }
         case SYS_add_task:
         {
-            sched_schedule();
-            kprintf("SYS_add_task esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+//            kprintf("SYS_add_task in sched: esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+//            sched_schedule();
+//            kprintf("SYS_add_task out sched: esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
+
+            kprintf("SYS_add_task in esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
             uint32_t res= sched_add_task((const char *) a1, (int) a2, (char **) a3, (char **) a4);
-            kprintf("SYS_add_task res %d, esp: %u, pd: %d\n",res, read_esp(), vm_debug_read_pd_pa());
+            kprintf("SYS_add_task out esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
             return res;
         }
         case SYS_fork:
