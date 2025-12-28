@@ -54,6 +54,8 @@ void kmain(void)
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
 
+
+
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
 
@@ -62,6 +64,15 @@ void kmain(void)
 
     kprintf("Init scheduler.\n");
     sched_init();
+
+    kprintf("Triggering page fault...\n");
+
+/* 1GB = 0x40000000 */
+    volatile uint32_t *p = (uint32_t *)0x40000000;
+    uint32_t x = *p;   // <- should page fault
+
+    kprintf("UNREACHABLE: read=%u\n", x);
+
 
     console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};

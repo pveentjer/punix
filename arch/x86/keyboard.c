@@ -2,7 +2,7 @@
 
 #include "kernel/keyboard.h"
 #include "kernel/irq.h"
-#include "include/irq.h"
+#include "include/irq_stub.h"
 
 #include <stddef.h>
 #include <stdbool.h>

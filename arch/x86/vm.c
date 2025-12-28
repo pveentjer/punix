@@ -3,6 +3,9 @@
 #include "kernel/config.h"
 #include "kernel/constants.h"
 #include "kernel/panic.h"
+#include "kernel/irq.h"
+#include "include/gdt.h"
+#include "include/exc_stub.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -123,10 +126,31 @@ static uint8_t vm_paging_pool[VM_PAGING_PAGES_TOTAL * PAGE_SIZE]
 static uint32_t vm_paging_next = 0;
 
 /* ------------------------------------------------------------
+ * Page fault debug handler (exception #14 with error code)
+ * ------------------------------------------------------------ */
+
+/* NOTE: must NOT be static, because the stub calls it by symbol name. */
+__attribute__((used))
+void page_fault_handler(uint32_t err)
+{
+    uint32_t cr2;
+    __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+
+    kprintf("\n=== PAGE FAULT ===\n");
+    kprintf("CR2 = 0x%08x\n", cr2);
+    kprintf("ERR = 0x%08x\n", err);
+
+    panic("page fault");
+}
+
+/* Generates: __attribute__((naked)) void isr_page_fault(void) */
+MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
+
+/* ------------------------------------------------------------
  * Helpers
  * ------------------------------------------------------------ */
 
-static inline void invlpg(uintptr_t va)
+        static inline void invlpg(uintptr_t va)
 {
     __asm__ volatile("invlpg (%0)" :: "r"(va) : "memory");
 }
@@ -296,6 +320,9 @@ static void vm_unmap_impl(struct vm_impl *impl, uintptr_t va, size_t size)
 
 void vm_init(void)
 {
+    /* Install #PF handler (exception 14) */
+    idt_set_gate(14, (uint32_t)isr_page_fault, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
+
     /* Bind kernel vm to existing kernel paging structures */
     kernel_vm.base_va = kernel_va_base();
     kernel_vm.impl    = &kernel_impl;
@@ -438,7 +465,6 @@ static void vm_verify(struct vm_space *vm)
     }
 }
 
-
 struct vm_space *vm_create(uint32_t base_pa, size_t size)
 {
     struct vm_space *vm = vm_alloc_process_vm();
@@ -505,8 +531,6 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
     return vm;
 }
 
-
-
 /* ------------------------------------------------------------
  * VM activation
  * ------------------------------------------------------------ */
@@ -514,14 +538,6 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
 void vm_activate(struct vm_space *vm)
 {
     struct vm_impl *impl = (struct vm_impl *)vm->impl;
-//
-//    kprintf("vm_activate ESP = 0x%08x\n", read_esp());
-//
-//
-//    kprintf("vm_activate:\n");
-//    kprintf("  vm=%p\n", vm);
-//    kprintf("  impl=%p\n", impl);
-//    kprintf("  pd_pa=0x%08x\n", (uint32_t)impl->pd_pa);
 
     /* --- Validate stack is mapped in new PD --- */
     uintptr_t esp;
@@ -532,16 +548,9 @@ void vm_activate(struct vm_space *vm)
 
     struct pde *pd = impl->pd_va->e;
 
-
-
-
-
-
-
-
     if (!pd[pde_idx].present)
     {
-        kprintf("FATAL: stack PDE not present (esp=0x%08x)\n", esp);
+        kprintf("FATAL: stack PDE not present (esp=0x%08x)\n", (uint32_t)esp);
         while (1);
     }
 
@@ -549,31 +558,22 @@ void vm_activate(struct vm_space *vm)
 
     if (!pt->e[pte_idx].present)
     {
-        kprintf("FATAL: stack PTE not present (esp=0x%08x)\n", esp);
+        kprintf("FATAL: stack PTE not present (esp=0x%08x)\n", (uint32_t)esp);
         while (1);
     }
 
-    /* --- Disable interrupts during CR3 switch --- */
     __asm__ volatile("cli");
 
-    /* --- Flush global mappings by clearing PGE --- */
     uint32_t cr4;
     __asm__ volatile("mov %%cr4, %0" : "=r"(cr4));
     __asm__ volatile("mov %0, %%cr4" :: "r"(cr4 & ~(1 << 7)));
 
-    /* --- Load new page directory --- */
     __asm__ volatile("mov %0, %%cr3" :: "r"(impl->pd_pa) : "memory");
 
-    /* --- Restore CR4 (re-enable PGE if used) --- */
     __asm__ volatile("mov %0, %%cr4" :: "r"(cr4));
 
     __asm__ volatile("sti");
-
-//    kprintf("vm_activate: OK\n");
-//
-//    kprintf("vm_activate POST ESP = 0x%08x\n", read_esp());
 }
-
 
 void vm_activate_kernel(void)
 {

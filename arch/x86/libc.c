@@ -2,14 +2,13 @@
 #include "kernel/syscall.h"
 
 /* ------------------------------------------------------------------
- * Syscall helpers (x86-32 Linux-style register ABI, up to 5 args)
+ * Syscall helpers (x86-32 Linux-style register ABI, up to 4 args)
  *
  *   EAX = nr
  *   EBX = a1
  *   ECX = a2
  *   EDX = a3
  *   ESI = a4
- *   EDI = a5
  *
  * Return:
  *   EAX = ret
@@ -26,7 +25,7 @@ uint32_t syscall_0(uint32_t nr)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc"
+    : "memory", "cc", "edi"
     );
 
     return eax;
@@ -43,7 +42,7 @@ uint32_t syscall_1(uint32_t nr, uint32_t a1)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc"
+    : "memory", "cc", "edi"
     );
 
     return eax;
@@ -60,7 +59,7 @@ uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc"
+    : "memory", "cc", "edi"
     );
 
     return eax;
@@ -79,7 +78,7 @@ uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc"
+    : "memory", "cc", "edi"
     );
 
 //    *(volatile uint16_t*)0xB8000 = 0x1F51;  // 'Q'
@@ -99,7 +98,7 @@ uint32_t syscall_4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t 
             "call *%[fn]\n\t"
            : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc"
+    : "memory", "cc", "edi"
     );
 
 

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 #include "kernel/irq.h"
-#include "include/irq.h"
+#include "include/irq_stub.h"
 #include "include/gdt.h"
 
 /* ------------------------------------------------------------
