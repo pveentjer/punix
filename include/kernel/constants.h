@@ -34,7 +34,9 @@
  */
 #define KERNEL_VA_BASE      GB(2)
 #define KERNEL_VA_SIZE      MB(4)
-#define KERNEL_STACK_TOP    (KERNEL_VA_SIZE-KB(4))
+
+// todo:
+#define KERNEL_STACK_TOP_VA    (KERNEL_VA_BASE+ KERNEL_VA_SIZE-KB(4))
 
 /*
  * The base virtual address of the process

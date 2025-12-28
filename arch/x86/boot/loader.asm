@@ -28,7 +28,7 @@ org 0x7E00
 %define KERNEL_SECTORS     512                ; the kernel can now be up to 256 KB
 %define KERNEL_SIZE_BYTES  (KERNEL_SECTORS * 512)
 %define KERNEL_START_LBA   3                  ; kernel starts at LBA 3
-%define KERNEL_STACK_TOP   MB(2)              ; the kernel stack top starts at 2MB
+%define KERNEL_STACK_TOP_VA   MB(2)              ; the kernel stack top starts at 2MB
 
 %define PREMAIN_PA         KERNEL_LOAD_ADDR   ; premain is now at offset 0
 
@@ -250,7 +250,7 @@ kernel_start:
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, KERNEL_STACK_TOP
+    mov esp, KERNEL_STACK_TOP_VA
 
     ; copy kernel from temp to 1 MiB
     mov esi, KERNEL_LOAD_TEMP

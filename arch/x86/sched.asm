@@ -33,58 +33,48 @@ ctx_init:
     mov  eax, [ebp+12]       ; stack_top
     mov  ecx, eax            ; working stack pointer
 
-
-    ; *(--sp32) = (uint32_t) heap_envp;
+    ; Push arguments for task_trampoline (deepest on stack)
     sub  ecx, 4
     mov  edx, [ebp+28]
-    mov  [ecx], edx
+    mov  [ecx], edx          ; heap_envp
 
-    ; *(--sp32) = (uint32_t) heap_argv;
     sub  ecx, 4
     mov  edx, [ebp+24]
-    mov  [ecx], edx
+    mov  [ecx], edx          ; heap_argv
 
-    ; *(--sp32) = (uint32_t) argc;
     sub  ecx, 4
     mov  edx, [ebp+20]
-    mov  [ecx], edx
+    mov  [ecx], edx          ; argc
 
-
-    ; *(--sp32) = main_addr;
     sub  ecx, 4
     mov  edx, [ebp+16]
-    mov  [ecx], edx
+    mov  [ecx], edx          ; main_addr
 
-    ; *(--sp32) = 0;  // dummy
     sub  ecx, 4
-    mov  dword [ecx], 0
+    mov  dword [ecx], 0      ; dummy
 
-    ; *(--sp32) = (uint32_t) task_trampoline;  // return address
+    ; Return address - where ctx_switch will ret to
     sub  ecx, 4
     mov  edx, task_trampoline
     mov  [ecx], edx
 
-    ; *(--sp32) = 0x202;  // EFLAGS IF=1
+    ; CPU state that ctx_switch will restore (must match pop order!)
     sub  ecx, 4
-    mov  dword [ecx], 0x202
+    mov  dword [ecx], 0x202  ; EFLAGS (IF=1)
 
-    ; *(--sp32) = 0;  // EAX
     sub  ecx, 4
-    mov  dword [ecx], 0
+    mov  dword [ecx], 0      ; EBP
 
-    ; *(--sp32) = 0;  // ECX
     sub  ecx, 4
-    mov  dword [ecx], 0
+    mov  dword [ecx], 0      ; EDI
 
-    ; *(--sp32) = 0;  // EDX
     sub  ecx, 4
-    mov  dword [ecx], 0
+    mov  dword [ecx], 0      ; ESI
 
-    ; *(--sp32) = 0;  // EBX
     sub  ecx, 4
-    mov  dword [ecx], 0
+    mov  dword [ecx], 0      ; EBX
 
-    ; cpu_ctx->esp = (uint32_t) sp32;
+    ; Save ESP to cpu_ctx
     mov  eax, [ebp+8]        ; cpu_ctx*
     mov  [eax + OFF_ESP], ecx
 
@@ -101,43 +91,23 @@ ctx_switch:
 
     cli
 
-    ; Save old task context
-    pushfd
-    push ebp
-    push edi
-    push esi
-    push ebx
+    ; Stack layout:
+    ; esp+4  = prev (ignored)
+    ; esp+8  = next
+    ; esp+12 = vm_space
 
-    ; Stack layout now:
-    ; esp+24 = prev
-    ; esp+28 = next
-    ; esp+32 = vm_space
+    mov edx, [esp + 8]      ; next
+    mov ecx, [esp + 12]     ; vm_space
 
-    mov eax, [esp + 24]     ; prev
-    mov edx, [esp + 28]     ; next
-    mov ecx, [esp + 32]     ; vm_space
-
-    ; Save old ESP
-    mov [eax + OFF_ESP], esp
-
-    ; --------------------------------------------------
     ; Switch address space
-    ; --------------------------------------------------
-    ; struct vm_space:
-    ;   +0 base_va
-    ;   +4 size
-    ;   +8 impl
     mov ecx, [ecx + 8]      ; vm_space->impl
     mov ecx, [ecx + 4]      ; impl->pd_pa
+    mov cr3, ecx
 
-    mov cr3, ecx            ; TLB flush happens here
-
-    ; --------------------------------------------------
-    ; Switch to new stack
-    ; --------------------------------------------------
+    ; Load next task's user ESP (points to saved CPU state)
     mov esp, [edx + OFF_ESP]
 
-    ; Restore registers of new task
+    ; Restore CPU state from user stack
     pop ebx
     pop esi
     pop edi
@@ -148,5 +118,4 @@ ctx_switch:
     xor eax, eax
 
     ret
-
 

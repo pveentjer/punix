@@ -31,4 +31,4 @@ readelf -l kernel.elf
 Useful for assembly debugging
 
 mov word [0xB8000], 0x0740
-    // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
+*(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'

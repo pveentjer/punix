@@ -38,7 +38,7 @@ void kmain(void)
 
     struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
 
-    k_cpu_ctx->esp = KERNEL_STACK_TOP;
+    k_cpu_ctx->esp = KERNEL_STACK_TOP_VA;
 
     bss_zero();
 

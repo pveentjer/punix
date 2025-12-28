@@ -314,6 +314,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     // the elf_load should have failed
     if ((uintptr_t) task->brk > task->brk_limit)
     {
+        kprintf("task_new: not enough space %s\n", filename);
         task_table_free(&sched.task_table, task);
         vm_activate_kernel();
         return NULL;
@@ -349,7 +350,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         vm_activate(parent->vm_space);
     }
-//    kprintf("task_new:activate kernel:done\n");
+    kprintf("task_new:activate kernel:done\n");
     return task;
 }
 
@@ -372,7 +373,10 @@ pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 
     if (!task)
     {
+        kprintf("Task is NULL\n");
         return -1;
+    }else{
+        kprintf("Good task created\n");
     }
 
     run_queue_push(&sched.run_queue, task);

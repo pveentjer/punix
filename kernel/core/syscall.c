@@ -19,9 +19,15 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
                               uint32_t a3,
                               uint32_t a4)
 {
-      struct task *current = sched_current();
+    *(volatile uint16_t*)0xB8000 = 0x1F44;  // 'D'
+
+
+    kprintf("sys_enter_dispatch_c %u\n",nr);
+
+    struct task *current = sched_current();
     if (current == NULL)
     {
+        kprintf("No damn current task\n");
         return (uint32_t) -1;
     }
 
@@ -29,7 +35,9 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
     {
         case SYS_write:
         {
-            //sched_schedule();
+    //        sched_schedule();
+
+//            kprintf("SYS_write: %s\n",(const char *) a2);
 
             kprintf("SYS_write in esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
             uint32_t res = (uint32_t) vfs_write((int) a1, (const char *) a2, (size_t) a3);
@@ -61,6 +69,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
 
             kprintf("SYS_add_task in esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
             uint32_t res= sched_add_task((const char *) a1, (int) a2, (char **) a3, (char **) a4);
+            kprintf("SYS_add_task res=%d\n",res);
             kprintf("SYS_add_task out esp: %u, pd: %d\n", read_esp(), vm_debug_read_pd_pa());
             return res;
         }

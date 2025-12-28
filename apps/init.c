@@ -9,6 +9,7 @@ int main(int argc, char **argv)
     char *sh_envp[] = {NULL};
 
     printf("init started\n");
+
     printf("TTY_COUNT %d\n",TTY_COUNT);
 
     for (int tty_id = 0; tty_id < TTY_COUNT; tty_id++)
