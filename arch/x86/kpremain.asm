@@ -132,6 +132,7 @@ _kpremain:
     ; (kernel header is no longer identity-mapped)
     call map_identity_premain
     call map_identity_vga
+    call map_identity_gdt
 
     ; Fill high PT: map 1MB window at KERNEL_VA_BASE -> __kernel_pa_start
     ; This now includes the kernel header as the first page
@@ -303,7 +304,7 @@ map_identity_vga:
     ret
 
 ; Identity-map the page(s) covering GDT + GDTR
-map_identity_gdt_region:
+map_identity_gdt:
     call get_low_pt_pa
     mov edi, eax
     mov ecx, PTE_FLAGS
