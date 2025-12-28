@@ -132,12 +132,30 @@ static uint32_t vm_paging_next = 0;
 __attribute__((used))
 void page_fault_handler(uint32_t err)
 {
-    uint32_t cr2;
+    uint32_t cr2, cr3, eip, cs, eflags;
+    uint32_t *stack_ptr;
+
     __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+    __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
+
+    // Get the stack pointer at exception entry
+    // Adjust based on your stub's push/call sequence
+    __asm__ volatile("mov %%ebp, %0" : "=r"(stack_ptr));
+
+    // Stack layout (adjust offsets based on your stub):
+    // [ebp+4] = return address
+    // [ebp+8] onwards = CPU-pushed values
+    eip = stack_ptr[2];      // Adjust offset as needed
+    cs = stack_ptr[3];
+    eflags = stack_ptr[4];
 
     kprintf("\n=== PAGE FAULT ===\n");
     kprintf("Address: 0x%08x\n", cr2);
     kprintf("Error:   0x%08x\n", err);
+    kprintf("EIP:     0x%08x\n", eip);
+    kprintf("CS:      0x%04x\n", cs);
+    kprintf("EFLAGS:  0x%08x\n", eflags);
+    kprintf("CR3:     0x%08x\n", cr3);
 
     // Decode error code
     kprintf("  Type:   %s\n", (err & 0x01) ? "protection-violation" : "not-present");
@@ -152,7 +170,6 @@ void page_fault_handler(uint32_t err)
 
     panic("page fault");
 }
-
 
 /* Generates: __attribute__((naked)) void isr_page_fault(void) */
 MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
