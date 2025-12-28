@@ -159,6 +159,9 @@ _kpremain:
     or  eax, (1 << PG_BIT)
     mov cr0, eax
 
+    ; load GDT
+    lgdt [GDTR_PA] ; since it is identity mapped, we can use the physical address.
+
     ; If you don't see '@', paging died before/at this store
     ;mov word [VGA_VA], 0x1F40          ; '@'
 
