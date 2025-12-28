@@ -62,11 +62,10 @@ void kmain(void)
     kprintf("Init scheduler.\n");
     sched_init();
 
-    //    kprintf("Enabling interrupts.\n");
+    kprintf("Enabling interrupts.\n");
     interrupts_enable();
 
-    kprintf("Triggering page fault...\n");
-
+//    kprintf("Triggering page fault...\n");
 //    /* 1GB = 0x40000000 */
 //    volatile uint32_t *p = (uint32_t *)0x40000000;
 //    uint32_t x = *p;   // <- should page fault
