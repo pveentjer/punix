@@ -317,11 +317,19 @@ static void vm_unmap_impl(struct vm_impl *impl, uintptr_t va, size_t size)
 /* ------------------------------------------------------------
  * VM init
  * ------------------------------------------------------------ */
-
+__attribute__((naked)) void test_int14(void)
+{
+    __asm__ volatile(
+            "movw $0x1F21, 0xB8000\n\t"
+            "iret\n\t"
+            );
+}
 void vm_init(void)
 {
     /* Install #PF handler (exception 14) */
-    idt_set_gate(14, (uint32_t)isr_page_fault, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
+//    idt_set_gate(14, (uint32_t)isr_page_fault, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
+    idt_set_gate(14, (uint32_t)test_int14, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
+
 
     /* Bind kernel vm to existing kernel paging structures */
     kernel_vm.base_va = kernel_va_base();
@@ -345,6 +353,8 @@ void vm_init(void)
                   premain_va_page_start,
                   premain_va_page_end - premain_va_page_start);
 }
+
+
 
 /* ------------------------------------------------------------
  * Public API

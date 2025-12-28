@@ -1,4 +1,6 @@
+; ============================================================
 ; arch/x86/kpremain.asm
+; ============================================================
 BITS 32
 global _kpremain
 extern kmain
@@ -9,36 +11,99 @@ extern __kernel_low_page_table_va
 extern __kernel_high_page_table_va
 extern __kernel_page_directory_va
 
+; ------------------------------------------------------------
+; Basic macros
+; ------------------------------------------------------------
 %define KB(x) ((x) << 10)
 %define MB(x) ((x) << 20)
 %define GB(x) ((x) << 30)
 
-%define PAGE_SIZE               KB(4)
-%define PAGE_SHIFT              12
+%define PAGE_SIZE           KB(4)
+%define PAGE_SHIFT          12
+%define PAGE_MASK           (~(PAGE_SIZE - 1))
 
-%define KERNEL_VA_BASE          GB(2)
-%define KERNEL_VA_SIZE          MB(4)
-%define KERNEL_VA_STACK_TOP     (KERNEL_VA_BASE + KERNEL_VA_SIZE - PAGE_SIZE)
+%define KERNEL_VA_BASE      GB(2)
+%define KERNEL_VA_SIZE      MB(4)
+%define KERNEL_VA_STACK_TOP (KERNEL_VA_BASE + KERNEL_VA_SIZE - PAGE_SIZE)
 
-%define KERNEL_LOAD_PA          MB(1)
-%define PREMAIN_PA              KERNEL_LOAD_PA
+%define KERNEL_LOAD_PA      MB(1)
+%define PREMAIN_PA          KERNEL_LOAD_PA
 
-%define KERNEL_DS               0x10
+; ------------------------------------------------------------
+; Low memory allocations
+; ------------------------------------------------------------
+%define VGA_PA              0x000B8000
+%define VGA_VA              VGA_PA
+%define VGA_SIZE            PAGE_SIZE
+%define VGA_END_PA          (VGA_PA + VGA_SIZE)
 
-%define VGA_PA                  0xB8000
-%define VGA_VA                  VGA_PA
-%define VGA_COLS                80
-%define VGA_ATTR                0x1F
+; Place GDT immediately after VGA, on a page boundary
+%define GDT_PA              (VGA_END_PA)
+%define GDTR_PA             (GDT_PA + GDT_TOTAL_BYTES)
 
-%define PTE_PRESENT             1
-%define PTE_RW                  2
-%define PTE_FLAGS               (PTE_PRESENT | PTE_RW)
+; Minimal early stack (must be identity-mapped; keep it inside first 4MB)
+%define EARLY_STACK_TOP_PA  (MB(1) - KB(16))     ; 1MB - 16KB
 
-%define PTE_BITS                10
-%define PDE_SHIFT               (PAGE_SHIFT + PTE_BITS)
-%define PDE_INDEX(va)           ((va) >> PDE_SHIFT)
+; ------------------------------------------------------------
+; GDT layout / selectors
+; ------------------------------------------------------------
+%define GDT_ENTRY_BYTES     8
+%define GDT_NENTRIES        3
 
-%define PG_BIT               31
+%define GDT_TOTAL_BYTES     (GDT_NENTRIES * GDT_ENTRY_BYTES)
+%define GDT_LIMIT_BYTES     (GDT_TOTAL_BYTES - 1)
+
+%define GDT_NULL_INDEX      0
+%define GDT_CODE_INDEX      1
+%define GDT_DATA_INDEX      2
+
+%define GDT_SEL(idx)        ((idx) * GDT_ENTRY_BYTES)
+
+%define GDT_CODE            GDT_SEL(GDT_CODE_INDEX)
+%define GDT_DATA            GDT_SEL(GDT_DATA_INDEX)
+%define KERNEL_DS           GDT_DATA
+
+%define GDT_OFF_NULL        (GDT_SEL(GDT_NULL_INDEX))
+%define GDT_OFF_CODE        (GDT_SEL(GDT_CODE_INDEX))
+%define GDT_OFF_DATA        (GDT_SEL(GDT_DATA_INDEX))
+
+; ------------------------------------------------------------
+; Paging
+; ------------------------------------------------------------
+%define PTE_PRESENT         1
+%define PTE_RW              2
+%define PTE_FLAGS           (PTE_PRESENT | PTE_RW)
+
+%define PTE_BITS            10
+%define PDE_SHIFT           (PAGE_SHIFT + PTE_BITS)
+%define PDE_INDEX(x)        ((x) >> PDE_SHIFT)
+
+%define PG_BIT              31
+
+; ------------------------------------------------------------
+; GDT encoding constants (flat 0..4GB, 32-bit, 4K gran)
+; ------------------------------------------------------------
+%define GDT_ACC_CODE        0x9A
+%define GDT_ACC_DATA        0x92
+
+%define GDT_GRAN_4K         0x80
+%define GDT_GRAN_32BIT      0x40
+%define GDT_GRAN_LIMIT_HI   0x0F
+%define GDT_FLAGS           (GDT_GRAN_4K | GDT_GRAN_32BIT | GDT_GRAN_LIMIT_HI)
+
+%define GDT_BASE            0x00000000
+%define GDT_LIMIT           0x000FFFFF            ; 4GB when granularity=4K
+
+; Build the descriptor dwords without magic constants
+%define GDT_LODWORD(base, limit) ( ((limit) & 0xFFFF) | (((base) & 0xFFFF) << 16) )
+%define GDT_HIDWORD(base, access, flags, limit) ( (((base) >> 16) & 0xFF) | (((access) & 0xFF) << 8) | \
+                                                  ((((limit) >> 16) & 0x0F) << 16) | (((flags) & 0xF0) << 16) | \
+                                                  (((base) >> 24) << 24) )
+
+; ============================================================
+; Entry
+; ============================================================
+section .text.premain
 
 section .text.premain
 
@@ -55,6 +120,10 @@ _kpremain:
 
     ; Temporary stack in identity-mapped low memory
     mov esp, 589824
+
+    ; build GDT
+    call build_min_gdt_low
+
 
     ; Zero PD + both PTs
     call clear_paging_structs
@@ -99,11 +168,32 @@ _kpremain:
 .pg_on:
     jmp kmain
 
-; --------------------------------------------------
-; VA->PA translation for symbols that live in the high kernel window.
+; ============================================================
+; GDT construction at fixed low PA (VA==PA at this stage)
+; ============================================================
+build_min_gdt_low:
+    ; null descriptor
+    mov dword [GDT_PA + GDT_OFF_NULL + 0], 0
+    mov dword [GDT_PA + GDT_OFF_NULL + 4], 0
+
+    ; code descriptor
+    mov dword [GDT_PA + GDT_OFF_CODE + 0], GDT_LODWORD(GDT_BASE, GDT_LIMIT)
+    mov dword [GDT_PA + GDT_OFF_CODE + 4], GDT_HIDWORD(GDT_BASE, GDT_ACC_CODE, GDT_FLAGS, GDT_LIMIT)
+
+    ; data descriptor
+    mov dword [GDT_PA + GDT_OFF_DATA + 0], GDT_LODWORD(GDT_BASE, GDT_LIMIT)
+    mov dword [GDT_PA + GDT_OFF_DATA + 4], GDT_HIDWORD(GDT_BASE, GDT_ACC_DATA, GDT_FLAGS, GDT_LIMIT)
+
+    ; GDTR (limit:16, base:32)
+    mov word  [GDTR_PA + 0], GDT_LIMIT_BYTES
+    mov dword [GDTR_PA + 2], GDT_PA
+    ret
+
+; ============================================================
+; VA -> PA helper for linker symbols in high kernel window
 ; Input : eax = VA
 ; Output: eax = PA
-; Clobbers: ebx
+; ============================================================
 va_to_pa:
     push ebx
     mov ebx, __kernel_va_base
@@ -113,7 +203,9 @@ va_to_pa:
     pop ebx
     ret
 
-; Page table / directory physical addresses (from linker VAs)
+; ============================================================
+; Paging structures physical addresses (from linker VAs)
+; ============================================================
 get_low_pt_pa:
     mov eax, __kernel_low_page_table_va
     call va_to_pa
@@ -129,9 +221,10 @@ get_pd_pa:
     call va_to_pa
     ret
 
-; --------------------------------------------------
+; ============================================================
 ; Clear paging structures: low PT, high PT, PD.
 ; Clobbers: eax, ecx, edi
+; ============================================================
 clear_paging_structs:
     xor eax, eax
 
@@ -151,31 +244,32 @@ clear_paging_structs:
     rep stosd
     ret
 
-; --------------------------------------------------
+; ============================================================
 ; Install a PT into PD at PDE index.
 ; Input: eax = pde_index, ebx = pt_pa
+; ============================================================
 install_pt_at_pde_pa:
     push ecx
     push edi
 
-    mov ecx, eax                 ; pde index
-
+    mov ecx, eax
     call get_pd_pa
-    mov edi, eax                 ; PD base (PA)
+    mov edi, eax
 
-    mov eax, ebx                 ; PT physical address
-    or  eax, PTE_FLAGS           ; PDE flags
+    mov eax, ebx
+    or  eax, PTE_FLAGS
 
-    shl ecx, 2                   ; index * 4
+    shl ecx, 2
     mov [edi + ecx], eax
 
     pop edi
     pop ecx
     ret
 
-; --------------------------------------------------
+; ============================================================
 ; Write a PTE into a given PT.
 ; Input: eax = VA, ebx = PA, ecx = flags, edi = pt_base_pa
+; ============================================================
 map_page_pt:
     mov edx, eax
     shr edx, PAGE_SHIFT
@@ -187,7 +281,9 @@ map_page_pt:
     mov [edi + edx], eax
     ret
 
-; Identity mappings all go through low PT (only premain and VGA)
+; ============================================================
+; Identity mappings (low PT)
+; ============================================================
 map_identity_premain:
     call get_low_pt_pa
     mov edi, eax
@@ -206,22 +302,42 @@ map_identity_vga:
     call map_page_pt
     ret
 
-; --------------------------------------------------
+; Identity-map the page(s) covering GDT + GDTR
+map_identity_gdt_region:
+    call get_low_pt_pa
+    mov edi, eax
+    mov ecx, PTE_FLAGS
+
+    mov eax, (GDT_PA & PAGE_MASK)
+    mov ebx, eax
+    call map_page_pt
+
+    mov eax, (GDTR_PA & PAGE_MASK)
+    cmp eax, (GDT_PA & PAGE_MASK)
+    je .done
+
+    mov ebx, eax
+    call map_page_pt
+
+.done:
+    ret
+
+; ============================================================
 ; Map KERNEL_VA_SIZE bytes at:
 ;   VA: KERNEL_VA_BASE .. KERNEL_VA_BASE+KERNEL_VA_SIZE
 ;   PA: __kernel_pa_start .. +KERNEL_VA_SIZE
 ; Uses the high PT.
-; NOTE: This now includes the kernel header as the first page!
+; ============================================================
 map_kernel_high:
     call get_high_pt_pa
-    mov edi, eax                 ; high PT base (PA)
+    mov edi, eax
 
-    mov esi, KERNEL_VA_BASE           ; VA cursor
-    mov ebx, __kernel_pa_start   ; PA cursor
+    mov esi, KERNEL_VA_BASE
+    mov ebx, __kernel_pa_start
     mov ecx, PTE_FLAGS
 
     mov ebp, KERNEL_VA_SIZE
-    shr ebp, PAGE_SHIFT          ; number of pages
+    shr ebp, PAGE_SHIFT
 
 .loop:
     mov eax, esi
@@ -231,34 +347,4 @@ map_kernel_high:
     add ebx, PAGE_SIZE
     dec ebp
     jnz .loop
-    ret
-
-; --------------------------------------------------
-; Debug helper (kept, unused here)
-; eax=value, ecx=col, edx=row
-vga_write_hex32:
-    mov edi, edx
-    imul edi, VGA_COLS
-    add edi, ecx
-    shl edi, 1
-    add edi, VGA_VA
-
-    mov esi, 8
-.hex_loop:
-    mov ebx, eax
-    shr ebx, 28
-    and ebx, 0xF
-    cmp bl, 9
-    jbe .digit
-    add bl, ('A' - 10)
-    jmp .emit
-.digit:
-    add bl, '0'
-.emit:
-    mov byte [edi], bl
-    mov byte [edi + 1], VGA_ATTR
-    add edi, 2
-    shl eax, 4
-    dec esi
-    jnz .hex_loop
     ret

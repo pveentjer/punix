@@ -14,7 +14,6 @@
 #include "kernel/clock.h"
 #include "kernel/vm.h"
 
-
 extern uint8_t __bss_start;
 extern uint8_t __bss_end;
 
@@ -27,6 +26,7 @@ static void bss_zero(void)
         *p = 0;
     }
 }
+
 
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
@@ -45,14 +45,13 @@ void kmain(void)
     console_init(&kconsole);
 
     kprintf("PUnix 0.001\n");
+   clock_init();
 
-    clock_init();
+     kprintf("Init Interrupt Descriptor Table.\n");
+    idt_init();
 
     kprintf("Init VM.\n");
     vm_init();
-
-    kprintf("Init Interrupt Descriptor Table.\n");
-    idt_init();
 
 
 
@@ -65,14 +64,20 @@ void kmain(void)
     kprintf("Init scheduler.\n");
     sched_init();
 
+    //    kprintf("Enabling interrupts.\n");
+    interrupts_enable();
+
     kprintf("Triggering page fault...\n");
 
+    __asm__ volatile("int $14");
+
+
 /* 1GB = 0x40000000 */
-    volatile uint32_t *p = (uint32_t *)0x40000000;
-    uint32_t x = *p;   // <- should page fault
+//    volatile uint32_t *p = (uint32_t *)0x40000000;
+//    uint32_t x = *p;   // <- should page fault
 
-    kprintf("UNREACHABLE: read=%u\n", x);
-
+//    kprintf("UNREACHABLE: read=%u\n", x);
+    kprintf("UNREACHABLE\n");
 
     console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};
@@ -80,8 +85,7 @@ void kmain(void)
 
 //    panic("Stopping here for now");
 
-//    kprintf("Enabling interrupts.\n");
-    interrupts_enable();
+
 
     sched_schedule();
 }

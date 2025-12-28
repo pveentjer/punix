@@ -36,17 +36,16 @@ void idt_set_gate(uint8_t num, uint32_t handler,
     __attribute__((naked)) void stub_name(void)                     \
     {                                                               \
         __asm__ volatile(                                           \
+            "movw $0x1F21, 0xB8000\n\t"  /* '!' - FIRST THING */    \
             "pushal\n\t"                                            \
             "movl 32(%%esp), %%eax\n\t"                             \
             "pushl %%eax\n\t"                                       \
             "call " #handler_fn "\n\t"                              \
             "addl $4, %%esp\n\t"                                    \
             "popal\n\t"                                             \
-            "addl $4, %%esp\n\t" /* discard CPU error code */       \
+            "addl $4, %%esp\n\t"                                    \
             "iret\n\t"                                              \
-            :                                                       \
-            :                                                       \
-            : "eax", "memory"                                       \
+            : : : "memory"                                          \
         );                                                          \
     }
 

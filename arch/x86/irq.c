@@ -5,6 +5,7 @@
 #include "kernel/irq.h"
 #include "include/irq_stub.h"
 #include "include/gdt.h"
+#include "kernel/console.h"
 
 /* ------------------------------------------------------------
  * IRQ state helpers
@@ -98,12 +99,34 @@ void idt_set_gate(uint8_t num,
                   uint16_t selector,
                   uint8_t flags)
 {
-    idt[num].offset_low  = handler & 0xFFFF;
-    idt[num].offset_high = (handler >> 16) & 0xFFFF;
+    idt[num].offset_low  = (uint16_t)(handler & 0xFFFF);
+    idt[num].offset_high = (uint16_t)(handler >> 16);
     idt[num].selector    = selector;
     idt[num].zero        = 0;
     idt[num].type_attr   = flags;
+
+    if (num == 14)
+    {
+        uint32_t actual =
+                ((uint32_t)idt[14].offset_high << 16) |
+                (uint32_t)idt[14].offset_low;
+
+        kprintf("IDT[14] write:\n");
+        kprintf("  handler = 0x%08x (expected 0x%08x)\n", actual, handler);
+        kprintf("  selector= 0x%04x\n", idt[14].selector);
+        kprintf("  flags   = 0x%02x\n", idt[14].type_attr);
+
+        if (actual != handler)
+            kprintf("!!! handler mismatch !!!\n");
+
+        if ((flags & 0x80) == 0)
+            kprintf("!!! present bit NOT set !!!\n");
+
+        if ((flags & 0x0F) != 0x0E)
+            kprintf("!!! not 32-bit interrupt gate !!!\n");
+    }
 }
+
 
 /* ------------------------------------------------------------
  * PIC helpers
