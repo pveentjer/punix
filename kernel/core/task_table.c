@@ -17,7 +17,7 @@ void task_table_init(struct task_table *task_table)
     task_table->free_head = 0;
     task_table->free_tail = MAX_PROCESS_CNT;
 
-    uint32_t process_free_pa = MB(2);
+    uint32_t process_free_pa = MB(5);
     for (int task_idx = 0; task_idx < MAX_PROCESS_CNT; task_idx++)
     {
         struct task_slot *slot = &task_table->slots[task_idx];
@@ -32,10 +32,13 @@ void task_table_init(struct task_table *task_table)
         task->vm_space = vm_create(process_free_pa, PROCESS_VA_SIZE);
         task->state     = TASK_POOLED;
 
+
         wait_queue_init(&task->wait_exit);
 
         task_table->free_ring[task_idx] = task_idx;
         files_init(&task->files);
+
+        process_free_pa+=PROCESS_VA_SIZE;
     }
 }
 

@@ -43,16 +43,27 @@ uint32_t sys_enter(void)
             /* Switch to kernel stack */
             "leal -20(%%edi), %%esp\n\t"
 
+            /* Mark before call */
+            "movw $0x1F30, 0xB8000\n\t"  /* '0' */
+
             "call  sys_enter_dispatch_c\n\t"
+
             "addl  $20, %%esp\n\t"
+
 
             /* Restore user ESP */
             "movl %[current], %%edi\n\t"   /* edi = &sched.current */
             "movl (%%edi), %%edi\n\t"      /* edi = sched.current */
             "movl (%%edi), %%esp\n\t"      /* esp = task->cpu_ctx.esp */
 
+
+            /* Mark after call */
+            "movw $0x1F31, 0xB8000\n\t"  /* '1' */
+
             /* Restore callee-saved */
             "popl %%edi\n\t"
+
+
             "popl %%ebp\n\t"
             "popfl\n\t"
 

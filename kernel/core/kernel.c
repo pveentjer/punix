@@ -27,14 +27,11 @@ static void bss_zero(void)
     }
 }
 
-
 /* Kernel entry point */
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
     // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
-
-
 
     struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
 
@@ -45,9 +42,9 @@ void kmain(void)
     console_init(&kconsole);
 
     kprintf("PUnix 0.001\n");
-   clock_init();
+    clock_init();
 
-     kprintf("Init Interrupt Descriptor Table.\n");
+    kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
 
     kprintf("Init VM.\n");

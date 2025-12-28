@@ -33,6 +33,8 @@
  * The base virtual address of the kernel
  */
 #define KERNEL_VA_BASE      GB(2)
+#define KERNEL_PA_BASE      GB(2)
+
 #define KERNEL_VA_SIZE      MB(4)
 
 // todo:
