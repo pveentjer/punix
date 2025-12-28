@@ -146,18 +146,12 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
         argc++;
     }
 
-    // todo: I think this is rotten
     /* Reserve space for argv pointer array */
-//    kprintf("task->brk %u\n", task->brk);
     char **heap_argv = (char **) task->brk;
 
 
     size_t len = sizeof(char *) * (argc + 1);
-//    kprintf("len: %u\n", len);
     task->brk += len;
-
-//    kprintf("task_init_args after: task=%p argc=%d heap_argv=%p brk(after argv[])=%p\n",
-//            task, argc, heap_argv, (void*)task->brk);
 
     /* Copy each string */
     for (int i = 0; i < argc; i++)
@@ -166,23 +160,13 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
         size_t len = k_strlen(src) + 1;  /* include '\0' */
         char *dst = (char *) task->brk;
 
-//        kprintf("task_init_args[%d]: src=%p dst=%p len=%u brk(before)=%p\n",
-//                i, src, dst, (unsigned)len, (void*)task->brk);
-//
-//        kprintf("k_memcpy before\n");
         k_memcpy(dst, src, len);
-//        kprintf("k_memcpy after\n");
 
         heap_argv[i] = dst;
         task->brk += len;
-
-//        kprintf("task_init_args[%d]: heap_argv[%d]=%p brk(after)=%p\n",
-//                i, i, heap_argv[i], (void*)task->brk);
     }
 
     heap_argv[argc] = NULL;
-//    kprintf("task_init_args: heap_argv[%d]=NULL heap_argv=%p final brk=%p\n",
-//            argc, heap_argv, (void*)task->brk);
 
     if (argc_out)
     {
@@ -241,6 +225,8 @@ static char **task_init_env(struct task *task,
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
+    kprintf("new task %s\n", filename);
+
     if (tty_id >= (int) TTY_COUNT)
     {
         kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
@@ -268,17 +254,55 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-//    kprintf("task_new\n");
+    // Copy filename to stack buffer BEFORE switching PDs
+    char filename_buf[MAX_FILENAME_LEN];
+    k_strcpy(filename_buf, filename);
 
+    // Copy argv/envp to stack buffers BEFORE switching PDs
+    char argv_buf[1024];
+    char envp_buf[1024];
+    char *argv_copy[32];
+    char *envp_copy[32];
+
+    // Copy argv
+    size_t argv_offset = 0;
+    int argc = 0;
+    while (argv && argv[argc] && argc < 31)
+    {
+        size_t len = k_strlen(argv[argc]) + 1;
+        if (argv_offset + len > sizeof(argv_buf))
+            break;
+        k_memcpy(argv_buf + argv_offset, argv[argc], len);
+        argv_copy[argc] = argv_buf + argv_offset;
+        argv_offset += len;
+        argc++;
+    }
+    argv_copy[argc] = NULL;
+
+    // Copy envp
+    size_t envp_offset = 0;
+    int envc = 0;
+    while (envp && envp[envc] && envc < 31)
+    {
+        size_t len = k_strlen(envp[envc]) + 1;
+        if (envp_offset + len > sizeof(envp_buf))
+            break;
+        k_memcpy(envp_buf + envp_offset, envp[envc], len);
+        envp_copy[envc] = envp_buf + envp_offset;
+        envp_offset += len;
+        envc++;
+    }
+    envp_copy[envc] = NULL;
 
     struct task *parent = sched_current();
-
-//    kprintf("task_new:vm_activate\n");
     vm_activate(task->vm_space);
 
     uintptr_t base_va = task->vm_space->base_va;
 
-    k_strcpy(task->name, filename);
+    kprintf("---filename: %s\n", filename_buf);
+    k_strcpy(task->name, filename_buf);
+    kprintf("---task-name: %s\n", task->name);
+
     task->ctxt = 0;
     task->pending_signals = 0;
     task->state = TASK_QUEUED;
@@ -286,22 +310,21 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task_init_tty(task, tty_id);
     task_init_cwd(task);
 
-
     /* Load ELF */
     const void *image = app->start;
     size_t image_size = (size_t) (app->end - app->start);
 
     struct elf_info elf_info;
 
-//    kprintf("task_new:elf_load\n");
-
     if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
     {
+        kprintf("task_new: Failed to load the binary %s\n", filename_buf);
         task_table_free(&sched.task_table, task);
-        kprintf("task_new: Failed to load the binary %s\n", filename);
         vm_activate_kernel();
         return NULL;
     }
+
+    kprintf("task_new: ELF loaded, entry_va=0x%08x\n", elf_info.entry_va);
 
     uint32_t main_addr = elf_info.entry_va;
     uint32_t environ_off = elf_info.environ_off;
@@ -310,23 +333,17 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->brk = (uint32_t) align_up(program_end, 16);
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
-    // todo: this is a weird check; if the program would be bigger then the amount of memory,
-    // the elf_load should have failed
     if ((uintptr_t) task->brk > task->brk_limit)
     {
-        kprintf("task_new: not enough space %s\n", filename);
+        kprintf("task_new: not enough space %s\n", filename_buf);
         task_table_free(&sched.task_table, task);
         vm_activate_kernel();
         return NULL;
     }
 
-
-    int argc = 0;
-//    kprintf("task_new:task_init_args\n");
-    char **heap_argv = task_init_args(task, argv, &argc);
-//    kprintf("task_new:task_init_env\n");
-
-    char **heap_envp = task_init_env(task, envp, environ_off);
+    int argc_out = 0;
+    char **heap_argv = task_init_args(task, argv_copy, &argc_out);
+    char **heap_envp = task_init_env(task, envp_copy, environ_off);
 
     if (elf_info.curbrk_off != 0)
     {
@@ -334,14 +351,17 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         char **curbrk_ptr = (char **) curbrk_va;
         *curbrk_ptr = (char *) task->brk;
     }
-//    kprintf("task_new:ctx_init\n");
 
-    ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc, heap_argv, heap_envp);
-//    kprintf("task_new:ctx_init: done\n");
+    ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc_out, heap_argv, heap_envp);
 
-//    kprintf("task_new:activate kernel\n");
-    // todo: You don't want to activate the kernel, you want to activate the previous vm_space
-    // which might be the kernel pd, but also a process pd
+    kprintf("ctx_init done: esp=0x%08x, stack_top=0x%08x\n",
+            task->cpu_ctx.esp, PROCESS_STACK_TOP);
+
+    uint32_t *stack = (uint32_t*)task->cpu_ctx.esp;
+    kprintf("Stack contents: [0]=0x%08x [1]=0x%08x [2]=0x%08x [3]=0x%08x [4]=0x%08x [5]=0x%08x [6]=0x%08x [7]=0x%08x [8]=0x%08x [9]=0x%08x [10]=0x%08x\n",
+            stack[0], stack[1], stack[2], stack[3], stack[4], stack[5],
+            stack[6], stack[7], stack[8], stack[9], stack[10]);
+
     if (parent == NULL)
     {
         vm_activate_kernel();
@@ -350,7 +370,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         vm_activate(parent->vm_space);
     }
-//    kprintf("task_new:activate kernel:done\n");
+
     return task;
 }
 
@@ -434,6 +454,7 @@ void sched_schedule(void)
         countdown = 1000;
     }
 
+
 //    kprintf("sched_schedule %u\n", sched.ctxt);
 
     struct task *prev = sched.current;
@@ -447,6 +468,7 @@ void sched_schedule(void)
 
     if (prev == NULL)
     {
+
         // There is no task running.
         prev = &dummy;
     }
@@ -475,9 +497,11 @@ void sched_schedule(void)
     prev->ctxt++;
     sched.ctxt++;
 
+
 //    struct vm_impl *impl = next->vm_space->impl;
 //    kprintf("ctx_switch: pd_pa = 0x%08x pd_va = 0x%08x\n", impl->pd_pa, impl->pd_va);
 
+    kprintf("context switch name=%s pid=%d state=%d...\n", next->name, next->pid, next->state);
     ctx_switch(&prev->cpu_ctx, &next->cpu_ctx, next->vm_space);
 }
 

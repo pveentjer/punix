@@ -21,7 +21,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
 {
 
 
-//    kprintf("sys_enter_dispatch_c %u\n",nr);
+    kprintf("sys_enter_dispatch_c %u\n",nr);
 
     struct task *current = sched_current();
     if (current == NULL)

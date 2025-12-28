@@ -15,14 +15,12 @@ struct tty;
 
 enum sched_state
 {
-    TASK_POOLED,            /* task exists but is inactive; not runnable and not queued */
-    TASK_QUEUED,            /* runnable and waiting in the run queue */
-    TASK_RUNNING,           /* currently executing on a CPU */
-    TASK_INTERRUPTIBLE,     /* sleeping; waiting for an event, may be woken by a signal */
-    TASK_UNINTERRUPTIBLE    /* sleeping; waiting for an event, not woken by signals */
+    TASK_POOLED = 1,            /* task exists but is inactive; not runnable and not queued */
+    TASK_QUEUED = 2,            /* runnable and waiting in the run queue */
+    TASK_RUNNING = 3,           /* currently executing on a CPU */
+    TASK_INTERRUPTIBLE = 4,     /* sleeping; waiting for an event, may be woken by a signal */
+    TASK_UNINTERRUPTIBLE = 5    /* sleeping; waiting for an event, not woken by signals */
 };
-
-
 
 
 struct task

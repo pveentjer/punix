@@ -27,24 +27,21 @@ void task_table_init(struct task_table *task_table)
 
         k_memset(task, 0, sizeof(struct task));
 
-        task->pid       = PID_NONE;
+        task->pid = PID_NONE;
 
         task->vm_space = vm_create(process_free_pa, PROCESS_VA_SIZE);
-        task->state     = TASK_POOLED;
-
+        task->state = TASK_POOLED;
 
         wait_queue_init(&task->wait_exit);
 
         task_table->free_ring[task_idx] = task_idx;
         files_init(&task->files);
 
-        process_free_pa+=PROCESS_VA_SIZE;
+        process_free_pa += PROCESS_VA_SIZE;
     }
 }
 
-struct task *task_table_find_task_by_pid(
-        const struct task_table *task_table,
-        const pid_t pid)
+struct task *task_table_find_task_by_pid(const struct task_table *task_table, const pid_t pid)
 {
     if (pid < 0)
     {
@@ -84,9 +81,7 @@ struct task *task_table_alloc(struct task_table *task_table)
     return task;
 }
 
-void task_table_free(
-        struct task_table *task_table,
-        struct task *task)
+void task_table_free(struct task_table *task_table, struct task *task)
 {
     if (task_table->free_tail - task_table->free_head == MAX_PROCESS_CNT)
     {

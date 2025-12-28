@@ -14,24 +14,26 @@
 #define EI_NIDENT 16
 #define ET_EXEC 2
 
-typedef struct {
+typedef struct
+{
     unsigned char e_ident[EI_NIDENT];
-    uint16_t      e_type;
-    uint16_t      e_machine;
-    uint32_t      e_version;
-    uint32_t      e_entry;    /* entry virtual address within the image */
-    uint32_t      e_phoff;
-    uint32_t      e_shoff;
-    uint32_t      e_flags;
-    uint16_t      e_ehsize;
-    uint16_t      e_phentsize;
-    uint16_t      e_phnum;
-    uint16_t      e_shentsize;
-    uint16_t      e_shnum;
-    uint16_t      e_shstrndx;
+    uint16_t e_type;
+    uint16_t e_machine;
+    uint32_t e_version;
+    uint32_t e_entry;    /* entry virtual address within the image */
+    uint32_t e_phoff;
+    uint32_t e_shoff;
+    uint32_t e_flags;
+    uint16_t e_ehsize;
+    uint16_t e_phentsize;
+    uint16_t e_phnum;
+    uint16_t e_shentsize;
+    uint16_t e_shnum;
+    uint16_t e_shstrndx;
 } Elf32_Ehdr;
 
-typedef struct {
+typedef struct
+{
     uint32_t p_type;
     uint32_t p_offset;
     uint32_t p_vaddr;   /* segment virtual address within the image */
@@ -42,7 +44,8 @@ typedef struct {
     uint32_t p_align;
 } Elf32_Phdr;
 
-typedef struct {
+typedef struct
+{
     uint32_t sh_name;
     uint32_t sh_type;
     uint32_t sh_flags;
@@ -53,16 +56,17 @@ typedef struct {
     uint32_t sh_info;
     uint32_t sh_addralign;
     uint32_t sh_entsize;
-} Elf32_Shdr;
+};
 
-typedef struct {
+typedef struct
+{
     uint32_t st_name;
     uint32_t st_value;  /* symbol virtual address within the image */
     uint32_t st_size;
-    uint8_t  st_info;
-    uint8_t  st_other;
+    uint8_t st_info;
+    uint8_t st_other;
     uint16_t st_shndx;
-} Elf32_Sym;
+};
 
 #define PT_LOAD 1
 
@@ -84,7 +88,8 @@ typedef struct {
  * - All values are virtual addresses.
  * - Offsets are relative to the provided load_base (i.e. within the process).
  */
-struct elf_info {
+struct elf_info
+{
     uint32_t entry_va;        /* entry virtual address (load_base + e_entry) */
     uint32_t base_va;         /* the load_base passed to elf_load() */
     uint32_t max_offset;      /* highest (p_vaddr + p_memsz) within the image */
@@ -109,7 +114,8 @@ int elf_load(const void *image, size_t size,
  * Embedded application table
  * ------------------------------------------------------------ */
 
-struct embedded_app {
+struct embedded_app
+{
     const char *name;
     const unsigned char *start;
     const unsigned char *end;

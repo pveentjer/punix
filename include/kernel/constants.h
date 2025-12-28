@@ -90,7 +90,7 @@
 /* TTY subsystem                                      */
 /* -------------------------------------------------- */
 
-#define TTY_COUNT             12u
+#define TTY_COUNT             1u
 #define TTY_INPUT_BUF_SIZE    256u
 #define TTY_OUTPUT_BUF_SIZE   4096u
 

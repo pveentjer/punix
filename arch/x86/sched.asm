@@ -88,6 +88,7 @@ ctx_init:
 ;                struct vm_space *vm_space);
 ; ============================================================
 ctx_switch:
+    mov word [0xB8F00], 0x0730  ; '0' at bottom left corner
 
     cli
 
@@ -116,6 +117,6 @@ ctx_switch:
 
     sti
     xor eax, eax
-
+    mov word [0xB8F02], 0x0731  ; '1' next to it
     ret
 
