@@ -72,20 +72,24 @@ void kmain(void)
     __asm__ volatile("int $14");
 
 
+
 /* 1GB = 0x40000000 */
-//    volatile uint32_t *p = (uint32_t *)0x40000000;
-//    uint32_t x = *p;   // <- should page fault
+    volatile uint32_t *p = (uint32_t *)0x40000000;
+    uint32_t x = *p;   // <- should page fault
+
+    panic("stopping here for now");
+
 
 //    kprintf("UNREACHABLE: read=%u\n", x);
-    kprintf("UNREACHABLE\n");
+    //kprintf("UNREACHABLE\n");
 
-    console_clear(&kconsole);
-    char *argv[] = {"/sbin/init", NULL};
-    sched_add_task("/sbin/init", 0, argv, 0);
+    //console_clear(&kconsole);
+    //char *argv[] = {"/sbin/init", NULL};
+    //sched_add_task("/sbin/init", 0, argv, 0);
 
 //    panic("Stopping here for now");
 
 
 
-    sched_schedule();
+    //sched_schedule();
 }

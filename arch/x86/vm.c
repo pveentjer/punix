@@ -324,11 +324,12 @@ __attribute__((naked)) void test_int14(void)
             "iret\n\t"
             );
 }
+
 void vm_init(void)
 {
     /* Install #PF handler (exception 14) */
 //    idt_set_gate(14, (uint32_t)isr_page_fault, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
-    idt_set_gate(14, (uint32_t)test_int14, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
+    idt_set_gate(14, (uint32_t)isr_page_fault, (uint16_t)GDT_KERNEL_CS, (uint8_t)0x8E);
 
 
     /* Bind kernel vm to existing kernel paging structures */
