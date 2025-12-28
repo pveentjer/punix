@@ -162,14 +162,22 @@ _kpremain:
     ; load GDT
     lgdt [GDTR_PA] ; since it is identity mapped, we can use the physical address.
 
-    ; If you don't see '@', paging died before/at this store
-    ;mov word [VGA_VA], 0x1F40          ; '@'
+    ; Far jump to reload CS with new GDT
+    jmp GDT_CODE:.reload_cs
+
+.reload_cs:
+    ; Now CS is loaded from new GDT
+
+    ; Reload data segments too
+    mov ax, GDT_DATA
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
 
     ; Switch to high virtual stack
     mov esp, KERNEL_VA_STACK_TOP
-    jmp .pg_on
-
-.pg_on:
     jmp kmain
 
 ; ============================================================
