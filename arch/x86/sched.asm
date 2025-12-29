@@ -84,46 +84,35 @@ ctx_init:
 ;                 struct vm_space *vm_space);
 ; ============================================================
 ctx_switch:
-    mov word [0xB8F9E], 0x0F2E    ; '.' - Clear/reset
-    mov word [0xB8F9E], 0x0F41    ; 'A' - Entry
     cli
+    mov eax, [esp + 4]      ; prev
+    mov edx, [esp + 8]      ; next
+    mov ecx, [esp + 12]     ; vm_space
 
-    mov eax, [esp + 4]             ; prev
-    mov word [0xB8F9E], 0x0F42    ; 'B' - Loaded prev
-    mov edx, [esp + 8]             ; next
-    mov word [0xB8F9E], 0x0F43    ; 'C' - Loaded next
-    mov ecx, [esp + 12]            ; vm_space
-    mov word [0xB8F9E], 0x0F44    ; 'D' - Loaded vm_space
+    ; PUSH registers onto prev's stack BEFORE saving ESP
+    push ebx
+    push esi
+    push edi
+    push ebp
+    pushfd
 
-    ; Save current kernel ESP to prev->k_esp
+    ; NOW save ESP (points to saved registers)
     mov [eax + OFF_K_ESP], esp
-    mov word [0xB8F9E], 0x0F45    ; 'E' - Saved prev k_esp
 
-    ; Switch address space
-    mov ecx, [ecx + 8]             ; vm_space->impl
-    mov word [0xB8F9E], 0x0F46    ; 'F' - Loaded impl
-    mov ecx, [ecx + 4]             ; impl->pd_pa
-    mov word [0xB8F9E], 0x0F47    ; 'G' - Loaded pd_pa
+    ; Switch page directory
+    mov ecx, [ecx + 8]
+    mov ecx, [ecx + 4]
     mov cr3, ecx
-    mov word [0xB8F9E], 0x0F48    ; 'H' - Switched CR3
 
-    ; Load next task's kernel ESP
+    ; Load next ESP and restore registers
     mov esp, [edx + OFF_K_ESP]
-    mov word [0xB8F9E], 0x0F49    ; 'I' - Loaded k_esp
 
-    ; Restore CPU state from kernel stack
-    pop ebx
-    mov word [0xB8F9E], 0x0F4A    ; 'J' - Popped ebx
-    pop esi
-    mov word [0xB8F9E], 0x0F4B    ; 'K' - Popped esi
-    pop edi
-    mov word [0xB8F9E], 0x0F4C    ; 'L' - Popped edi
-    pop ebp
-    mov word [0xB8F9E], 0x0F4D    ; 'M' - Popped ebp
     popfd
-    mov word [0xB8F9E], 0x0F4E    ; 'N' - Popped eflags
+    pop ebp
+    pop edi
+    pop esi
+    pop ebx
 
     sti
-    mov word [0xB8F9E], 0x0F4F    ; 'O' - STI done
     xor eax, eax
     ret
