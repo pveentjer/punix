@@ -179,7 +179,7 @@ function(add_app name)
             -nostdlib
             -no-pie
             -Wl,-T,${CMAKE_SOURCE_DIR}/app.ld
-            -Wl,-e,_start
+            -Wl,-e,main
             -Wl,-u,main
             -Wl,--gc-sections
             -Wl,--build-id=none

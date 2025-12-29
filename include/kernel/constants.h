@@ -33,12 +33,12 @@
  * The base virtual address of the kernel
  */
 #define KERNEL_VA_BASE      GB(2)
-#define KERNEL_PA_BASE      GB(2)
+#define KERNEL_PA_BASE      MB(1)
 
 #define KERNEL_VA_SIZE      MB(4)
 
 // todo:
-#define KERNEL_STACK_TOP_VA    (KERNEL_VA_BASE+ KERNEL_VA_SIZE-KB(4))
+#define KERNEL_STACK_TOP_VA    (KERNEL_VA_BASE + KERNEL_VA_SIZE - KB(4))
 
 /*
  * The base virtual address of the process
@@ -47,6 +47,8 @@
  */
 #define PROCESS_VA_BASE     MB(4)
 
+#define PROCESS_PA_START    KERNEL_PA_BASE + KERNEL_VA_SIZE
+
 /*
  * Each process gets a fixed 1 MiB region
  */
@@ -54,7 +56,7 @@
 
 #define PROCESS_HEAP_SIZE   KB(512)
 
-#define PROCESS_STACK_TOP   (PROCESS_VA_BASE+PROCESS_VA_SIZE-KB(4))
+#define PROCESS_STACK_TOP   (PROCESS_VA_BASE + PROCESS_VA_SIZE - KB(4))
 
 /* -------------------------------------------------- */
 /* Process / scheduler limits                         */

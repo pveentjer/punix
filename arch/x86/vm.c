@@ -150,17 +150,17 @@ void page_fault_handler(uint32_t err)
     eflags = stack_ptr[4];
 
     kprintf("\n=== PAGE FAULT ===\n");
-    kprintf("Address: 0x%08x\n", cr2);
-    kprintf("Error:   0x%08x\n", err);
-    kprintf("EIP:     0x%08x\n", eip);
-    kprintf("CS:      0x%04x\n", cs);
-    kprintf("EFLAGS:  0x%08x\n", eflags);
-    kprintf("CR3:     0x%08x\n", cr3);
+    kprintf("Address: 0x%08x ", cr2);
+    kprintf("Error:   0x%08x ", err);
+    kprintf("EIP:     0x%08x ", eip);
+    kprintf("CS:      0x%04x ", cs);
+    kprintf("EFLAGS:  0x%08x ", eflags);
+    kprintf("CR3:     0x%08x\n ", cr3);
 
     // Decode error code
-    kprintf("  Type:   %s\n", (err & 0x01) ? "protection-violation" : "not-present");
-    kprintf("  Access: %s\n", (err & 0x02) ? "write" : "read");
-    kprintf("  Mode:   %s\n", (err & 0x04) ? "user-mode" : "kernel-mode");
+    kprintf("  Type:   %s ", (err & 0x01) ? "protection-violation" : "not-present");
+    kprintf("  Access: %s ", (err & 0x02) ? "write" : "read");
+    kprintf("  Mode:   %s ", (err & 0x04) ? "user-mode" : "kernel-mode");
 
     if (err & 0x08)
         kprintf("  Reserved bit set in page table entry\n");

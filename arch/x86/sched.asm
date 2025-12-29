@@ -56,7 +56,41 @@ ctx_init:
     ; Return address - where ctx_switch will ret to
     sub  ecx, 4
     mov  edx, task_trampoline
-    mov  [ecx], edx
+
+    ; DEBUG: Show what we're about to write (8 hex digits at 0xB8F20)
+    push eax
+    push edx
+    push esi
+    push edi
+    push ebx
+    mov esi, ecx  ; Save stack pointer in esi
+
+    mov eax, edx   ; Value to display
+    mov edi, 0xB8F20
+    mov ecx, 8
+.write_hex:
+    rol eax, 4
+    mov ebx, eax
+    and ebx, 0x0F
+    cmp ebx, 10
+    jl .digit
+    add ebx, 'A' - 10 - '0'
+.digit:
+    add ebx, '0'
+    mov [edi], bl
+    mov byte [edi + 1], 0x0E  ; Yellow on black
+    add edi, 2
+    dec ecx
+    jnz .write_hex
+
+    mov ecx, esi  ; Restore stack pointer
+    pop ebx
+    pop edi
+    pop esi
+    pop edx
+    pop eax
+
+    mov  [ecx], edx          ; Write return address
 
     ; CPU state that ctx_switch will restore (must match pop order!)
     sub  ecx, 4
@@ -88,14 +122,8 @@ ctx_init:
 ;                struct vm_space *vm_space);
 ; ============================================================
 ctx_switch:
-    mov word [0xB8F00], 0x0730  ; '0' at bottom left corner
-
+    ; mov word [0xB8F00], 0x0730  ; '0'
     cli
-
-    ; Stack layout:
-    ; esp+4  = prev (ignored)
-    ; esp+8  = next
-    ; esp+12 = vm_space
 
     mov edx, [esp + 8]      ; next
     mov ecx, [esp + 12]     ; vm_space
@@ -105,10 +133,14 @@ ctx_switch:
     mov ecx, [ecx + 4]      ; impl->pd_pa
     mov cr3, ecx
 
-    ; Load next task's user ESP (points to saved CPU state)
+    ; Load next task's user ESP
     mov esp, [edx + OFF_ESP]
 
-    ; Restore CPU state from user stack
+    ; Read return address BEFORE doing pops (it's at ESP+20)
+    mov eax, [esp + 20]
+    mov [0xB8F04], eax      ; Just write the raw 32-bit value
+
+    ; Now do the pops
     pop ebx
     pop esi
     pop edi
@@ -117,6 +149,5 @@ ctx_switch:
 
     sti
     xor eax, eax
-    mov word [0xB8F02], 0x0731  ; '1' next to it
+    ; mov word [0xB8F02], 0x0731
     ret
-

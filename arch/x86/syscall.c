@@ -44,7 +44,7 @@ uint32_t sys_enter(void)
             "leal -20(%%edi), %%esp\n\t"
 
             /* Mark before call */
-            "movw $0x1F30, 0xB8000\n\t"  /* '0' */
+//            "movw $0x1F30, 0xB8000\n\t"  /* '0' */
 
             "call  sys_enter_dispatch_c\n\t"
 
@@ -58,7 +58,7 @@ uint32_t sys_enter(void)
 
 
             /* Mark after call */
-            "movw $0x1F31, 0xB8000\n\t"  /* '1' */
+//            "movw $0x1F31, 0xB8000\n\t"  /* '1' */
 
             /* Restore callee-saved */
             "popl %%edi\n\t"

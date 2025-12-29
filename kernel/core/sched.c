@@ -100,11 +100,16 @@ void sched_exit(int status)
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
+//    kprintf("task_trampoline: entry=%p, argc=%d\n", entry, argc);
+
     struct task *current = sched_current();
+
+//    kprintf("task_trampoline: %s\n", current->name);
 
     vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
     vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
     vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
+
 
     int exit_code = entry(argc, argv);
     sched_exit(exit_code);
@@ -225,7 +230,7 @@ static char **task_init_env(struct task *task,
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
-    kprintf("new task %s\n", filename);
+//    kprintf("new task %s\n", filename);
 
     if (tty_id >= (int) TTY_COUNT)
     {
@@ -299,9 +304,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     uintptr_t base_va = task->vm_space->base_va;
 
-    kprintf("---filename: %s\n", filename_buf);
+//    kprintf("---filename: %s\n", filename_buf);
     k_strcpy(task->name, filename_buf);
-    kprintf("---task-name: %s\n", task->name);
+//    kprintf("---task-name: %s\n", task->name);
 
     task->ctxt = 0;
     task->pending_signals = 0;
@@ -324,7 +329,12 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    kprintf("task_new: ELF loaded, entry_va=0x%08x\n", elf_info.entry_va);
+    // Read first 16 bytes of code at entry point
+//    uint32_t *entry_code = (uint32_t*)elf_info.entry_va;
+//    kprintf("Code at entry: %08x %08x %08x %08x\n",
+//            entry_code[0], entry_code[1], entry_code[2], entry_code[3]);
+
+//    kprintf("task_new: ELF loaded, entry_va=0x%08x\n", elf_info.entry_va);
 
     uint32_t main_addr = elf_info.entry_va;
     uint32_t environ_off = elf_info.environ_off;
@@ -352,15 +362,11 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         *curbrk_ptr = (char *) task->brk;
     }
 
+
+//    kprintf("main_addr=%p\n", main_addr);
+
+
     ctx_init(&task->cpu_ctx, PROCESS_STACK_TOP, main_addr, argc_out, heap_argv, heap_envp);
-
-    kprintf("ctx_init done: esp=0x%08x, stack_top=0x%08x\n",
-            task->cpu_ctx.esp, PROCESS_STACK_TOP);
-
-    uint32_t *stack = (uint32_t*)task->cpu_ctx.esp;
-    kprintf("Stack contents: [0]=0x%08x [1]=0x%08x [2]=0x%08x [3]=0x%08x [4]=0x%08x [5]=0x%08x [6]=0x%08x [7]=0x%08x [8]=0x%08x [9]=0x%08x [10]=0x%08x\n",
-            stack[0], stack[1], stack[2], stack[3], stack[4], stack[5],
-            stack[6], stack[7], stack[8], stack[9], stack[10]);
 
     if (parent == NULL)
     {
@@ -370,6 +376,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         vm_activate(parent->vm_space);
     }
+
+
+//    kprintf("task_new pid:%d esp:0x%08x\n", task->pid, task->cpu_ctx.esp);
 
     return task;
 }
@@ -446,6 +455,8 @@ struct vm_impl
 
 void sched_schedule(void)
 {
+//    kprintf("sched_schedule\n");
+
     static uint32_t countdown = 1000;
 
     if (--countdown == 0)
@@ -464,16 +475,18 @@ void sched_schedule(void)
         next = sched.swapper;
     }
 
+    bool has_prev = false;
     struct task dummy;
 
     if (prev == NULL)
     {
-
         // There is no task running.
         prev = &dummy;
     }
     else
     {
+        has_prev = true;
+
         if (next == sched.swapper)
         {
             if (prev->state == TASK_RUNNING)
@@ -496,12 +509,31 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
+//
+//    kprintf("Memory verification:\n");
+//    for (int pid = 0; pid <= 2; pid++)
+//    {
+//        struct task *t = sched_find_by_pid(pid);
+//        if (t)
+//        {
+//            uint32_t pa;
+//            if (vm_va_to_pa(t->vm_space, PROCESS_STACK_TOP - 12, &pa))
+//            {
+//                kprintf("  pid=%d: VA 0x%08x -> PA 0x%08x\n",
+//                        pid, PROCESS_STACK_TOP - 12, pa);
+//            }
+//        }
+//    }
 
 
-//    struct vm_impl *impl = next->vm_space->impl;
+
+//      struct vm_impl *impl = next->vm_space->impl;
 //    kprintf("ctx_switch: pd_pa = 0x%08x pd_va = 0x%08x\n", impl->pd_pa, impl->pd_va);
 
-    kprintf("context switch name=%s pid=%d state=%d...\n", next->name, next->pid, next->state);
+//    kprintf("About to switch: next->cpu_ctx.esp=0x%08x (should be 0x004FEFB4)\n",
+//            next->cpu_ctx.esp);
+
+
     ctx_switch(&prev->cpu_ctx, &next->cpu_ctx, next->vm_space);
 }
 
