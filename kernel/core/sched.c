@@ -100,18 +100,33 @@ void sched_exit(int status)
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
-//    kprintf("task_trampoline: entry=%p, argc=%d\n", entry, argc);
-
     struct task *current = sched_current();
-
-//    kprintf("task_trampoline: %s\n", current->name);
 
     vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
     vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
     vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
 
+    uint32_t u_esp = current->cpu_ctx.u_esp;
+    int exit_code;
 
-    int exit_code = entry(argc, argv);
+    __asm__ volatile(
+            "mov %%esp, %%ebx\n\t"         // Save current kernel ESP in EBX
+            "movl %[current], %%edi\n\t"   // Load &sched.current
+            "movl (%%edi), %%edi\n\t"      // Load sched.current (task*)
+            "movl %%ebx, 4(%%edi)\n\t"     // Save to task->cpu_ctx.k_esp
+
+            "mov %1, %%esp\n\t"             // Switch to user stack
+            "pushl %3\n\t"                  // Push argv
+            "pushl %2\n\t"                  // Push argc
+            "call *%4\n\t"                  // Call entry
+            "addl $8, %%esp\n\t"
+            "mov %%ebx, %%esp\n\t"          // Restore kernel stack
+            "mov %%eax, %0\n\t"
+            : "=r"(exit_code)
+            : "r"(u_esp), "r"(argc), "r"(argv), "r"(entry), [current] "m" (sched.current)
+    : "ebx", "edi", "eax", "memory"
+    );
+
     sched_exit(exit_code);
 }
 
@@ -230,7 +245,7 @@ static char **task_init_env(struct task *task,
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
-//    kprintf("new task %s\n", filename);
+    kprintf("new task %s\n", filename);
 
     if (tty_id >= (int) TTY_COUNT)
     {
@@ -252,17 +267,14 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    if (task->vm_space == NULL)
-    {
-        task_table_free(&sched.task_table, task);
-        kprintf("task_new: no vm_space for %s\n", filename);
-        return NULL;
-    }
+    task->cpu_ctx.k_esp = (uint32_t)(task->kstack + KERNEL_STACK_SIZE);
+    task->cpu_ctx.u_esp = PROCESS_STACK_TOP;
 
     // Copy filename to stack buffer BEFORE switching PDs
     char filename_buf[MAX_FILENAME_LEN];
     k_strcpy(filename_buf, filename);
 
+    //todo:ugly; but we'll rewrite when doing fork/execve
     // Copy argv/envp to stack buffers BEFORE switching PDs
     char argv_buf[1024];
     char envp_buf[1024];
@@ -304,9 +316,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     uintptr_t base_va = task->vm_space->base_va;
 
-//    kprintf("---filename: %s\n", filename_buf);
     k_strcpy(task->name, filename_buf);
-//    kprintf("---task-name: %s\n", task->name);
 
     task->ctxt = 0;
     task->pending_signals = 0;
@@ -328,13 +338,6 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         vm_activate_kernel();
         return NULL;
     }
-
-    // Read first 16 bytes of code at entry point
-//    uint32_t *entry_code = (uint32_t*)elf_info.entry_va;
-//    kprintf("Code at entry: %08x %08x %08x %08x\n",
-//            entry_code[0], entry_code[1], entry_code[2], entry_code[3]);
-
-//    kprintf("task_new: ELF loaded, entry_va=0x%08x\n", elf_info.entry_va);
 
     uint32_t main_addr = elf_info.entry_va;
     uint32_t environ_off = elf_info.environ_off;
@@ -378,7 +381,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     }
 
 
-//    kprintf("task_new pid:%d esp:0x%08x\n", task->pid, task->cpu_ctx.esp);
+    kprintf("task_new pid:%d u_esp:0x%08x k_esp:0x%08x\n", task->pid, task->cpu_ctx.u_esp,task->cpu_ctx.k_esp);
 
     return task;
 }
@@ -509,30 +512,8 @@ void sched_schedule(void)
     sched.current = next;
     prev->ctxt++;
     sched.ctxt++;
-//
-//    kprintf("Memory verification:\n");
-//    for (int pid = 0; pid <= 2; pid++)
-//    {
-//        struct task *t = sched_find_by_pid(pid);
-//        if (t)
-//        {
-//            uint32_t pa;
-//            if (vm_va_to_pa(t->vm_space, PROCESS_STACK_TOP - 12, &pa))
-//            {
-//                kprintf("  pid=%d: VA 0x%08x -> PA 0x%08x\n",
-//                        pid, PROCESS_STACK_TOP - 12, pa);
-//            }
-//        }
-//    }
 
-
-
-//      struct vm_impl *impl = next->vm_space->impl;
-//    kprintf("ctx_switch: pd_pa = 0x%08x pd_va = 0x%08x\n", impl->pd_pa, impl->pd_va);
-
-//    kprintf("About to switch: next->cpu_ctx.esp=0x%08x (should be 0x004FEFB4)\n",
-//            next->cpu_ctx.esp);
-
+    kprintf("sched_schedule %s\n", next->name);
 
     ctx_switch(&prev->cpu_ctx, &next->cpu_ctx, next->vm_space);
 }

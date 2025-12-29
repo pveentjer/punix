@@ -33,9 +33,9 @@ void kmain(void)
 {
     // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
 
-    struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
-
-    k_cpu_ctx->esp = KERNEL_STACK_TOP_VA;
+//    struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
+//
+//    k_cpu_ctx->esp = KERNEL_STACK_TOP_VA;
 
     bss_zero();
 

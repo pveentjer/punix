@@ -4,9 +4,11 @@
 
 int main(int argc, char **argv)
 {
-
+    *(volatile uint16_t*)0xB8F00 = 0x0F2A;  // '*' character
     char *sh_argv[] = {"/bin/sh", NULL};
     char *sh_envp[] = {NULL};
+
+    printf("init\n");
 
     for (int tty_id = 0; tty_id < TTY_COUNT; tty_id++)
     {

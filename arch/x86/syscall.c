@@ -8,7 +8,6 @@
 __attribute__((naked, used))
 uint32_t sys_enter(void)
 {
-
     __asm__ volatile(
         /* Save syscall args on user stack first */
             "pushl %%esi\n\t"
@@ -25,10 +24,12 @@ uint32_t sys_enter(void)
             /* Get current task pointer and save user ESP */
             "movl %[current], %%edi\n\t"   /* edi = &sched.current */
             "movl (%%edi), %%edi\n\t"      /* edi = sched.current */
-            "movl %%esp, (%%edi)\n\t"      /* task->cpu_ctx.esp = esp */
+            "movl %%esp, (%%edi)\n\t"      /* task->cpu_ctx.u_esp = esp */
+
+            /* Load kernel stack top from cpu_ctx.k_esp */
+            "movl 4(%%edi), %%edi\n\t"     /* edi = task->cpu_ctx.k_esp */
 
             /* Build syscall frame on kernel stack in REVERSE order for cdecl */
-            "movl %[kstack], %%edi\n\t"    /* edi = kernel stack top */
             "movl 28(%%esp), %%eax\n\t"    /* get saved esi (a4) */
             "movl %%eax, -4(%%edi)\n\t"    /* write to kernel stack */
             "movl 24(%%esp), %%eax\n\t"    /* get saved edx (a3) */
@@ -43,27 +44,17 @@ uint32_t sys_enter(void)
             /* Switch to kernel stack */
             "leal -20(%%edi), %%esp\n\t"
 
-            /* Mark before call */
-//            "movw $0x1F30, 0xB8000\n\t"  /* '0' */
-
             "call  sys_enter_dispatch_c\n\t"
 
             "addl  $20, %%esp\n\t"
 
-
             /* Restore user ESP */
             "movl %[current], %%edi\n\t"   /* edi = &sched.current */
             "movl (%%edi), %%edi\n\t"      /* edi = sched.current */
-            "movl (%%edi), %%esp\n\t"      /* esp = task->cpu_ctx.esp */
-
-
-            /* Mark after call */
-//            "movw $0x1F31, 0xB8000\n\t"  /* '1' */
+            "movl (%%edi), %%esp\n\t"      /* esp = task->cpu_ctx.u_esp */
 
             /* Restore callee-saved */
             "popl %%edi\n\t"
-
-
             "popl %%ebp\n\t"
             "popfl\n\t"
 
@@ -72,8 +63,7 @@ uint32_t sys_enter(void)
 
             "ret\n\t"
             :
-            : [kstack] "i" (KERNEL_STACK_TOP_VA),
-    [current] "m" (sched.current)
+            : [current] "m" (sched.current)
     : "memory"
     );
 }

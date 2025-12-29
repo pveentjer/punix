@@ -51,6 +51,8 @@ struct task
     uint32_t brk;
     uint32_t brk_limit;
 
+    uint8_t kstack[KERNEL_STACK_SIZE];
+
     struct wait_queue wait_exit;
 };
 
