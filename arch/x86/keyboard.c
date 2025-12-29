@@ -114,8 +114,6 @@ static void emit_key(char value, enum keyboard_code code)
  * ------------------------------------------------------------------ */
 void keyboard_interrupt_handler(void)
 {
-    kprintf("p");
-
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 
     if (scancode == SC_EXTENDED)
