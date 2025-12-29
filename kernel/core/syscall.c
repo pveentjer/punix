@@ -21,7 +21,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
 {
 
 
-    kprintf("sys_enter_dispatch_c %u\n",nr);
+//    kprintf("sys_enter_dispatch_c %u\n",nr);
 
     struct task *current = sched_current();
     if (current == NULL)
@@ -46,7 +46,11 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_read:
         {
             sched_schedule();
-            return (uint32_t) vfs_read((int) a1, (void *) a2, (size_t) a3);
+
+       //     kprintf("SYS_read enter pid:",sched_current()->pid);
+            uint32_t res = (uint32_t) vfs_read((int) a1, (void *) a2, (size_t) a3);
+       //     kprintf("SYS_read exit pid:",sched_current()->pid);
+            return res;
         }
         case SYS_open:
         {

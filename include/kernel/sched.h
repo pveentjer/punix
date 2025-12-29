@@ -129,7 +129,6 @@ void sched_exit(int status);
 
 void ctx_init(
         struct cpu_ctx *cpu_ctx,
-        uint32_t stack_top,
         uint32_t main_addr,
         int argc,
         char **heap_argv,

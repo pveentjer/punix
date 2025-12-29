@@ -130,7 +130,7 @@ static uint32_t vm_paging_next = 0;
  * ------------------------------------------------------------ */
 
 __attribute__((used))
-void page_fault_handler(uint32_t err)
+void page_fault_handler2(uint32_t err)
 {
     uint32_t cr2, cr3, eip, cs, eflags;
     uint32_t *stack_ptr;
@@ -169,6 +169,33 @@ void page_fault_handler(uint32_t err)
         kprintf("  Instruction fetch\n");
 
     panic("page fault");
+}
+
+__attribute__((used))
+void page_fault_handler(uint32_t err)
+{
+    uint32_t cr2, eip;
+    __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+
+    uint32_t *stack_ptr;
+    __asm__ volatile("mov %%esp, %0" : "=r"(stack_ptr));
+    eip = stack_ptr[9];
+
+    // Display CR2 as hex at top-left
+    for (int i = 0; i < 8; i++) {
+        uint8_t nibble = (cr2 >> (28 - i*4)) & 0xF;
+        char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
+        ((volatile uint16_t*)0xB8000)[i] = 0x4F00 | c; // Red on white
+    }
+
+    // Display EIP as hex
+    for (int i = 0; i < 8; i++) {
+        uint8_t nibble = (eip >> (28 - i*4)) & 0xF;
+        char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
+        ((volatile uint16_t*)0xB8000)[i+9] = 0x4F00 | c;
+    }
+
+    while(1);
 }
 
 /* Generates: __attribute__((naked)) void isr_page_fault(void) */

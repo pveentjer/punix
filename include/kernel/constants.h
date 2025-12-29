@@ -38,7 +38,7 @@
 #define KERNEL_VA_SIZE      MB(4)
 
 // todo:
-#define KERNEL_STACK_SIZE   4096
+#define KERNEL_STACK_SIZE   KB(16)
 #define KERNEL_STACK_TOP_VA    (KERNEL_VA_BASE + KERNEL_VA_SIZE - KB(4))
 
 /*
