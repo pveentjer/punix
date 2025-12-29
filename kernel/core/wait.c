@@ -126,7 +126,7 @@ void wakeup(struct wait_queue *queue)
 
 void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx, wait_mode wait_mode)
 {
-    kprintf("wait event\n");
+//    kprintf("wait event\n");
 
     if (queue == NULL || cond == NULL)
     {

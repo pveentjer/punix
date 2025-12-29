@@ -99,50 +99,23 @@ void sched_exit(int status)
 
 void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
 {
-    //  kprintf("---------------------\n");
-
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F41;  // 'A' - Entry
-
     struct task *current = sched_current();
 
-    // kprintf("task_trampoline: %s entry=%p, argc=%d\n", current->name, entry, argc);
-
-
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F42;  // 'B' - Got current
-
     vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F43;  // 'C' - Opened stdin
-
     vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F44;  // 'D' - Opened stdout
-
     vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F45;  // 'E' - Opened stderr
-
     uint32_t u_esp = current->cpu_ctx.u_esp;
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F46;  // 'F' - Got u_esp
-
-
-
     int exit_code;
 
     __asm__ volatile(
-//            "movw $0x0F47, 0xB8F9E\n\t"      // 'G' - In asm
             "mov %%esp, %%ebx\n\t"           // Save kernel ESP
-//            "movw $0x0F48, 0xB8F9E\n\t"      // 'H' - Saved ESP
             "movl %[current], %%edi\n\t"
             "movl (%%edi), %%edi\n\t"
             "movl %%ebx, 4(%%edi)\n\t"       // Save to k_esp
-//            "movw $0x0F49, 0xB8F9E\n\t"      // 'I' - Saved k_esp
-
             "mov %1, %%esp\n\t"               // Switch to user stack
-//            "movw $0x0F4A, 0xB8F9E\n\t"      // 'J' - Switched stack
             "pushl %3\n\t"                    // Push argv
-//            "movw $0x0F4B, 0xB8F9E\n\t"      // 'K' - Pushed argv
             "pushl %2\n\t"                    // Push argc
-//            "movw $0x0F4C, 0xB8F9E\n\t"      // 'L' - Pushed argc
             "call *%4\n\t"                    // Call entry
-//            "movw $0x0F4D, 0xB8F9E\n\t"      // 'M' - Returned
             "addl $8, %%esp\n\t"
             "mov %%ebx, %%esp\n\t"
             "mov %%eax, %0\n\t"
@@ -151,7 +124,6 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
     : "ebx", "edi", "eax", "memory"
     );
 
-//    *(volatile uint16_t *) 0xB8F9E = 0x0F4E;  // 'N' - After asm
     sched_exit(exit_code);
 }
 
@@ -390,17 +362,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         *curbrk_ptr = (char *) task->brk;
     }
 
-//    kprintf("%s main_addr=%p\n", task->name, main_addr);
-
     ctx_init(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
-
-    // DEBUG: Verify the stack was built correctly for swapper only
-    if (k_strcmp(filename_buf, "/sbin/swapper") == 0)
-    {
-        uint32_t *kstack = (uint32_t *) task->cpu_ctx.k_esp;
-        kprintf("After ctx_init for %s: k_esp=0x%08x, [5]=0x%08x (should be task_trampoline=0x%p)\n",
-                task->name, task->cpu_ctx.k_esp, kstack[5], (void *) task_trampoline);
-    }
 
     if (parent == NULL)
     {
@@ -410,9 +372,6 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         vm_activate(parent->vm_space);
     }
-
-
-//    kprintf("task_new pid:%d u_esp:0x%08x k_esp:0x%08x\n", task->pid, task->cpu_ctx.u_esp,task->cpu_ctx.k_esp);
 
     return task;
 }
@@ -507,17 +466,6 @@ void sched_schedule(void)
         next = sched.swapper;
     }
 
-    if (k_strcmp(next->name, "/bin/sh") == 0)
-    {
-        static uint32_t last_sh_kesp = 0;
-        if (last_sh_kesp != 0 && next->cpu_ctx.k_esp != last_sh_kesp)
-        {
-            kprintf("ERROR: sh k_esp changed from 0x%08x to 0x%08x!\n",
-                    last_sh_kesp, next->cpu_ctx.k_esp);
-        }
-        last_sh_kesp = next->cpu_ctx.k_esp;
-    }
-
     struct cpu_ctx dummy_cpu_ctx;
     struct cpu_ctx *prev_cpu_ctx;
     struct cpu_ctx *next_cpu_ctx = &next->cpu_ctx;
@@ -553,31 +501,7 @@ void sched_schedule(void)
 
     sched.ctxt++;
 
-    *(volatile uint16_t *) 0xB8F9E = 0x0F20;  // ' ' - Clear before ctx_switch
-
-    kprintf("sched_schedule %s\n", next->name);
-
-    // Show sh's kernel stack state
-    if (k_strcmp(next->name, "/bin/sh") == 0)
-    {
-        kprintf("sh resuming: k_esp=0x%08x\n", next->cpu_ctx.k_esp);
-        uint32_t *kstack = (uint32_t*)next->cpu_ctx.k_esp;
-        kprintf("  Stack: [0]=0x%08x [4]=0x%08x [5]=0x%08x\n",
-                kstack[0], kstack[4], kstack[5]);
-    }
-
     ctx_switch(prev_cpu_ctx, next_cpu_ctx, next->vm_space);
-
-    if (prev && k_strcmp(prev->name, "/bin/sh") == 0)
-    {
-        uint32_t *kstack = (uint32_t*)prev->cpu_ctx.k_esp;
-        kprintf("sh after blocking: k_esp=0x%08x, [4]=0x%08x (EFLAGS)\n",
-                prev->cpu_ctx.k_esp, kstack[4]);
-        if (kstack[4] != 0x202 && kstack[4] != 0x200 && kstack[4] != 0x206)
-        {
-            kprintf("ERROR: sh's saved EFLAGS corrupted!\n");
-        }
-    }
 }
 
 void sched_stat(struct sched_stat *stat)

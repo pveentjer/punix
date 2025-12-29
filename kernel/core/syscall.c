@@ -46,9 +46,7 @@ uint32_t sys_enter_dispatch_c(uint32_t nr,
         case SYS_read:
         {
             sched_schedule();
-            kprintf("SYS_read enter pid: %d\n",sched_current()->pid);
             uint32_t res = (uint32_t) vfs_read((int) a1, (void *) a2, (size_t) a3);
-            kprintf("SYS_read exit pid: %d\n",sched_current()->pid);
             return res;
         }
         case SYS_open:
