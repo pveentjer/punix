@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 /*
  * Architecture-neutral address space descriptors.
@@ -48,5 +49,8 @@ void vm_activate(struct vm_space *vm);
 /* Activate the kernel address space (switch back to kernel-only) */
 void vm_activate_kernel(void);
 uint32_t vm_debug_read_pd_pa(void);
+
+bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa);
+
 
 #endif /* VM_H */

@@ -623,6 +623,41 @@ void vm_activate_kernel(void)
             );
 }
 
+bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa)
+{
+    if (!vs || !out_pa)
+    {
+        return false;
+    }
+
+    struct vm_impl *impl = vs->impl;
+    struct page_directory *pd = impl->pd_va;
+
+    uint32_t pde_idx = PDE_INDEX(va);
+    uint32_t pte_idx = PTE_INDEX(va);
+
+    struct pde *pde = &pd->e[pde_idx];
+
+    if (!pde->present)
+    {
+        return false;
+    }
+
+    struct page_table *pt =
+            (struct page_table *) pa_to_va(FRAME_TO_PA(pde->frame));
+
+    struct pte *pte = &pt->e[pte_idx];
+
+    if (!pte->present)
+    {
+        return false;
+    }
+
+    *out_pa = FRAME_TO_PA(pte->frame) | (va & (PAGE_SIZE - 1));
+    return true;
+}
+
+
 uint32_t vm_debug_read_pd_pa(void)
 {
     uint32_t cr3;
