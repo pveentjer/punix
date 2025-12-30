@@ -151,9 +151,9 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
-# Helper: build & embed a user app
+# Helper: build & embed a binary
 # ------------------------------------------------------------
-function(add_app name)
+function(add_bin name)
     add_executable(${name}.elf
             ${BIN_DIR}/${name}.c
             ${LIBS_DIR}/libc.c
@@ -178,7 +178,7 @@ function(add_app name)
             -m32
             -nostdlib
             -no-pie
-            -Wl,-T,${CMAKE_SOURCE_DIR}/app.ld
+            -Wl,-T,${CMAKE_SOURCE_DIR}/bin.ld
             -Wl,-e,main
             -Wl,-u,main
             -Wl,--gc-sections
@@ -217,23 +217,23 @@ endfunction()
 # ------------------------------------------------------------
 # Build binaries
 # ------------------------------------------------------------
-add_app(init)
-add_app(sh)
-add_app(ls)
-add_app(ps)
-add_app(loop)
-add_app(spawn_chain)
-add_app(kill)
-add_app(cat)
-add_app(echo)
-add_app(swapper)
-add_app(print_env)
-add_app(tty)
-add_app(pwd)
-add_app(date)
-add_app(uptime)
-add_app(clear)
-add_app(time)
+add_bin(init)
+add_bin(sh)
+add_bin(ls)
+add_bin(ps)
+add_bin(loop)
+add_bin(spawn_chain)
+add_bin(kill)
+add_bin(cat)
+add_bin(echo)
+add_bin(swapper)
+add_bin(print_env)
+add_bin(tty)
+add_bin(pwd)
+add_bin(date)
+add_bin(uptime)
+add_bin(clear)
+add_bin(time)
 
 # ------------------------------------------------------------
 # Kernel ELF
