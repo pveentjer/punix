@@ -203,6 +203,9 @@ static void vga_init(struct console *con)
     con->cursor_col = 0;
     con->esc_state = CON_ESC_NONE;
 
+    /* Set VGA text mode 3 (80x25) */
+    outb(0x3C2, 0x67);
+
     vga_clear(con);
 }
 
