@@ -37,7 +37,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # ------------------------------------------------------------
 set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH}/boot)
 set(KERNEL_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
-set(APPS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/apps)
+set(BIN_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(LIBS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/libs)
 set(DRIVERS_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/drivers)
 set(ARCH_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch)
@@ -155,7 +155,7 @@ add_custom_command(
 # ------------------------------------------------------------
 function(add_app name)
     add_executable(${name}.elf
-            ${APPS_DIR}/${name}.c
+            ${BIN_DIR}/${name}.c
             ${LIBS_DIR}/libc.c
             ${ARCH_SRC_DIR}/libc.c
     )
@@ -215,7 +215,7 @@ endfunction()
 
 
 # ------------------------------------------------------------
-# Build user apps
+# Build binaries
 # ------------------------------------------------------------
 add_app(init)
 add_app(sh)
