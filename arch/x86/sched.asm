@@ -3,7 +3,7 @@ BITS 32
 section .text
 
 global ctx_switch
-global ctx_init
+global ctx_setup_trampoline
 
 extern task_trampoline
 
@@ -11,13 +11,13 @@ extern task_trampoline
 %define OFF_K_ESP  4
 
 ; ============================================================
-; void ctx_init(struct cpu_ctx *cpu_ctx,
-;               uint32_t entry_addr,
-;               int argc,
-;               char **heap_argv,
-;               char **heap_envp);
+; void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx,
+;                           uint32_t entry_addr,
+;                           int argc,
+;                           char **heap_argv,
+;                           char **heap_envp);
 ; ============================================================
-ctx_init:
+ctx_setup_trampoline:
     push ebp
     mov ebp, esp
 

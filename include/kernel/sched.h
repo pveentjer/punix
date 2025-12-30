@@ -127,7 +127,7 @@ pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
-void ctx_init(
+void ctx_setup_trampoline(
         struct cpu_ctx *cpu_ctx,
         uint32_t main_addr,
         int argc,

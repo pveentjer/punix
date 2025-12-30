@@ -9,7 +9,7 @@
 
 struct scheduler sched;
 
-void ctx_init(
+void ctx_setup_trampoline(
         struct cpu_ctx *cpu_ctx,
         uint32_t main_addr,
         int argc,
@@ -362,7 +362,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         *curbrk_ptr = (char *) task->brk;
     }
 
-    ctx_init(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
+    ctx_setup_trampoline(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
 
     if (parent == NULL)
     {
