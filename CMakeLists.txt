@@ -147,16 +147,17 @@ const struct embedded_app *find_app(const char *name)
 # Kernel core sources
 # ------------------------------------------------------------
 set(KERNEL_CORE_SOURCES
+        ${KERNEL_DIR}/core/console.c
         ${KERNEL_DIR}/core/kernel.c
         ${KERNEL_DIR}/core/sched.c
         ${KERNEL_DIR}/core/syscall.c
         ${KERNEL_DIR}/core/kutils.c
         ${KERNEL_DIR}/core/elf_loader.c
-        ${BUILD_DIR}/embedded_apps.c
         ${KERNEL_DIR}/core/task_table.c
         ${KERNEL_DIR}/core/tty.c
         ${KERNEL_DIR}/core/wait.c
         ${KERNEL_DIR}/core/mm.c
+        ${BUILD_DIR}/embedded_apps.c
         arch/x86/panic.c
 )
 
@@ -187,7 +188,7 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/keyboard.c
         ${ARCH_SRC_DIR}/clock.c
         ${ARCH_SRC_DIR}/vm.c
-        ${ARCH_SRC_DIR}/console.c
+        ${ARCH_SRC_DIR}/console_vga.c
 )
 
 add_library(kernel_objs OBJECT
