@@ -1,7 +1,3 @@
-//
-// Created by pveentjer on 12/23/25.
-//
-
 #ifndef KERNEL_CLOCK_H
 #define KERNEL_CLOCK_H
 

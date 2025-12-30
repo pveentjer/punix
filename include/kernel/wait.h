@@ -1,7 +1,3 @@
-//
-// Created by pveentjer on 12/12/25.
-//
-
 #ifndef WAIT_H
 #define WAIT_H
 
