@@ -39,7 +39,6 @@ set(BOOT_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH}/boot)
 set(KERNEL_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
 set(BIN_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(LIBS_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/libs)
-set(DRIVERS_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/drivers)
 set(ARCH_DIR        ${CMAKE_CURRENT_SOURCE_DIR}/arch)
 set(FS_DIR          ${CMAKE_CURRENT_SOURCE_DIR}/fs)
 set(BUILD_DIR       ${CMAKE_CURRENT_BINARY_DIR})
@@ -97,9 +96,6 @@ set(KERNEL_CORE_SOURCES
         arch/x86/panic.c
 )
 
-set(KERNEL_DRIVER_SOURCES
-        ${DRIVERS_DIR}/console.c
-)
 
 # ------------------------------------------------------------
 # FS sources (moved to top-level fs/)
@@ -129,6 +125,7 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/syscall.c
         ${ARCH_SRC_DIR}/clock.c
         ${ARCH_SRC_DIR}/vm.c
+        ${ARCH_SRC_DIR}/console.c
 )
 
 add_library(kernel_objs OBJECT
