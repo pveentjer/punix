@@ -12,6 +12,8 @@ void *k_memcpy(void *dest, const void *src, size_t n);
 
 void *k_memset(void *dest, int value, size_t n);
 
+void *k_memmove(void *dest, const void *src, size_t n);
+
 int k_strcmp(const char *a, const char *b);
 
 int k_strncmp(const char *s1, const char *s2, size_t n);
