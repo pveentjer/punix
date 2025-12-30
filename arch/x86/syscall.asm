@@ -3,10 +3,14 @@ BITS 32
 section .text
 
 global sys_enter
+global sys_return
 
 extern sys_enter_dispatch_c
 extern sched
 
+; ============================================================
+; Syscall entry point
+; ============================================================
 sys_enter:
     push esi
     push edx
@@ -19,7 +23,7 @@ sys_enter:
     push edi
 
     ; Get current task and save user ESP
-    mov edi, [sched]            ; edi = sched.current (offset 0)
+    mov edi, [sched]            ; edi = sched.current
     mov [edi], esp              ; task->cpu_ctx.u_esp = esp
 
     ; Load kernel stack
@@ -42,15 +46,25 @@ sys_enter:
     call sys_enter_dispatch_c
 
     add esp, 20
+    jmp sys_return
+
+; ============================================================
+; Common syscall return path
+; ============================================================
+sys_return:
+    ; EAX contains return value
+    ; We're on kernel stack
 
     ; Restore user ESP
     mov edi, [sched]            ; edi = sched.current
     mov esp, [edi]              ; esp = task->cpu_ctx.u_esp
 
+    ; Restore callee-saved
     pop edi
     pop ebp
     popfd
 
+    ; Discard saved syscall args
     add esp, 20
 
     ret
