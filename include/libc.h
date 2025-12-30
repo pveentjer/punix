@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>   // for size_t
 #include "dirent.h"
-#include "kernel/fcntl.h"
+#include "fcntl.h"
 
 #define WNOHANG 0x01
 

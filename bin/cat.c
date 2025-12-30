@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "kernel/fcntl.h"
+#include "fcntl.h"
 #include "libc.h"
 #include "string.h"
 #include "stdio.h"

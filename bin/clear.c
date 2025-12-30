@@ -1,7 +1,7 @@
 
 #include "libc.h"
 #include "string.h"
-#include "kernel/fcntl.h"
+#include "fcntl.h"
 #include "stdio.h"
 
 int main(void)

@@ -2,7 +2,7 @@
 #include "libc.h"
 #include "string.h"
 #include "stdio.h"
-#include "kernel/fcntl.h"
+#include "fcntl.h"
 #include "dirent.h"
 
 static void print_help(const char *prog)

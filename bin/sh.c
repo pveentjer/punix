@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "string.h"
 #include "libc.h"
-#include "kernel/fcntl.h"
+#include "fcntl.h"
 #include "dirent.h"
 #include "stdio.h"
 
