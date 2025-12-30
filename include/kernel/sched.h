@@ -48,8 +48,8 @@ struct task
     // The number of context switches.
     uint64_t ctxt;
 
-    uint32_t brk;
-    uint32_t brk_limit;
+    uintptr_t brk;
+    uintptr_t brk_limit;
 
     uint8_t kstack[KERNEL_STACK_SIZE];
 

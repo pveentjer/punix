@@ -340,7 +340,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     uint32_t environ_off = elf_info.environ_off;
 
     uintptr_t program_end = (uintptr_t) elf_info.max_offset;
-    task->brk = (uint32_t) align_up(program_end, 16);
+    task->brk = (uintptr_t) align_up(program_end, 16);
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
     if ((uintptr_t) task->brk > task->brk_limit)

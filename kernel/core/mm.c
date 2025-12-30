@@ -10,7 +10,7 @@ int mm_brk(void *addr)
         return -1;
     }
 
-    uint32_t new_brk = (uint32_t) addr;
+    uintptr_t new_brk = (uintptr_t) addr;
 
     if (new_brk > task->brk_limit)
     {
