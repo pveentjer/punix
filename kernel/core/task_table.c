@@ -3,7 +3,7 @@
 #include "kernel/sched.h"
 #include "kernel/kutils.h"
 #include "kernel/vfs.h"
-#include "kernel/vm.h"
+#include "kernel/mm.h"
 
 #define PID_MASK (MAX_PROCESS_CNT -1)
 

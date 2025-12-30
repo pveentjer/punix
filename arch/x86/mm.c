@@ -1,4 +1,4 @@
-#include "kernel/vm.h"
+#include "kernel/mm.h"
 #include "kernel/console.h"
 #include "kernel/config.h"
 #include "kernel/constants.h"

@@ -6,7 +6,7 @@
 #include "constants.h"
 #include "files.h"
 #include "cpu_ctx.h"
-#include "vm.h"
+#include "mm.h"
 
 typedef int pid_t;
 typedef uint32_t sigset_t;

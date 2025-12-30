@@ -12,7 +12,7 @@
 #include "kernel/config.h"
 #include "kernel/panic.h"
 #include "kernel/clock.h"
-#include "kernel/vm.h"
+#include "kernel/mm.h"
 
 extern uint8_t __bss_start;
 extern uint8_t __bss_end;
