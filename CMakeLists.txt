@@ -81,6 +81,69 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
+# Collect all binary names and paths
+# ------------------------------------------------------------
+set(ALL_BINS
+        swapper init sh loop ps spawn_chain kill ls cat echo
+        print_env tty pwd date uptime clear time
+)
+
+set(BIN_PATHS
+        "/sbin/swapper"
+        "/sbin/init"
+        "/bin/sh"
+        "/bin/loop"
+        "/bin/ps"
+        "/bin/spawn_chain"
+        "/bin/kill"
+        "/bin/ls"
+        "/bin/cat"
+        "/bin/echo"
+        "/bin/print_env"
+        "/bin/tty"
+        "/bin/pwd"
+        "/bin/date"
+        "/bin/uptime"
+        "/bin/clear"
+        "/bin/time"
+)
+
+# ------------------------------------------------------------
+# Generate embedded_apps.c
+# ------------------------------------------------------------
+file(WRITE ${BUILD_DIR}/embedded_apps.c "#include \"kernel/kutils.h\"\n")
+file(APPEND ${BUILD_DIR}/embedded_apps.c "#include \"kernel/console.h\"\n")
+file(APPEND ${BUILD_DIR}/embedded_apps.c "#include \"kernel/elf_loader.h\"\n\n")
+file(APPEND ${BUILD_DIR}/embedded_apps.c "/* Auto-generated - do not edit */\n\n")
+
+foreach(name ${ALL_BINS})
+    file(APPEND ${BUILD_DIR}/embedded_apps.c "extern unsigned char _binary_${name}_elf_start[];\n")
+    file(APPEND ${BUILD_DIR}/embedded_apps.c "extern unsigned char _binary_${name}_elf_end[];\n")
+endforeach()
+
+file(APPEND ${BUILD_DIR}/embedded_apps.c "\nconst struct embedded_app embedded_apps[] = {\n")
+
+list(LENGTH ALL_BINS count)
+math(EXPR last "${count} - 1")
+foreach(idx RANGE ${last})
+    list(GET ALL_BINS ${idx} name)
+    list(GET BIN_PATHS ${idx} path)
+    file(APPEND ${BUILD_DIR}/embedded_apps.c "    {\"${path}\", _binary_${name}_elf_start, _binary_${name}_elf_end},\n")
+endforeach()
+
+file(APPEND ${BUILD_DIR}/embedded_apps.c "};\n\n")
+file(APPEND ${BUILD_DIR}/embedded_apps.c "const size_t embedded_app_count = sizeof(embedded_apps) / sizeof(embedded_apps[0]);\n\n")
+file(APPEND ${BUILD_DIR}/embedded_apps.c "
+const struct embedded_app *find_app(const char *name)
+{
+    for (size_t i = 0; i < embedded_app_count; i++)
+        if (k_strcmp(embedded_apps[i].name, name) == 0)
+            return &embedded_apps[i];
+    return NULL;
+}
+")
+
+# ------------------------------------------------------------
 # Kernel core sources
 # ------------------------------------------------------------
 set(KERNEL_CORE_SOURCES
@@ -89,13 +152,13 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/syscall.c
         ${KERNEL_DIR}/core/kutils.c
         ${KERNEL_DIR}/core/elf_loader.c
+        ${BUILD_DIR}/embedded_apps.c
         ${KERNEL_DIR}/core/task_table.c
         ${KERNEL_DIR}/core/tty.c
         ${KERNEL_DIR}/core/wait.c
         ${KERNEL_DIR}/core/mm.c
         arch/x86/panic.c
 )
-
 
 # ------------------------------------------------------------
 # FS sources (moved to top-level fs/)
@@ -208,29 +271,14 @@ function(add_bin name)
     set(${name}_OBJ ${BUILD_DIR}/${name}_elf.o PARENT_SCOPE)
 endfunction()
 
-
-
-
 # ------------------------------------------------------------
-# Build binaries
+# Build binaries and collect their object files
 # ------------------------------------------------------------
-add_bin(init)
-add_bin(sh)
-add_bin(ls)
-add_bin(ps)
-add_bin(loop)
-add_bin(spawn_chain)
-add_bin(kill)
-add_bin(cat)
-add_bin(echo)
-add_bin(swapper)
-add_bin(print_env)
-add_bin(tty)
-add_bin(pwd)
-add_bin(date)
-add_bin(uptime)
-add_bin(clear)
-add_bin(time)
+set(EMBEDDED_OBJS "")
+foreach(bin ${ALL_BINS})
+    add_bin(${bin})
+    list(APPEND EMBEDDED_OBJS ${${bin}_OBJ})
+endforeach()
 
 # ------------------------------------------------------------
 # Kernel ELF
@@ -239,23 +287,7 @@ add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
         ${PREBOOT_ASM_OBJ}
         ${SCHED_ASM_OBJ}
-        ${init_OBJ}
-        ${sh_OBJ}
-        ${ls_OBJ}
-        ${ps_OBJ}
-        ${loop_OBJ}
-        ${spawn_chain_OBJ}
-        ${kill_OBJ}
-        ${cat_OBJ}
-        ${echo_OBJ}
-        ${swapper_OBJ}
-        ${print_env_OBJ}
-        ${tty_OBJ}
-        ${pwd_OBJ}
-        ${date_OBJ}
-        ${uptime_OBJ}
-        ${clear_OBJ}
-        ${time_OBJ}
+        ${EMBEDDED_OBJS}
 )
 
 set_target_properties(kernel.elf PROPERTIES
