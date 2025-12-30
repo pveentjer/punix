@@ -104,7 +104,7 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
     vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
     vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
     vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
-    uint32_t u_esp = current->cpu_ctx.u_esp;
+    uint32_t u_sp = current->cpu_ctx.u_sp;
     int exit_code;
 
     __asm__ volatile(
@@ -120,7 +120,7 @@ void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
             "mov %%ebx, %%esp\n\t"
             "mov %%eax, %0\n\t"
             : "=r"(exit_code)
-            : "r"(u_esp), "r"(argc), "r"(argv), "r"(entry), [current] "m"(sched.current)
+            : "r"(u_sp), "r"(argc), "r"(argv), "r"(entry), [current] "m"(sched.current)
     : "ebx", "edi", "eax", "memory"
     );
 
@@ -264,8 +264,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    task->cpu_ctx.k_esp = (uint32_t) (task->kstack + KERNEL_STACK_SIZE);
-    task->cpu_ctx.u_esp = PROCESS_STACK_TOP;
+    task->cpu_ctx.k_sp = (uint32_t) (task->kstack + KERNEL_STACK_SIZE);
+    task->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
     // Copy filename to stack buffer BEFORE switching PDs
     char filename_buf[MAX_FILENAME_LEN];
