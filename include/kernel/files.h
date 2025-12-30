@@ -61,31 +61,28 @@ struct file
 struct fs
 {
     int (*open)(struct file *file);
+
     int (*close)(struct file *file);
+
     ssize_t (*read)(struct file *file, void *buf, size_t count);
+
     ssize_t (*write)(struct file *file, const void *buf, size_t count);
+
     int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
 };
+
 /* ------------------------------------------------------------------
  * files
  * ------------------------------------------------------------------ */
 
-void files_init(
-        struct files *files);
+void files_init(struct files *files);
 
-int files_alloc_fd(
-        struct files *files,
-        struct file *file);
+int files_alloc_fd(struct files *files, struct file *file);
 
-struct file *files_free_fd(
-        struct files *files,
-        int fd);
+struct file *files_free_fd(struct files *files, int fd);
 
-void files_free_all(
-        struct files *files);
+void files_free_all(struct files *files);
 
-struct file *files_find_by_fd(
-        const struct files *files,
-        int fd);
+struct file *files_find_by_fd(const struct files *files, int fd);
 
 #endif //FILES_H
