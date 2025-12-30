@@ -80,11 +80,12 @@ struct run_queue
 
 struct scheduler
 {
+    struct task *current;
     uint64_t ctxt;
     struct task_table task_table;
     struct run_queue run_queue;
     struct task *swapper;
-    struct task *current;
+
 };
 
 struct sched_stat

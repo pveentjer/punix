@@ -185,7 +185,6 @@ set(KERNEL_SOURCES
 set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/irq.c
         ${ARCH_SRC_DIR}/keyboard.c
-        ${ARCH_SRC_DIR}/syscall.c
         ${ARCH_SRC_DIR}/clock.c
         ${ARCH_SRC_DIR}/vm.c
         ${ARCH_SRC_DIR}/console.c
@@ -208,6 +207,20 @@ add_custom_command(
         DEPENDS ${SCHED_ASM_SRC}
         WORKING_DIRECTORY ${BUILD_DIR}
         COMMENT "Assembling ${SCHED_ASM_OBJ}"
+)
+
+# ------------------------------------------------------------
+# syscall.asm -> syscall_x86.o
+# ------------------------------------------------------------
+set(SYSCALL_ASM_SRC   ${ARCH_SRC_DIR}/syscall.asm)
+set(SYSCALL_ASM_OBJ   ${BUILD_DIR}/syscall_${ARCH}.o)
+
+add_custom_command(
+        OUTPUT ${SYSCALL_ASM_OBJ}
+        COMMAND ${NASM_EXECUTABLE} -f elf32 ${SYSCALL_ASM_SRC} -o ${SYSCALL_ASM_OBJ}
+        DEPENDS ${SYSCALL_ASM_SRC}
+        WORKING_DIRECTORY ${BUILD_DIR}
+        COMMENT "Assembling ${SYSCALL_ASM_OBJ}"
 )
 
 # ------------------------------------------------------------
@@ -287,6 +300,7 @@ add_executable(kernel.elf
         $<TARGET_OBJECTS:kernel_objs>
         ${PREBOOT_ASM_OBJ}
         ${SCHED_ASM_OBJ}
+        ${SYSCALL_ASM_OBJ}
         ${EMBEDDED_OBJS}
 )
 
