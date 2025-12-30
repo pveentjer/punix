@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "libc.h"
+#include "stdio.h"
 #include "kernel/constants.h"
 
 int main(int argc, char **argv)

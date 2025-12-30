@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "libc.h"
+#include "stdio.h"
 #include "string.h"
 
 /* Default signal is SIGTERM (15) on Linux */

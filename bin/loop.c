@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "libc.h"
+#include "stdio.h"
 #include "string.h"
 
 #define MAX_INDENT 80

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "libc.h"
 #include "string.h"
+#include "stdio.h"
 
 int main(int argc, char **argv)
 {

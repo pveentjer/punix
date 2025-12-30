@@ -1,7 +1,9 @@
 // time.c
 #include "libc.h"
 #include "string.h"
+#include "stdio.h"
 #include "time.h"
+#include "stdio.h"
 
 /*
  * Expect these to come from your headers:

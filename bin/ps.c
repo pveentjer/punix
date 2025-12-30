@@ -2,6 +2,7 @@
 #include "string.h"
 #include "kernel/fcntl.h"
 #include "dirent.h"
+#include "stdio.h"
 
 static void print_help(const char *prog)
 {

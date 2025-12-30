@@ -1,4 +1,5 @@
 #include "libc.h"
+#include "stdio.h"
 
 int main(void) {
 //    int fd = open("/dev/tty", O_RDONLY);

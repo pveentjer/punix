@@ -3,6 +3,7 @@
 #include "libc.h"
 #include "kernel/fcntl.h"
 #include "dirent.h"
+#include "stdio.h"
 
 extern char **environ;
 
