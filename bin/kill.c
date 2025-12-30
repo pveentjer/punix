@@ -2,6 +2,7 @@
 #include "libc.h"
 #include "stdio.h"
 #include "string.h"
+#include "unistd.h"
 
 /* Default signal is SIGTERM (15) on Linux */
 #define SIGTERM_DEFAULT 15

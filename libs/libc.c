@@ -4,7 +4,9 @@
 #include "libc.h"
 #include "string.h"
 #include "kernel/syscall.h"
+#include "fcntl.h"
 #include "time.h"
+#include "unistd.h"
 
 void delay(uint32_t count)
 {
