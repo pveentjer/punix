@@ -1,6 +1,6 @@
-#include "kernel/libc.h"
+#include "libc.h"
 #include "kernel/fcntl.h"
-#include "kernel/dirent.h"
+#include "dirent.h"
 
 static void print_help(const char *prog)
 {

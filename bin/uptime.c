@@ -1,5 +1,5 @@
-#include "kernel/libc.h"
-#include "kernel/time.h"
+#include "libc.h"
+#include "time.h"
 #include <stdint.h>
 
 int main(void)

@@ -1,4 +1,4 @@
-#include "kernel/libc.h"
+#include "libc.h"
 
 int main(void) {
 //    int fd = open("/dev/tty", O_RDONLY);

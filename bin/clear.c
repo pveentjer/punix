@@ -1,5 +1,5 @@
 
-#include "kernel/libc.h"
+#include "libc.h"
 #include "kernel/fcntl.h"
 
 int main(void)

@@ -1,6 +1,6 @@
 // time.c
-#include "kernel/libc.h"
-#include "kernel/time.h"
+#include "libc.h"
+#include "time.h"
 
 /*
  * Expect these to come from your headers:

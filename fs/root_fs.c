@@ -2,7 +2,7 @@
 
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
-#include "kernel/dirent.h"
+#include "dirent.h"
 
 static int root_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {

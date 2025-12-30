@@ -1,4 +1,4 @@
-#include "kernel/libc.h"
+#include "libc.h"
 
 int main(int argc, char **argv)
 {

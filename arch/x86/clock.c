@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "kernel/time.h"
+#include "time.h"
 #include "kernel/panic.h"
 #include "kernel/console.h"
 

@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "kernel/libc.h"
+#include "libc.h"
 #include "kernel/syscall.h"
-#include "kernel/time.h"
+#include "time.h"
 
 void delay(uint32_t count)
 {

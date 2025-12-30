@@ -1,5 +1,5 @@
-#include "kernel/libc.h"
-#include "kernel/time.h"
+#include "libc.h"
+#include "time.h"
 #include <stdbool.h>
 #include <stdint.h>
 
