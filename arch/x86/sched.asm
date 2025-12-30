@@ -81,13 +81,13 @@ ctx_setup_trampoline:
 ; ============================================================
 ; void ctx_switch(struct cpu_ctx *prev,
 ;                 struct cpu_ctx *next,
-;                 struct vm_space *vm_space);
+;                 struct mm *mm);
 ; ============================================================
 ctx_switch:
     cli
     mov eax, [esp + 4]      ; prev
     mov edx, [esp + 8]      ; next
-    mov ecx, [esp + 12]     ; vm_space
+    mov ecx, [esp + 12]     ; mm
 
     ; PUSH registers onto prev's stack BEFORE saving ESP
     push ebx
@@ -100,8 +100,8 @@ ctx_switch:
     mov [eax + OFF_K_ESP], esp
 
     ; Switch page directory
-    mov ecx, [ecx + 8]
-    mov ecx, [ecx + 4]
+    mov ecx, [ecx]          ; mm->impl
+    mov ecx, [ecx + 4]      ; vm_impl->pd_pa
     mov cr3, ecx
 
     ; Load next ESP and restore registers

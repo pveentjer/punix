@@ -5,52 +5,62 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/*
- * Architecture-neutral address space descriptors.
- * No paging internals exposed.
- * Implementation-specific state is carried via `impl`.
- */
-
 struct vm_impl;
 
-/* Process address space */
-struct vm_space {
-    uintptr_t base_va;   /* base virtual address */
-    size_t    size;      /* size of addressable region */
-    void     *impl;      /* implementation-specific state */
+/* VMA types */
+#define VMA_TYPE_KERNEL  0
+#define VMA_TYPE_VGA     1
+#define VMA_TYPE_PROCESS 2
+
+/* Virtual memory area - a mapped region */
+struct vma {
+    uintptr_t base_va;
+    uintptr_t base_pa;
+    size_t length;
+    uint32_t flags;
+    uint32_t type;
+    struct vma *next;
 };
 
-/* Kernel address space */
-struct vm_kernel_space {
-    uintptr_t base_va;
-    void     *impl;      /* implementation-specific state */
+/* VMA flags */
+#define VMA_READ  0x1
+#define VMA_WRITE 0x2
+#define VMA_EXEC  0x4
+#define VMA_USER  0x8
+
+/* Memory management structure */
+struct mm {
+    void *impl;        /* Page directory (architecture-specific) */
+    struct vma *vmas;  /* List of mapped regions */
 };
 
 /* ------------------------------------------------------------
  * Initialization
  * ------------------------------------------------------------ */
 
-/* Initialize kernel address space */
-void vm_init(void);
+/* Initialize VM subsystem */
+void mm_init(void);
 
-/* Access kernel address space */
-struct vm_kernel_space *vm_kernel(void);
-
-/* Create a new process address space */
-struct vm_space *vm_create(uint32_t base_pa, size_t size);
+/* Get kernel mm */
+struct mm *mm_kernel(void);
 
 /* ------------------------------------------------------------
- * Activation (switch current address space)
+ * MM Operations
  * ------------------------------------------------------------ */
 
-/* Activate a process address space (switch to it) */
-void vm_activate(struct vm_space *vm);
+/* Create new mm by forking kernel mm (copies kernel VMAs and mappings) */
+struct mm *mm_fork_kernel(void);
 
-/* Activate the kernel address space (switch back to kernel-only) */
-void vm_activate_kernel(void);
-uint32_t vm_debug_read_pd_pa(void);
+/* Add a VMA region and map physical pages */
+struct vma *mm_add_vma(struct mm *mm, uint32_t type, uintptr_t va, size_t size, uint32_t flags, uintptr_t pa);
 
-bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa);
+/* Find first VMA with given type */
+struct vma *mm_find_vma_by_type(struct mm *mm, uint32_t type);
 
+/* Switch to this address space */
+void mm_activate(struct mm *mm);
+
+/* Translate virtual to physical address */
+bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa);
 
 #endif /* VM_H */

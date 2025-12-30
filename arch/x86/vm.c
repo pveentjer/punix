@@ -43,12 +43,20 @@ extern uint32_t __premain_pa_end;
 #define PAGE_ALIGN_DOWN(x) ((x) & PAGE_MASK)
 #define PAGE_ALIGN_UP(x)   (((x) + PAGE_SIZE - 1) & PAGE_MASK)
 
+/* VGA text buffer */
+#define VGA_TEXT_BUFFER_VA   0xB8000
+#define VGA_TEXT_BUFFER_SIZE 0x1000
+
 /* Static sizing (up-front) */
 #define VM_PT_COVERS_BYTES (4u * 1024u * 1024u)  /* 1 PT covers 4MB */
 
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
 #define VM_USER_PTS_PER_PROC  (DIV_ROUND_UP(PROCESS_VA_SIZE, VM_PT_COVERS_BYTES))
 #define VM_PAGING_PAGES_TOTAL (MAX_PROCESS_CNT * (1u + VM_USER_PTS_PER_PROC)) /* PD + PTs */
+
+/* VMA pool sizing */
+#define MAX_VMAS_PER_PROCESS 16
+#define MAX_VMAS_TOTAL (MAX_PROCESS_CNT * MAX_VMAS_PER_PROCESS)
 
 /* ------------------------------------------------------------
  * Paging structures (x86 32-bit non-PAE)
@@ -108,13 +116,17 @@ struct vm_impl
  * Globals (public structs, private impl storage)
  * ------------------------------------------------------------ */
 
-static struct vm_kernel_space kernel_vm;
-static struct vm_space proc_vms[MAX_PROCESS_CNT];
-static uint32_t proc_vm_next = 0;
+static struct mm kernel_vm;
+static struct mm proc_mms[MAX_PROCESS_CNT];
+static uint32_t proc_mm_next = 0;
 
 static struct vm_impl kernel_impl;
 static struct vm_impl proc_impl_pool[MAX_PROCESS_CNT];
 static uint32_t proc_impl_next = 0;
+
+/* VMA pool */
+static struct vma vma_pool[MAX_VMAS_TOTAL];
+static uint32_t vma_next = 0;
 
 /* ------------------------------------------------------------
  * Kernel-owned paging-structure pool (PD/PT pages)
@@ -138,14 +150,9 @@ void page_fault_handler2(uint32_t err)
     __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
 
-    // Get the stack pointer at exception entry
-    // Adjust based on your stub's push/call sequence
     __asm__ volatile("mov %%ebp, %0" : "=r"(stack_ptr));
 
-    // Stack layout (adjust offsets based on your stub):
-    // [ebp+4] = return address
-    // [ebp+8] onwards = CPU-pushed values
-    eip = stack_ptr[2];      // Adjust offset as needed
+    eip = stack_ptr[2];
     cs = stack_ptr[3];
     eflags = stack_ptr[4];
 
@@ -157,7 +164,6 @@ void page_fault_handler2(uint32_t err)
     kprintf("EFLAGS:  0x%08x ", eflags);
     kprintf("CR3:     0x%08x\n ", cr3);
 
-    // Decode error code
     kprintf("  Type:   %s ", (err & 0x01) ? "protection-violation" : "not-present");
     kprintf("  Access: %s ", (err & 0x02) ? "write" : "read");
     kprintf("  Mode:   %s ", (err & 0x04) ? "user-mode" : "kernel-mode");
@@ -181,14 +187,12 @@ void page_fault_handler(uint32_t err)
     __asm__ volatile("mov %%esp, %0" : "=r"(stack_ptr));
     eip = stack_ptr[9];
 
-    // Display CR2 as hex at top-left
     for (int i = 0; i < 8; i++) {
         uint8_t nibble = (cr2 >> (28 - i*4)) & 0xF;
         char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
-        ((volatile uint16_t*)0xB8000)[i] = 0x4F00 | c; // Red on white
+        ((volatile uint16_t*)0xB8000)[i] = 0x4F00 | c;
     }
 
-    // Display EIP as hex
     for (int i = 0; i < 8; i++) {
         uint8_t nibble = (eip >> (28 - i*4)) & 0xF;
         char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
@@ -198,7 +202,6 @@ void page_fault_handler(uint32_t err)
     while(1);
 }
 
-/* Generates: __attribute__((naked)) void isr_page_fault(void) */
 MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
 
 /* ------------------------------------------------------------
@@ -220,12 +223,12 @@ static inline uintptr_t kernel_va_base(void)
     return (uintptr_t) &__kernel_va_base;
 }
 
-static inline uintptr_t pa_to_va(uintptr_t pa)
+static inline uintptr_t kernel_pa_to_va(uintptr_t pa)
 {
     return pa - kernel_pa_base() + kernel_va_base();
 }
 
-static inline uintptr_t va_to_pa(uintptr_t va)
+static inline uintptr_t kernel_va_to_pa(uintptr_t va)
 {
     return va - kernel_va_base() + kernel_pa_base();
 }
@@ -237,7 +240,7 @@ static inline struct page_directory *kernel_pd(void)
 
 static inline struct page_table *pde_to_pt(struct pde *pde)
 {
-    return (struct page_table *) pa_to_va(FRAME_TO_PA(pde->frame));
+    return (struct page_table *) kernel_pa_to_va(FRAME_TO_PA(pde->frame));
 }
 
 static inline void pte_set(struct pte *p, uintptr_t pa, uint32_t flags)
@@ -274,16 +277,16 @@ static uintptr_t vm_paging_alloc_page_pa(void)
     uintptr_t page_va = (uintptr_t) &vm_paging_pool[vm_paging_next * PAGE_SIZE];
     vm_paging_next++;
 
-    return va_to_pa(page_va);
+    return kernel_va_to_pa(page_va);
 }
 
-static struct vm_space *vm_alloc_process_vm(void)
+static struct mm *mm_alloc(void)
 {
-    if (proc_vm_next >= MAX_PROCESS_CNT)
+    if (proc_mm_next >= MAX_PROCESS_CNT)
     {
         return NULL;
     }
-    return &proc_vms[proc_vm_next++];
+    return &proc_mms[proc_mm_next++];
 }
 
 static struct vm_impl *vm_alloc_process_impl(void)
@@ -293,6 +296,15 @@ static struct vm_impl *vm_alloc_process_impl(void)
         return NULL;
     }
     return &proc_impl_pool[proc_impl_next++];
+}
+
+static struct vma *vma_alloc(void)
+{
+    if (vma_next >= MAX_VMAS_TOTAL)
+    {
+        return NULL;
+    }
+    return &vma_pool[vma_next++];
 }
 
 /* ------------------------------------------------------------
@@ -308,7 +320,6 @@ static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t
 
         struct pde *pde = &impl->pd_va->e[pde_idx];
 
-        /* Allocate PT on demand (from kernel pool) */
         if (!pde->present)
         {
             uintptr_t pt_pa = vm_paging_alloc_page_pa();
@@ -317,7 +328,7 @@ static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t
                 return;
             }
 
-            struct page_table *new_pt = (struct page_table *) pa_to_va(pt_pa);
+            struct page_table *new_pt = (struct page_table *) kernel_pa_to_va(pt_pa);
             pt_clear(new_pt);
 
             pde->frame = (uint32_t) (pt_pa >> 12);
@@ -330,7 +341,6 @@ static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t
         struct page_table *pt = pde_to_pt(pde);
         struct pte *pte = &pt->e[pte_idx];
 
-        /* User mapping when below kernel VA base */
         uint32_t flags = PTE_P | PTE_W;
         if (va < kernel_va_base())
         {
@@ -369,32 +379,12 @@ static void vm_unmap_impl(struct vm_impl *impl, uintptr_t va, size_t size)
     }
 }
 
-
-void vm_unmap_premain();
-
-void vm_init(void)
-{
-    /* Install #PF handler (exception 14) */
-    idt_set_gate(14, (uint32_t) isr_page_fault, (uint16_t) GDT_KERNEL_CS, (uint8_t) 0x8E);
-
-    /* Bind kernel vm to existing kernel paging structures */
-    kernel_vm.base_va = kernel_va_base();
-    kernel_vm.impl = &kernel_impl;
-
-    kernel_impl.pd_va = kernel_pd();
-    kernel_impl.pd_pa = va_to_pa((uintptr_t) kernel_impl.pd_va);
-    kernel_impl.kernel_pde_start = (uint32_t) (kernel_va_base() >> 22);
-
-    vm_unmap_premain();
-
-}
-
-void vm_unmap_premain()
+static void vm_unmap_premain(void)
 {
     uintptr_t premain_pa_start = (uintptr_t) &__premain_pa_start;
     uintptr_t premain_pa_end = (uintptr_t) &__premain_pa_end;
 
-    uintptr_t premain_va_start = premain_pa_start; /* identity mapped */
+    uintptr_t premain_va_start = premain_pa_start;
     uintptr_t premain_va_end = premain_pa_end;
 
     uintptr_t premain_va_page_start = PAGE_ALIGN_DOWN(premain_va_start);
@@ -405,133 +395,37 @@ void vm_unmap_premain()
                   premain_va_page_end - premain_va_page_start);
 }
 
-
 /* ------------------------------------------------------------
  * Public API
  * ------------------------------------------------------------ */
 
-struct vm_kernel_space *vm_kernel(void)
+void mm_init(void)
+{
+    idt_set_gate(14, (uint32_t) isr_page_fault, (uint16_t) GDT_KERNEL_CS, (uint8_t) 0x8E);
+
+    kernel_vm.impl = &kernel_impl;
+    kernel_vm.vmas = NULL;
+
+    kernel_impl.pd_va = kernel_pd();
+    kernel_impl.pd_pa = kernel_va_to_pa((uintptr_t) kernel_impl.pd_va);
+    kernel_impl.kernel_pde_start = PDE_INDEX(kernel_va_base());
+
+    vm_unmap_premain();
+
+    mm_add_vma(&kernel_vm, VMA_TYPE_VGA, VGA_TEXT_BUFFER_VA, VGA_TEXT_BUFFER_SIZE, VMA_READ | VMA_WRITE, VGA_TEXT_BUFFER_VA);
+
+    mm_activate(&kernel_vm);
+}
+
+struct mm *mm_kernel(void)
 {
     return &kernel_vm;
 }
 
-/* ------------------------------------------------------------
- * VM verification
- * ------------------------------------------------------------ */
-
-static inline uintptr_t read_eip(void)
+struct mm *mm_fork_kernel(void)
 {
-    uintptr_t eip;
-    __asm__ volatile("call 1f\n1: pop %0" : "=r"(eip));
-    return eip;
-}
-
-static inline uintptr_t read_esp(void)
-{
-    uintptr_t esp;
-    __asm__ volatile("mov %%esp, %0" : "=r"(esp));
-    return esp;
-}
-
-static int vm_is_mapped(struct page_directory *pd, uintptr_t va, uint32_t *pte_out)
-{
-    uint32_t pdi = PDE_INDEX(va);
-    uint32_t pti = PTE_INDEX(va);
-
-    struct pde *pde = &pd->e[pdi];
-    if (!pde->present)
-        return 0;
-
-    struct page_table *pt = pde_to_pt(pde);
-    struct pte *pte = &pt->e[pti];
-
-    if (pte_out)
-        *pte_out = *(uint32_t *) pte;
-
-    return pte->present;
-}
-
-static void vm_verify(struct vm_space *vm)
-{
-    struct vm_impl *impl = vm->impl;
-    struct page_directory *pd = impl->pd_va;
-    struct page_directory *kpd = kernel_impl.pd_va;
-
-    /* 1. Kernel PDEs must match exactly */
-    uint32_t kstart = kernel_impl.kernel_pde_start;
-
-    for (uint32_t i = kstart; i < PAGE_DIR_ENTRIES; i++)
-    {
-        if (kpd->e[i].present)
-        {
-            uint32_t a = *(uint32_t *) &pd->e[i];
-            uint32_t b = *(uint32_t *) &kpd->e[i];
-
-            if (a != b)
-            {
-                kprintf("vm_verify: kernel PDE mismatch idx=%u\n", i);
-                panic("vm_verify");
-            }
-        }
-    }
-
-    /* 2. Current instruction must be mapped */
-    uintptr_t eip = read_eip();
-    if (!vm_is_mapped(pd, eip, NULL))
-    {
-        kprintf("vm_verify: EIP not mapped: %x\n", (uint32_t) eip);
-        panic("vm_verify");
-    }
-
-    /* 3. Stack must be mapped */
-    uintptr_t esp = read_esp();
-    if (!vm_is_mapped(pd, esp, NULL))
-    {
-        kprintf("vm_verify: ESP not mapped: %x\n", (uint32_t) esp);
-        panic("vm_verify");
-    }
-
-    /* 4. User range must exist + be user-accessible */
-    uintptr_t start = PROCESS_VA_BASE;
-    uintptr_t end = PROCESS_VA_BASE + PROCESS_VA_SIZE;
-
-    for (uintptr_t va = start; va < end; va += PAGE_SIZE)
-    {
-        uint32_t pte;
-        if (!vm_is_mapped(pd, va, &pte))
-        {
-            kprintf("vm_verify: user VA unmapped %x\n", (uint32_t) va);
-            panic("vm_verify");
-        }
-
-        if (!(pte & PTE_U))
-        {
-            kprintf("vm_verify: user VA not user-accessible %x\n", (uint32_t) va);
-            panic("vm_verify");
-        }
-    }
-
-    /* 5. Kernel mappings must NOT be user accessible */
-    for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
-    {
-        if (!kpd->e[i].present)
-            continue;
-
-        if ((i << 22) >= kernel_va_base())
-        {
-            if (pd->e[i].user)
-            {
-                kprintf("vm_verify: kernel PDE user-accessible idx=%u\n", i);
-                panic("vm_verify");
-            }
-        }
-    }
-}
-
-struct vm_space *vm_create(uint32_t base_pa, size_t size)
-{
-    struct vm_space *vm = vm_alloc_process_vm();
-    if (!vm)
+    struct mm *mm = mm_alloc();
+    if (!mm)
     {
         return NULL;
     }
@@ -542,11 +436,9 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
         return NULL;
     }
 
-    vm->base_va = (uintptr_t) PROCESS_VA_BASE;
-    vm->size = size;
-    vm->impl = impl;
+    mm->impl = impl;
+    mm->vmas = NULL;
 
-    /* Allocate PD from kernel-owned paging pool */
     uintptr_t pd_pa = vm_paging_alloc_page_pa();
     if (!pd_pa)
     {
@@ -554,7 +446,7 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
     }
 
     impl->pd_pa = pd_pa;
-    impl->pd_va = (struct page_directory *) pa_to_va(pd_pa);
+    impl->pd_va = (struct page_directory *) kernel_pa_to_va(pd_pa);
 
     /* Clear PD */
     for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
@@ -566,43 +458,72 @@ struct vm_space *vm_create(uint32_t base_pa, size_t size)
         impl->pd_va->e[i].ps = 0;
     }
 
-    /* Copy kernel half mappings verbatim */
     impl->kernel_pde_start = kernel_impl.kernel_pde_start;
+
+    /* Copy all present kernel PDEs */
     for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
     {
         if (kernel_impl.pd_va->e[i].present)
             impl->pd_va->e[i] = kernel_impl.pd_va->e[i];
     }
 
-    /* Map provided physical memory as user memory at PROCESS_VA_BASE */
-    if (size)
+    /* Copy kernel VMAs */
+    for (struct vma *kv = kernel_vm.vmas; kv; kv = kv->next)
     {
-        uintptr_t pa_start = PAGE_ALIGN_UP((uintptr_t) base_pa);
-        uintptr_t pa_end = PAGE_ALIGN_DOWN((uintptr_t) base_pa + (uintptr_t) size);
-
-        if (pa_end > pa_start)
+        struct vma *v = vma_alloc();
+        if (!v)
         {
-            vm_map_impl(impl,
-                        (uintptr_t) PROCESS_VA_BASE,
-                        pa_start,
-                        (size_t) (pa_end - pa_start));
+            return NULL;
         }
+        v->base_va = kv->base_va;
+        v->base_pa = kv->base_pa;
+        v->length = kv->length;
+        v->flags = kv->flags;
+        v->type = kv->type;
+        v->next = mm->vmas;
+        mm->vmas = v;
     }
 
-    vm_verify(vm);
-
-    return vm;
+    return mm;
 }
 
-/* ------------------------------------------------------------
- * VM activation
- * ------------------------------------------------------------ */
-
-void vm_activate(struct vm_space *vm)
+struct vma *mm_add_vma(struct mm *mm, uint32_t type, uintptr_t va, size_t size, uint32_t flags, uintptr_t pa)
 {
-    struct vm_impl *impl = (struct vm_impl *) vm->impl;
+    struct vma *v = vma_alloc();
+    if (!v)
+    {
+        return NULL;
+    }
 
-    /* --- Validate stack is mapped in new PD --- */
+    v->base_va = va;
+    v->base_pa = pa;
+    v->length = size;
+    v->flags = flags;
+    v->type = type;
+    v->next = mm->vmas;
+    mm->vmas = v;
+
+    /* Map the pages */
+    struct vm_impl *impl = mm->impl;
+    vm_map_impl(impl, va, pa, size);
+
+    return v;
+}
+
+struct vma *mm_find_vma_by_type(struct mm *mm, uint32_t type)
+{
+    for (struct vma *v = mm->vmas; v; v = v->next)
+    {
+        if (v->type == type)
+            return v;
+    }
+    return NULL;
+}
+
+void mm_activate(struct mm *mm)
+{
+    struct vm_impl *impl = (struct vm_impl *) mm->impl;
+
     uintptr_t esp;
     __asm__ volatile("mov %%esp, %0" : "=r"(esp));
 
@@ -640,24 +561,14 @@ void vm_activate(struct vm_space *vm)
     __asm__ volatile("sti");
 }
 
-void vm_activate_kernel(void)
+bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa)
 {
-    __asm__ volatile(
-            "mov %0, %%cr3"
-            :
-            : "r"(kernel_impl.pd_pa)
-            : "memory"
-            );
-}
-
-bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa)
-{
-    if (!vs || !out_pa)
+    if (!mm || !out_pa)
     {
         return false;
     }
 
-    struct vm_impl *impl = vs->impl;
+    struct vm_impl *impl = mm->impl;
     struct page_directory *pd = impl->pd_va;
 
     uint32_t pde_idx = PDE_INDEX(va);
@@ -671,7 +582,7 @@ bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa)
     }
 
     struct page_table *pt =
-            (struct page_table *) pa_to_va(FRAME_TO_PA(pde->frame));
+            (struct page_table *) kernel_pa_to_va(FRAME_TO_PA(pde->frame));
 
     struct pte *pte = &pt->e[pte_idx];
 
@@ -683,7 +594,6 @@ bool vm_va_to_pa(const struct vm_space *vs, uint32_t va, uint32_t *out_pa)
     *out_pa = FRAME_TO_PA(pte->frame) | (va & (PAGE_SIZE - 1));
     return true;
 }
-
 
 uint32_t vm_debug_read_pd_pa(void)
 {

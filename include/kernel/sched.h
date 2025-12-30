@@ -33,7 +33,7 @@ struct task
 
     char cwd[MAX_FILENAME_LEN];
 
-    struct vm_space *vm_space;
+    struct mm *mm;
 
     char name[MAX_FILENAME_LEN];
 
@@ -135,7 +135,7 @@ void ctx_setup_trampoline(
         char **heap_argv,
         char **heap_envp);
 
-int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct vm_space *vm_space);
+int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct mm *mm);
 
 pid_t sched_waitpid(pid_t pid, int *status, int options);
 

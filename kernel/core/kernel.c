@@ -48,7 +48,7 @@ void kmain(void)
     idt_init();
 
     kprintf("Init VM.\n");
-    vm_init();
+    mm_init();
 
     kprintf("Init VFS.\n");
     vfs_init(&vfs);

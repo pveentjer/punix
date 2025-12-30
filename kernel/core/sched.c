@@ -229,7 +229,8 @@ static char **task_init_env(struct task *task,
     /* Initialize program's global 'environ' if present */
     if (environ_off != 0)
     {
-        uintptr_t environ_va = task->vm_space->base_va + (uintptr_t) environ_off;
+        struct vma *vma = mm_find_vma_by_type(task->mm, VMA_TYPE_PROCESS);
+        uintptr_t environ_va = vma->base_va + (uintptr_t) environ_off;
         char ***environ_ptr = (char ***) environ_va;
         *environ_ptr = task_heap_envp;
     }
@@ -309,9 +310,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     envp_copy[envc] = NULL;
 
     struct task *parent = sched_current();
-    vm_activate(task->vm_space);
+    mm_activate(task->mm);
 
-    uintptr_t base_va = task->vm_space->base_va;
+    uintptr_t base_va = mm_find_vma_by_type(task->mm, VMA_TYPE_PROCESS)->base_va;
 
     k_strcpy(task->name, filename_buf);
 
@@ -332,7 +333,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         kprintf("task_new: Failed to load the binary %s\n", filename_buf);
         task_table_free(&sched.task_table, task);
-        vm_activate_kernel();
+        mm_activate(mm_kernel());
         return NULL;
     }
 
@@ -347,7 +348,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         kprintf("task_new: not enough space %s\n", filename_buf);
         task_table_free(&sched.task_table, task);
-        vm_activate_kernel();
+        mm_activate(mm_kernel());
         return NULL;
     }
 
@@ -366,11 +367,11 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     if (parent == NULL)
     {
-        vm_activate_kernel();
+        mm_activate(mm_kernel());
     }
     else
     {
-        vm_activate(parent->vm_space);
+        mm_activate(parent->mm);
     }
 
     return task;
@@ -501,7 +502,7 @@ void sched_schedule(void)
 
     sched.ctxt++;
 
-    ctx_switch(prev_cpu_ctx, next_cpu_ctx, next->vm_space);
+    ctx_switch(prev_cpu_ctx, next_cpu_ctx, next->mm);
 }
 
 void sched_stat(struct sched_stat *stat)
