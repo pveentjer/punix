@@ -1,5 +1,6 @@
 // time.c
 #include "libc.h"
+#include "string.h"
 #include "time.h"
 
 /*

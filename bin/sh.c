@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "string.h"
 #include "libc.h"
 #include "kernel/fcntl.h"
 #include "dirent.h"

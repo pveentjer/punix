@@ -1,5 +1,6 @@
 
 #include "libc.h"
+#include "string.h"
 #include "kernel/fcntl.h"
 
 int main(void)

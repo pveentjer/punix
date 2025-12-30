@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "kernel/fcntl.h"
 #include "libc.h"
+#include "string.h"
 
 #define BUF_SIZE 256
 

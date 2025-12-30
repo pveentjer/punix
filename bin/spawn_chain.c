@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "libc.h"
+#include "string.h"
 
 #define MAX_DEPTH 100000  // safety guard
 
