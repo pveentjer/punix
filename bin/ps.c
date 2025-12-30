@@ -1,4 +1,3 @@
-#include "libc.h"
 #include "string.h"
 #include "fcntl.h"
 #include "dirent.h"

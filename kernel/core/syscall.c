@@ -4,7 +4,6 @@
 #include "kernel/kutils.h"
 #include "kernel/keyboard.h"
 #include "kernel/sched.h"
-#include "libc.h"
 #include "dirent.h"
 #include "kernel/elf_loader.h"
 #include "kernel/vfs.h"

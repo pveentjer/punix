@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include "libc.h"
 #include "string.h"
 #include "kernel/syscall.h"
 #include "fcntl.h"

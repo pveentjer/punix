@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include "libc.h"
 #include "stdio.h"
 #include "unistd.h"
 #include "kernel/constants.h"
