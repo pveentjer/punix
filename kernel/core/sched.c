@@ -97,36 +97,6 @@ void sched_exit(int status)
     sched_schedule();
 }
 
-void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
-{
-    struct task *current = sched_current();
-
-    vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0);
-    vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0);
-    vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0);
-    uint32_t u_sp = current->cpu_ctx.u_sp;
-    int exit_code;
-
-    __asm__ volatile(
-            "mov %%esp, %%ebx\n\t"           // Save kernel ESP
-            "movl %[current], %%edi\n\t"
-            "movl (%%edi), %%edi\n\t"
-            "movl %%ebx, 4(%%edi)\n\t"       // Save to k_esp
-            "mov %1, %%esp\n\t"               // Switch to user stack
-            "pushl %3\n\t"                    // Push argv
-            "pushl %2\n\t"                    // Push argc
-            "call *%4\n\t"                    // Call entry
-            "addl $8, %%esp\n\t"
-            "mov %%ebx, %%esp\n\t"
-            "mov %%eax, %0\n\t"
-            : "=r"(exit_code)
-            : "r"(u_sp), "r"(argc), "r"(argv), "r"(entry), [current] "m"(sched.current)
-    : "ebx", "edi", "eax", "memory"
-    );
-
-    sched_exit(exit_code);
-}
-
 void task_init_tty(struct task *task, int tty_id)
 {
     if (tty_id >= 0)
