@@ -30,7 +30,7 @@ struct vma {
 
 /* Memory management structure */
 struct mm {
-    void *impl;        /* Page directory (architecture-specific) */
+    void *impl;        /* Page table root (architecture-specific) */
     struct vma *vmas;  /* List of mapped regions */
 };
 
@@ -61,7 +61,7 @@ struct vma *mm_find_vma_by_type(struct mm *mm, uint32_t type);
 void mm_activate(struct mm *mm);
 
 /* Translate virtual to physical address */
-bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa);
+bool mm_va_to_pa(const struct mm *mm, uintptr_t va, uintptr_t *out_pa);
 
 void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
                  const struct mm *src_mm, const struct vma *src_vma,
