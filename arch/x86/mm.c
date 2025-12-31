@@ -143,27 +143,34 @@ static uint32_t vm_paging_next = 0;
  * ------------------------------------------------------------ */
 
 __attribute__((used))
-void page_fault_handler2(uint32_t err)
+void page_fault_handler(uint32_t err)
 {
-    uint32_t cr2, cr3, eip, cs, eflags;
-    uint32_t *stack_ptr;
-
+    uint32_t cr2, eip;
     __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+
+    // Stack layout when handler is called:
+    // [esp+0]  = return address (to stub)
+    // [esp+4]  = error code (passed as parameter)
+    // [esp+8]  = EIP (CPU pushed)
+    // [esp+12] = CS  (CPU pushed)
+    // [esp+16] = EFLAGS (CPU pushed)
+
+    uint32_t *stack;
+    __asm__ volatile("mov %%esp, %0" : "=r"(stack));
+
+    eip = stack[2];  // EIP at esp+8
+    uint32_t cs = stack[3];
+    uint32_t eflags = stack[4];
+    uint32_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
 
-    __asm__ volatile("mov %%ebp, %0" : "=r"(stack_ptr));
-
-    eip = stack_ptr[2];
-    cs = stack_ptr[3];
-    eflags = stack_ptr[4];
-
-    kprintf("\n=== PAGE FAULT ===\n");
+    kprintf("\033[1;37;41m\n=== PAGE FAULT ===\033[0m\n");  // Bright white on red
     kprintf("Address: 0x%08x ", cr2);
     kprintf("Error:   0x%08x ", err);
     kprintf("EIP:     0x%08x ", eip);
     kprintf("CS:      0x%04x ", cs);
     kprintf("EFLAGS:  0x%08x ", eflags);
-    kprintf("CR3:     0x%08x\n ", cr3);
+    kprintf("CR3:     0x%08x\n", cr3);
 
     kprintf("  Type:   %s ", (err & 0x01) ? "protection-violation" : "not-present");
     kprintf("  Access: %s ", (err & 0x02) ? "write" : "read");
@@ -178,30 +185,6 @@ void page_fault_handler2(uint32_t err)
     panic("page fault");
 }
 
-__attribute__((used))
-void page_fault_handler(uint32_t err)
-{
-    uint32_t cr2, eip;
-    __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
-
-    uint32_t *stack_ptr;
-    __asm__ volatile("mov %%esp, %0" : "=r"(stack_ptr));
-    eip = stack_ptr[9];
-
-    for (int i = 0; i < 8; i++) {
-        uint8_t nibble = (cr2 >> (28 - i*4)) & 0xF;
-        char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
-        ((volatile uint16_t*)0xB8000)[i] = 0x4F00 | c;
-    }
-
-    for (int i = 0; i < 8; i++) {
-        uint8_t nibble = (eip >> (28 - i*4)) & 0xF;
-        char c = nibble < 10 ? '0' + nibble : 'A' + nibble - 10;
-        ((volatile uint16_t*)0xB8000)[i+9] = 0x4F00 | c;
-    }
-
-    while(1);
-}
 
 MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
 
