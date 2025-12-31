@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "kernel/kutils.h"
 #include "kernel/console.h"
 
@@ -23,7 +24,9 @@ void *k_memmove(void *dest, const void *src, size_t n)
     {
         /* Copy forward */
         while (n--)
+        {
             *d++ = *s++;
+        }
     }
     else
     {
@@ -31,7 +34,9 @@ void *k_memmove(void *dest, const void *src, size_t n)
         d += n;
         s += n;
         while (n--)
+        {
             *--d = *--s;
+        }
     }
 
     return dest;
@@ -63,8 +68,8 @@ int k_strncmp(const char *s1, const char *s2, size_t n)
 {
     for (size_t i = 0; i < n; i++)
     {
-        unsigned char c1 = (unsigned char)s1[i];
-        unsigned char c2 = (unsigned char)s2[i];
+        unsigned char c1 = (unsigned char) s1[i];
+        unsigned char c2 = (unsigned char) s2[i];
 
         if (c1 != c2 || c1 == '\0' || c2 == '\0')
         {
@@ -81,11 +86,13 @@ char *k_strcat(char *dest, const char *src)
 
     // Move d to the end of the existing string
     while (*d)
+    {
         d++;
+    }
 
     // Copy characters from src (including '\0')
     while ((*d++ = *src++))
-        ;
+    {}
 
     return dest;
 }
@@ -121,7 +128,7 @@ char *k_strncpy(char *dest, const char *src, size_t n)
 char *k_strrchr(const char *s, int c)
 {
     const char *last = NULL;
-    char ch = (char)c;
+    char ch = (char) c;
 
     while (*s)
     {
@@ -132,7 +139,7 @@ char *k_strrchr(const char *s, int c)
         s++;
     }
 
-    return (char *)last;
+    return (char *) last;
 }
 
 
@@ -162,7 +169,9 @@ void k_itoa(int value, char *str)
     }
 
     if (neg)
+    {
         tmp[i++] = '-';
+    }
 
     // reverse
     while (i > 0)
@@ -182,7 +191,6 @@ size_t k_strlen(const char *s)
     }
     return len;
 }
-
 
 
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
@@ -208,7 +216,7 @@ size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
 
     while (value > 0 && i < sizeof(tmp))
     {
-        tmp[i++] = (char)('0' + (value % 10u));
+        tmp[i++] = (char) ('0' + (value % 10u));
         value /= 10u;
     }
 
@@ -232,12 +240,13 @@ size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
     return len;
 }
 
-#include <stdint.h>
-
 /* unsigned 64-bit division */
 uint64_t __udivdi3(uint64_t n, uint64_t d)
 {
-    if (d == 0) return 0;
+    if (d == 0)
+    {
+        return 0;
+    }
 
     uint64_t q = 0;
     uint64_t r = 0;
@@ -259,7 +268,10 @@ uint64_t __udivdi3(uint64_t n, uint64_t d)
 /* unsigned 64-bit modulo */
 uint64_t __umoddi3(uint64_t n, uint64_t d)
 {
-    if (d == 0) return 0;
+    if (d == 0)
+    {
+        return 0;
+    }
 
     uint64_t r = 0;
 
@@ -268,7 +280,9 @@ uint64_t __umoddi3(uint64_t n, uint64_t d)
         r <<= 1;
         r |= (n >> i) & 1;
         if (r >= d)
+        {
             r -= d;
+        }
     }
 
     return r;
@@ -278,22 +292,36 @@ uint64_t __umoddi3(uint64_t n, uint64_t d)
 int64_t __divdi3(int64_t a, int64_t b)
 {
     int neg = 0;
-    if (a < 0) { a = -a; neg ^= 1; }
-    if (b < 0) { b = -b; neg ^= 1; }
+    if (a < 0)
+    {
+        a = -a;
+        neg ^= 1;
+    }
+    if (b < 0)
+    {
+        b = -b;
+        neg ^= 1;
+    }
 
-    uint64_t q = __udivdi3((uint64_t)a, (uint64_t)b);
-    return neg ? -(int64_t)q : (int64_t)q;
+    uint64_t q = __udivdi3((uint64_t) a, (uint64_t) b);
+    return neg ? -(int64_t) q : (int64_t) q;
 }
 
 /* signed 64-bit modulo */
 int64_t __moddi3(int64_t a, int64_t b)
 {
     int neg = (a < 0);
-    if (a < 0) a = -a;
-    if (b < 0) b = -b;
+    if (a < 0)
+    {
+        a = -a;
+    }
+    if (b < 0)
+    {
+        b = -b;
+    }
 
-    uint64_t r = __umoddi3((uint64_t)a, (uint64_t)b);
-    return neg ? -(int64_t)r : (int64_t)r;
+    uint64_t r = __umoddi3((uint64_t) a, (uint64_t) b);
+    return neg ? -(int64_t) r : (int64_t) r;
 }
 
 /* combined div+mod helper (some GCC paths use this) */
@@ -301,11 +329,12 @@ int64_t __divmoddi4(int64_t a, int64_t b, int64_t *rem)
 {
     int64_t q = __divdi3(a, b);
     if (rem)
+    {
         *rem = a - q * b;
+    }
     return q;
 }
 
-#include <stdint.h>
 
 /*
  * unsigned 64-bit div+mod helper
