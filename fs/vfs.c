@@ -6,19 +6,31 @@
 
 #define VFS_RING_MASK     (MAX_FILE_CNT - 1)
 #define VFS_MAX_SEGMENTS  64
+#define MAX_MOUNTS        16
 
-// External filesystem declarations
-extern struct fs root_fs;
-extern struct fs proc_fs;
-extern struct fs bin_fs;
-extern struct fs dev_fs;
+
+
+/* Mount point entry - internal only */
+struct mount_point {
+    char path[MAX_FILENAME_LEN];
+    struct fs *fs;
+    int active;
+};
+
+/* VFS structure - internal only */
+struct vfs {
+    uint32_t free_ring[MAX_FILE_CNT];
+    uint32_t free_head;
+    uint32_t free_tail;
+    struct file files[MAX_FILE_CNT];
+    struct mount_point mounts[MAX_MOUNTS];
+};
 
 // ==================== VFS =======================================
 
 struct vfs vfs;
 
-void vfs_init(
-        struct vfs *vfs)
+void vfs_init(struct vfs *vfs)
 {
     vfs->free_head = 0;
     vfs->free_tail = MAX_FILE_CNT;
@@ -30,81 +42,14 @@ void vfs_init(
         file->idx = file_idx;
         vfs->free_ring[file_idx] = file_idx;
     }
-}
 
-static struct fs *path_to_fs(
-        const char *pathname)
-{
-    if (!pathname || pathname[0] != '/')
+    // Initialize mount table
+    for (int i = 0; i < MAX_MOUNTS; i++)
     {
-        return NULL;
+        vfs->mounts[i].active = 0;
+        vfs->mounts[i].fs = NULL;
+        vfs->mounts[i].path[0] = '\0';
     }
-
-    const char *p = pathname + 1;
-    const char *s = p;
-
-    while (*s != '\0' && *s != '/')
-    {
-        s++;
-    }
-
-    size_t len = (size_t) (s - p);
-
-    if (len == 0 || (len == 1 && p[0] == '.'))
-    {
-        return &root_fs;
-    }
-    else if (len == 4 && k_strncmp(p, "proc", 4) == 0)
-    {
-        return &proc_fs;
-    }
-    else if (len == 3 && k_strncmp(p, "bin", 3) == 0)
-    {
-        return &bin_fs;
-    }
-    else if (len == 3 && k_strncmp(p, "dev", 3) == 0)
-    {
-        return &dev_fs;
-    }
-    else
-    {
-        return NULL;
-    }
-}
-
-struct file *vfs_alloc_file(
-        struct vfs *vfs)
-{
-    if (vfs->free_head == vfs->free_tail)
-    {
-        return NULL;
-    }
-
-    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
-    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
-
-    struct file *file = &vfs->files[file_idx];
-
-    vfs->free_head++;
-    return file;
-}
-
-void vfs_free_file(
-        struct vfs *vfs,
-        struct file *file)
-{
-    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
-    {
-        panic("vfs_free_file: too many frees");
-    }
-
-    file->fd = -1;
-
-    const uint32_t file_idx = file->idx;
-    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
-
-    vfs->free_ring[free_ring_idx] = file_idx;
-    vfs->free_tail++;
 }
 
 /* ------------------------------------------------------------
@@ -117,9 +62,7 @@ void vfs_free_file(
  *   - resolves '.' and '..'
  *   - strips trailing '/' except for root
  * ------------------------------------------------------------ */
-static void vfs_normalize_path(
-        char *path,
-        size_t buf_size)
+static void vfs_normalize_path(char *path, size_t buf_size)
 {
     if (!path || buf_size == 0)
     {
@@ -264,15 +207,117 @@ static void vfs_normalize_path(
 }
 
 /* ------------------------------------------------------------
+ * Mount a filesystem at a path
+ * ------------------------------------------------------------ */
+int vfs_mount(const char *path, struct fs *fs)
+{
+    if (!path || !fs)
+    {
+        return -1;
+    }
+
+    // Normalize the mount path
+    char normalized[MAX_FILENAME_LEN];
+    k_strncpy(normalized, path, sizeof(normalized));
+    normalized[sizeof(normalized) - 1] = '\0';
+    vfs_normalize_path(normalized, sizeof(normalized));
+
+    // Find free slot
+    for (int i = 0; i < MAX_MOUNTS; i++)
+    {
+        if (!vfs.mounts[i].active)
+        {
+            vfs.mounts[i].active = 1;
+            vfs.mounts[i].fs = fs;
+            k_strcpy(vfs.mounts[i].path, normalized);
+            return 0;
+        }
+    }
+
+    return -1; // No free slots
+}
+
+/* ------------------------------------------------------------
+ * Find filesystem for a path using mount table
+ * Returns the filesystem with the longest matching prefix
+ * ------------------------------------------------------------ */
+static struct fs *path_to_fs(const char *pathname)
+{
+    if (!pathname || pathname[0] != '/')
+    {
+        return NULL;
+    }
+
+    struct fs *best_fs = NULL;
+    size_t best_len = 0;
+
+    // Find longest matching mount point
+    for (int i = 0; i < MAX_MOUNTS; i++)
+    {
+        if (!vfs.mounts[i].active)
+        {
+            continue;
+        }
+
+        const char *mount_path = vfs.mounts[i].path;
+        size_t mount_len = k_strlen(mount_path);
+
+        // Check if pathname starts with this mount path
+        if (k_strncmp(pathname, mount_path, mount_len) == 0)
+        {
+            // Exact match or followed by '/' or end of string
+            if (pathname[mount_len] == '\0' || pathname[mount_len] == '/' || mount_len == 1)
+            {
+                if (mount_len > best_len)
+                {
+                    best_len = mount_len;
+                    best_fs = vfs.mounts[i].fs;
+                }
+            }
+        }
+    }
+
+    return best_fs;
+}
+
+struct file *vfs_alloc_file(struct vfs *vfs)
+{
+    if (vfs->free_head == vfs->free_tail)
+    {
+        return NULL;
+    }
+
+    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
+    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
+
+    struct file *file = &vfs->files[file_idx];
+
+    vfs->free_head++;
+    return file;
+}
+
+void vfs_free_file(struct vfs *vfs, struct file *file)
+{
+    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
+    {
+        panic("vfs_free_file: too many frees");
+    }
+
+    file->fd = -1;
+
+    const uint32_t file_idx = file->idx;
+    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
+
+    vfs->free_ring[free_ring_idx] = file_idx;
+    vfs->free_tail++;
+}
+
+/* ------------------------------------------------------------
  * Path resolution:
  *   - combine task->cwd and pathname
  *   - normalize the resulting absolute path
  * ------------------------------------------------------------ */
-void vfs_resolve_path(
-        const char *cwd,
-        const char *pathname,
-        char *resolved,
-        size_t resolved_size)
+void vfs_resolve_path(const char *cwd, const char *pathname, char *resolved, size_t resolved_size)
 {
     if (!resolved || resolved_size == 0)
     {
@@ -353,12 +398,7 @@ void vfs_resolve_path(
     vfs_normalize_path(resolved, resolved_size);
 }
 
-int vfs_open(
-        struct vfs *vfs,
-        struct task *task,
-        const char *pathname,
-        int flags,
-        int mode)
+int vfs_open(struct vfs *vfs, struct task *task, const char *pathname, int flags, int mode)
 {
     char resolved_path[MAX_FILENAME_LEN];
     vfs_resolve_path(task->cwd, pathname, resolved_path, sizeof(resolved_path));
@@ -411,10 +451,7 @@ int vfs_open(
     return fd;
 }
 
-int vfs_close(
-        struct vfs *vfs,
-        struct task *task,
-        const int fd)
+int vfs_close(struct vfs *vfs, struct task *task, const int fd)
 {
     if (fd < 0 || task == NULL)
     {
@@ -437,7 +474,6 @@ int vfs_close(
     vfs_free_file(vfs, file);
     return 0;
 }
-
 
 ssize_t vfs_write(int fd, const char *buf, size_t count)
 {
@@ -519,7 +555,6 @@ int vfs_chdir(const char *path)
 
     // Use VFS to resolve relative or absolute paths against current->cwd
     vfs_resolve_path(current->cwd, path, resolved, sizeof(resolved));
-
 
     // Optional check: try opening it (helps confirm existence)
     int fd = vfs_open(&vfs, current, resolved, 0, 0);

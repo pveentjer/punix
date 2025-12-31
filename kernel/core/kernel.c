@@ -52,6 +52,11 @@ void kmain(void)
 
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
+    vfs_mount("/", &root_fs);
+    vfs_mount("/proc", &proc_fs);
+    vfs_mount("/dev", &dev_fs);
+    vfs_mount("/bin", &bin_fs);
+
 
     kprintf("Init TTYs.\n");
     tty_system_init();
