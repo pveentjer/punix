@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-struct vm_impl;
+struct mm_impl;
 
 /* VMA types */
 #define VMA_TYPE_KERNEL  0

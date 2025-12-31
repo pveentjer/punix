@@ -101,7 +101,7 @@ ctx_switch:
 
     ; Switch page directory
     mov ecx, [ecx]          ; mm->impl
-    mov ecx, [ecx + 4]      ; vm_impl->pd_pa
+    mov ecx, [ecx + 4]      ; mm_impl->pd_pa
     mov cr3, ecx
 
     ; Load next ESP and restore registers

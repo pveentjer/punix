@@ -440,7 +440,7 @@ pid_t sched_getpid(void)
     return sched.current->pid;
 }
 
-struct vm_impl
+struct mm_impl
 {
     void *pd_va;
     uintptr_t pd_pa;

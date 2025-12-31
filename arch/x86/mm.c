@@ -53,7 +53,7 @@ extern uint32_t __premain_pa_end;
 
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
 #define VM_USER_PTS_PER_PROC  (DIV_ROUND_UP(PROCESS_VA_SIZE, VM_PT_COVERS_BYTES))
-#define VM_PAGING_PAGES_TOTAL (MAX_PROCESS_CNT * (1u + VM_USER_PTS_PER_PROC)) /* PD + PTs */
+#define MM_PAGING_PAGES_TOTAL (MAX_PROCESS_CNT * (1u + VM_USER_PTS_PER_PROC)) /* PD + PTs */
 
 /* VMA pool sizing */
 #define MAX_VMAS_PER_PROCESS 16
@@ -106,7 +106,7 @@ struct page_directory
  * Implementation-specific VM state (PRIVATE to vm.c)
  * ------------------------------------------------------------ */
 
-struct vm_impl
+struct mm_impl
 {
     struct page_directory *pd_va;      /* VA pointer to page directory */
     uintptr_t pd_pa;      /* PA of page directory (for CR3) */
@@ -117,13 +117,13 @@ struct vm_impl
  * Globals (public structs, private impl storage)
  * ------------------------------------------------------------ */
 
-static struct mm kernel_vm;
+static struct mm kernel_mm;
 static struct mm proc_mms[MAX_PROCESS_CNT];
 static uint32_t proc_mm_next = 0;
 
-static struct vm_impl kernel_impl;
-static struct vm_impl proc_impl_pool[MAX_PROCESS_CNT];
-static uint32_t proc_impl_next = 0;
+static struct mm_impl kernel_impl;
+static struct mm_impl mm_impl_pool[MAX_PROCESS_CNT];
+static uint32_t mm_impl_next = 0;
 
 /* VMA pool */
 static struct vma vma_pool[MAX_VMAS_TOTAL];
@@ -133,10 +133,10 @@ static uint32_t vma_next = 0;
  * Kernel-owned paging-structure pool (PD/PT pages)
  * ------------------------------------------------------------ */
 
-static uint8_t vm_paging_pool[VM_PAGING_PAGES_TOTAL * PAGE_SIZE]
+static uint8_t mm_paging_pool[MM_PAGING_PAGES_TOTAL * PAGE_SIZE]
         __attribute__((aligned(PAGE_SIZE)));
 
-static uint32_t vm_paging_next = 0;
+static uint32_t mm_paging_next = 0;
 
 /* ------------------------------------------------------------
  * Page fault debug handler (exception #14 with error code)
@@ -251,15 +251,15 @@ static void pt_clear(struct page_table *pt)
     }
 }
 
-static uintptr_t vm_paging_alloc_page_pa(void)
+static uintptr_t mm_alloc_page_pa(void)
 {
-    if (vm_paging_next >= VM_PAGING_PAGES_TOTAL)
+    if (mm_paging_next >= MM_PAGING_PAGES_TOTAL)
     {
         return 0;
     }
 
-    uintptr_t page_va = (uintptr_t) &vm_paging_pool[vm_paging_next * PAGE_SIZE];
-    vm_paging_next++;
+    uintptr_t page_va = (uintptr_t) &mm_paging_pool[mm_paging_next * PAGE_SIZE];
+    mm_paging_next++;
 
     return kernel_va_to_pa(page_va);
 }
@@ -273,13 +273,13 @@ static struct mm *mm_alloc(void)
     return &proc_mms[proc_mm_next++];
 }
 
-static struct vm_impl *vm_alloc_process_impl(void)
+static struct mm_impl *mm_alloc_impl(void)
 {
-    if (proc_impl_next >= MAX_PROCESS_CNT)
+    if (mm_impl_next >= MAX_PROCESS_CNT)
     {
         return NULL;
     }
-    return &proc_impl_pool[proc_impl_next++];
+    return &mm_impl_pool[mm_impl_next++];
 }
 
 static struct vma *vma_alloc(void)
@@ -295,7 +295,7 @@ static struct vma *vma_alloc(void)
  * Internal mapping (PRIVATE to vm.c)
  * ------------------------------------------------------------ */
 
-static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t size)
+static void vm_map_impl(struct mm_impl *impl, uintptr_t va, uintptr_t pa, size_t size)
 {
     while (size)
     {
@@ -306,7 +306,7 @@ static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t
 
         if (!pde->present)
         {
-            uintptr_t pt_pa = vm_paging_alloc_page_pa();
+            uintptr_t pt_pa = mm_alloc_page_pa();
             if (!pt_pa)
             {
                 return;
@@ -341,7 +341,7 @@ static void vm_map_impl(struct vm_impl *impl, uintptr_t va, uintptr_t pa, size_t
     }
 }
 
-static void vm_unmap_impl(struct vm_impl *impl, uintptr_t va, size_t size)
+static void vm_unmap_impl(struct mm_impl *impl, uintptr_t va, size_t size)
 {
     while (size)
     {
@@ -387,8 +387,8 @@ void mm_init(void)
 {
     idt_set_gate(14, (uint32_t) isr_page_fault, (uint16_t) GDT_KERNEL_CS, (uint8_t) 0x8E);
 
-    kernel_vm.impl = &kernel_impl;
-    kernel_vm.vmas = NULL;
+    kernel_mm.impl = &kernel_impl;
+    kernel_mm.vmas = NULL;
 
     kernel_impl.pd_va = kernel_pd();
     kernel_impl.pd_pa = kernel_va_to_pa((uintptr_t) kernel_impl.pd_va);
@@ -396,14 +396,15 @@ void mm_init(void)
 
     vm_unmap_premain();
 
-    mm_add_vma(&kernel_vm, VMA_TYPE_VGA, VGA_TEXT_BUFFER_VA, VGA_TEXT_BUFFER_SIZE, VMA_READ | VMA_WRITE, VGA_TEXT_BUFFER_VA);
+    mm_add_vma(&kernel_mm, VMA_TYPE_VGA, VGA_TEXT_BUFFER_VA, VGA_TEXT_BUFFER_SIZE, VMA_READ | VMA_WRITE,
+               VGA_TEXT_BUFFER_VA);
 
-    mm_activate(&kernel_vm);
+    mm_activate(&kernel_mm);
 }
 
 struct mm *mm_kernel(void)
 {
-    return &kernel_vm;
+    return &kernel_mm;
 }
 
 struct mm *mm_fork_kernel(void)
@@ -414,7 +415,7 @@ struct mm *mm_fork_kernel(void)
         return NULL;
     }
 
-    struct vm_impl *impl = vm_alloc_process_impl();
+    struct mm_impl *impl = mm_alloc_impl();
     if (!impl)
     {
         return NULL;
@@ -423,7 +424,7 @@ struct mm *mm_fork_kernel(void)
     mm->impl = impl;
     mm->vmas = NULL;
 
-    uintptr_t pd_pa = vm_paging_alloc_page_pa();
+    uintptr_t pd_pa = mm_alloc_page_pa();
     if (!pd_pa)
     {
         return NULL;
@@ -448,11 +449,13 @@ struct mm *mm_fork_kernel(void)
     for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
     {
         if (kernel_impl.pd_va->e[i].present)
+        {
             impl->pd_va->e[i] = kernel_impl.pd_va->e[i];
+        }
     }
 
     /* Copy kernel VMAs */
-    for (struct vma *kv = kernel_vm.vmas; kv; kv = kv->next)
+    for (struct vma *kv = kernel_mm.vmas; kv; kv = kv->next)
     {
         struct vma *v = vma_alloc();
         if (!v)
@@ -488,7 +491,7 @@ struct vma *mm_add_vma(struct mm *mm, uint32_t type, uintptr_t va, size_t size, 
     mm->vmas = v;
 
     /* Map the pages */
-    struct vm_impl *impl = mm->impl;
+    struct mm_impl *impl = mm->impl;
     vm_map_impl(impl, va, pa, size);
 
     return v;
@@ -499,14 +502,16 @@ struct vma *mm_find_vma_by_type(struct mm *mm, uint32_t type)
     for (struct vma *v = mm->vmas; v; v = v->next)
     {
         if (v->type == type)
+        {
             return v;
+        }
     }
     return NULL;
 }
 
 void mm_activate(struct mm *mm)
 {
-    struct vm_impl *impl = (struct vm_impl *) mm->impl;
+    struct mm_impl *impl = (struct mm_impl *) mm->impl;
 
     uintptr_t esp;
     __asm__ volatile("mov %%esp, %0" : "=r"(esp));
@@ -552,7 +557,7 @@ bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa)
         return false;
     }
 
-    struct vm_impl *impl = mm->impl;
+    struct mm_impl *impl = mm->impl;
     struct page_directory *pd = impl->pd_va;
 
     uint32_t pde_idx = PDE_INDEX(va);
@@ -599,7 +604,9 @@ void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
     {
         uint32_t src_pa;
         if (!mm_va_to_pa(src_mm, src_va + offset, &src_pa))
+        {
             panic("mm_copy_vma: source VA not mapped");
+        }
         vm_map_impl(&kernel_impl, TEMP_COPY_VA_SRC + offset, src_pa, PAGE_SIZE);
     }
 
@@ -609,12 +616,14 @@ void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
     {
         uint32_t dest_pa;
         if (!mm_va_to_pa(dest_mm, dest_va + offset, &dest_pa))
+        {
             panic("mm_copy_vma: dest VA not mapped");
+        }
         vm_map_impl(&kernel_impl, TEMP_COPY_VA_DEST + offset, dest_pa, PAGE_SIZE);
     }
 
     /* Copy entire VMA in one go */
-    k_memcpy((void*)TEMP_COPY_VA_DEST, (void*)TEMP_COPY_VA_SRC, length);
+    k_memcpy((void *) TEMP_COPY_VA_DEST, (void *) TEMP_COPY_VA_SRC, length);
 
     /* Unmap */
     vm_unmap_impl(&kernel_impl, TEMP_COPY_VA_SRC, length);
