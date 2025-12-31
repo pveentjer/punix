@@ -4,6 +4,7 @@
 #include "kernel/constants.h"
 #include "kernel/panic.h"
 #include "kernel/irq.h"
+#include "kernel/kutils.h"
 #include "include/gdt.h"
 #include "include/exc_stub.h"
 #include <stdint.h>
@@ -593,6 +594,48 @@ bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa)
 
     *out_pa = FRAME_TO_PA(pte->frame) | (va & (PAGE_SIZE - 1));
     return true;
+}
+
+/* Temporary mapping addresses - reserve space for max VMA size */
+#define TEMP_COPY_VA_SRC   0xFF000000   /* Source VMA mapped here */
+#define TEMP_COPY_VA_DEST  0xFE000000   /* Dest VMA mapped here */
+
+void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
+                 const struct mm *src_mm, const struct vma *src_vma,
+                 size_t length)
+{
+    /* Validate length fits in both VMAs */
+    if (length > src_vma->length || length > dest_vma->length)
+    {
+        panic("mm_copy_vma: length exceeds VMA bounds");
+    }
+
+    /* Map entire source VMA to temp kernel VA */
+    uintptr_t src_va = src_vma->base_va;
+    for (size_t offset = 0; offset < length; offset += PAGE_SIZE)
+    {
+        uint32_t src_pa;
+        if (!mm_va_to_pa(src_mm, src_va + offset, &src_pa))
+            panic("mm_copy_vma: source VA not mapped");
+        vm_map_impl(&kernel_impl, TEMP_COPY_VA_SRC + offset, src_pa, PAGE_SIZE);
+    }
+
+    /* Map entire dest VMA to temp kernel VA */
+    uintptr_t dest_va = dest_vma->base_va;
+    for (size_t offset = 0; offset < length; offset += PAGE_SIZE)
+    {
+        uint32_t dest_pa;
+        if (!mm_va_to_pa(dest_mm, dest_va + offset, &dest_pa))
+            panic("mm_copy_vma: dest VA not mapped");
+        vm_map_impl(&kernel_impl, TEMP_COPY_VA_DEST + offset, dest_pa, PAGE_SIZE);
+    }
+
+    /* Copy entire VMA in one go */
+    k_memcpy((void*)TEMP_COPY_VA_DEST, (void*)TEMP_COPY_VA_SRC, length);
+
+    /* Unmap */
+    vm_unmap_impl(&kernel_impl, TEMP_COPY_VA_SRC, length);
+    vm_unmap_impl(&kernel_impl, TEMP_COPY_VA_DEST, length);
 }
 
 uint32_t vm_debug_read_pd_pa(void)
