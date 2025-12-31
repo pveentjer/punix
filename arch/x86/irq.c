@@ -7,11 +7,6 @@
 #include "include/gdt.h"
 #include "kernel/console.h"
 
-/* ------------------------------------------------------------
- * IRQ state helpers
- * ------------------------------------------------------------ */
-typedef uint32_t irq_state_t;
-
 inline irq_state_t irq_disable(void)
 {
     irq_state_t flags;
