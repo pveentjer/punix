@@ -235,7 +235,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    task->cpu_ctx.k_sp = (uint32_t) (task->kstack + KERNEL_STACK_SIZE);
+    task->cpu_ctx.k_sp = (unsigned long) (task->kstack + KERNEL_STACK_SIZE);
     task->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
     // Copy filename to stack buffer BEFORE switching PDs
