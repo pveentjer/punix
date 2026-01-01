@@ -331,47 +331,6 @@ static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
 }
 
 /* ------------------------------------------------------------------
- * Convert integer to string
- * ------------------------------------------------------------------ */
-static void int_to_str(int n, char *buf, int buf_size)
-{
-    int i = 0;
-
-    if (n == 0)
-    {
-        buf[i++] = '0';
-        buf[i] = '\0';
-        return;
-    }
-
-    int is_negative = 0;
-    if (n < 0)
-    {
-        is_negative = 1;
-        n = -n;
-    }
-
-    char tmp[16];
-    int j = 0;
-    while (n > 0 && j < 15)
-    {
-        tmp[j++] = '0' + (n % 10);
-        n /= 10;
-    }
-
-    if (is_negative && i < buf_size - 1)
-        buf[i++] = '-';
-
-    for (int k = j - 1; k >= 0 && i < buf_size - 1; k--)
-    {
-        buf[i++] = tmp[k];
-    }
-    buf[i] = '\0';
-}
-
-
-
-/* ------------------------------------------------------------------
  * Expand variables ($VAR, $?, $$, $!) in a string
  * ------------------------------------------------------------------ */
 static void expand_variables(char *str)
@@ -388,7 +347,7 @@ static void expand_variables(char *str)
             {
                 /* $? - last exit status */
                 char num[16];
-                int_to_str(last_exit_status, num, sizeof(num));
+                snprintf(num, sizeof(num), "%d", last_exit_status);
 
                 for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
                     *dst++ = *p;
@@ -399,7 +358,7 @@ static void expand_variables(char *str)
             {
                 /* $$ - shell PID */
                 char num[16];
-                int_to_str(shell_pid, num, sizeof(num));
+                snprintf(num, sizeof(num), "%d", (int)shell_pid);
 
                 for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
                     *dst++ = *p;
@@ -410,7 +369,7 @@ static void expand_variables(char *str)
             {
                 /* $! - last background PID */
                 char num[16];
-                int_to_str(last_bg_pid, num, sizeof(num));
+                snprintf(num, sizeof(num), "%d", (int)last_bg_pid);
 
                 for (char *p = num; *p && (dst - buf) < LINE_MAX - 1; p++)
                     *dst++ = *p;

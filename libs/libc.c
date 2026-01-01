@@ -119,180 +119,6 @@ void *memcpy(void *dest, const void *src, size_t n)
     return dest;
 }
 
-#define STDOUT 1
-#define PRINTF_BUF_SIZE 512
-
-static void buf_putc(char *buf, size_t *len, char c)
-{
-    if (*len < PRINTF_BUF_SIZE)
-    {
-        buf[*len] = c;
-        (*len)++;
-    }
-}
-
-static void buf_puts(char *buf, size_t *len, const char *s)
-{
-    if (!s) return;
-
-    while (*s && *len < PRINTF_BUF_SIZE)
-    {
-        buf[*len] = *s;
-        (*len)++;
-        s++;
-    }
-}
-
-static void buf_put_uint(char *buf, size_t *len, unsigned int n, unsigned int base)
-{
-    char tmp[32];
-    const char digits[] = "0123456789abcdef";
-    int i = 0;
-
-    if (n == 0)
-    {
-        tmp[i++] = '0';
-    }
-    else
-    {
-        while (n > 0 && i < (int) sizeof(tmp))
-        {
-            tmp[i++] = digits[n % base];
-            n /= base;
-        }
-    }
-
-    // reverse into main buffer
-    while (i-- > 0 && *len < PRINTF_BUF_SIZE)
-    {
-        buf[*len] = tmp[i];
-        (*len)++;
-    }
-}
-
-static void buf_put_ull(char *buf, size_t *len, unsigned long long n, unsigned int base)
-{
-    char tmp[64];
-    const char digits[] = "0123456789abcdef";
-    int i = 0;
-
-    if (n == 0ULL) tmp[i++] = '0';
-    else
-    {
-        while (n && i < (int)sizeof(tmp))
-        {
-            tmp[i++] = digits[n % base];
-            n /= base;
-        }
-    }
-
-    while (i-- > 0 && *len < PRINTF_BUF_SIZE)
-        buf[(*len)++] = tmp[i];
-}
-
-int printf(const char *fmt, ...)
-{
-    char buf[PRINTF_BUF_SIZE];
-    size_t len = 0;
-
-    va_list args;
-    va_start(args, fmt);
-
-    for (const char *p = fmt; *p && len < PRINTF_BUF_SIZE; p++)
-    {
-        if (*p != '%')
-        {
-            buf_putc(buf, &len, *p);
-            continue;
-        }
-
-        p++;
-        if (!*p) break;
-
-        int zero_pad = 0;
-        int width = 0;
-
-        if (*p == '0')
-        {
-            zero_pad = 1;
-            p++;
-        }
-
-        if (*p >= '1' && *p <= '9')
-        {
-            width = *p - '0';
-            p++;
-        }
-
-        int is_ll = 0;
-        if (*p == 'l' && *(p + 1) == 'l')
-        {
-            is_ll = 1;
-            p += 2;
-        }
-
-        switch (*p)
-        {
-            case 's':
-                buf_puts(buf, &len, va_arg(args, const char *));
-                break;
-
-            case 'd':
-                if (is_ll)
-                {
-                    long long v = va_arg(args, long long);
-                    unsigned long long u = (v < 0) ? (buf_putc(buf,&len,'-'), -v) : v;
-                    buf_put_ull(buf, &len, u, 10);
-                }
-                else
-                {
-                    int v = va_arg(args, int);
-                    unsigned int u = (v < 0) ? (buf_putc(buf,&len,'-'), -v) : v;
-                    buf_put_uint(buf, &len, u, 10);
-                }
-                break;
-
-            case 'u':
-                if (is_ll)
-                    buf_put_ull(buf, &len, va_arg(args, unsigned long long), 10);
-                else
-                    buf_put_uint(buf, &len, va_arg(args, unsigned int), 10);
-                break;
-
-            case 'x':
-                if (is_ll)
-                    buf_put_ull(buf, &len, va_arg(args, unsigned long long), 16);
-                else
-                    buf_put_uint(buf, &len, va_arg(args, unsigned int), 16);
-                break;
-
-            case 'c':
-                buf_putc(buf, &len, (char)va_arg(args, int));
-                break;
-
-            case '%':
-                buf_putc(buf, &len, '%');
-                break;
-
-            default:
-                buf_putc(buf, &len, '%');
-                buf_putc(buf, &len, *p);
-                break;
-        }
-    }
-
-    va_end(args);
-
-    if (len)
-    {
-        write(FD_STDOUT, buf, len);
-    }
-
-    return (int)len;
-}
-
-
-
 int atoi(const char *str)
 {
     int result = 0;
@@ -352,7 +178,333 @@ int strcmp(const char *s1, const char *s2)
     return (unsigned char) *s1 - (unsigned char) *s2;
 }
 
+/* Helper for 64-bit division by 10 (avoids __udivdi3) */
+static uint64_t udiv64_10(uint64_t n, unsigned int *rem)
+{
+    uint64_t q = (n >> 1) + (n >> 2);
+    q = q + (q >> 4);
+    q = q + (q >> 8);
+    q = q + (q >> 16);
+    q = q + (q >> 32);
+    q = q >> 3;
 
+    unsigned int r = (unsigned int)(n - q * 10);
+    if (r >= 10)
+    {
+        q++;
+        r -= 10;
+    }
+
+    *rem = r;
+    return q;
+}
+
+/* Core formatting function - writes to buffer */
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
+{
+    size_t pos = 0;
+
+#define PUT_CHAR(c) do { \
+        if (pos < size - 1) buf[pos] = (c); \
+        pos++; \
+    } while(0)
+
+    while (*fmt && pos < size - 1)
+    {
+        if (*fmt != '%')
+        {
+            PUT_CHAR(*fmt++);
+            continue;
+        }
+
+        fmt++; /* skip '%' */
+        if (!*fmt) break;
+
+        /* Parse flags and width */
+        int zero_pad = 0;
+        int width = 0;
+
+        if (*fmt == '0')
+        {
+            zero_pad = 1;
+            fmt++;
+        }
+
+        while (*fmt >= '0' && *fmt <= '9')
+        {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        /* Parse length modifier */
+        int is_long = 0;
+        int is_long_long = 0;
+
+        if (*fmt == 'l')
+        {
+            is_long = 1;
+            fmt++;
+            if (*fmt == 'l')
+            {
+                is_long_long = 1;
+                fmt++;
+            }
+        }
+
+        if (*fmt == 'z')
+        {
+            /* size_t modifier - treat as unsigned long */
+            is_long = 1;
+            fmt++;
+        }
+
+        switch (*fmt)
+        {
+            case '%':
+                PUT_CHAR('%');
+                break;
+
+            case 'c':
+            {
+                int c = va_arg(ap, int);
+                PUT_CHAR((char)c);
+                break;
+            }
+
+            case 's':
+            {
+                const char *s = va_arg(ap, const char *);
+                if (!s) s = "(null)";
+                while (*s)
+                {
+                    PUT_CHAR(*s++);
+                }
+                break;
+            }
+
+            case 'd':
+            case 'i':
+            {
+                int v = va_arg(ap, int);
+                unsigned int uv;
+                int negative = 0;
+
+                if (v < 0)
+                {
+                    negative = 1;
+                    uv = (unsigned int)(-v);
+                }
+                else
+                {
+                    uv = (unsigned int)v;
+                }
+
+                char tmp[16];
+                int tmp_pos = 0;
+                if (uv == 0)
+                {
+                    tmp[tmp_pos++] = '0';
+                }
+                else
+                {
+                    while (uv && tmp_pos < 16)
+                    {
+                        tmp[tmp_pos++] = '0' + (uv % 10);
+                        uv /= 10;
+                    }
+                }
+
+                int num_len = tmp_pos + (negative ? 1 : 0);
+                int pad_len = (width > num_len) ? (width - num_len) : 0;
+
+                if (negative)
+                {
+                    PUT_CHAR('-');
+                }
+
+                while (pad_len > 0)
+                {
+                    PUT_CHAR(zero_pad ? '0' : ' ');
+                    pad_len--;
+                }
+
+                while (tmp_pos > 0)
+                {
+                    PUT_CHAR(tmp[--tmp_pos]);
+                }
+                break;
+            }
+
+            case 'u':
+            {
+                char tmp[24];
+                int tmp_pos = 0;
+
+                if (is_long_long)
+                {
+                    uint64_t uv = va_arg(ap, uint64_t);
+
+                    if (uv == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (uv && tmp_pos < 24)
+                        {
+                            unsigned int rem;
+                            uv = udiv64_10(uv, &rem);
+                            tmp[tmp_pos++] = '0' + rem;
+                        }
+                    }
+                }
+                else
+                {
+                    unsigned int uv = va_arg(ap, unsigned int);
+
+                    if (uv == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (uv && tmp_pos < 24)
+                        {
+                            tmp[tmp_pos++] = '0' + (uv % 10);
+                            uv /= 10;
+                        }
+                    }
+                }
+
+                int pad_len = (width > tmp_pos) ? (width - tmp_pos) : 0;
+                while (pad_len > 0)
+                {
+                    PUT_CHAR(zero_pad ? '0' : ' ');
+                    pad_len--;
+                }
+
+                while (tmp_pos > 0)
+                {
+                    PUT_CHAR(tmp[--tmp_pos]);
+                }
+                break;
+            }
+
+            case 'x':
+            case 'X':
+            {
+                char tmp[16];
+                int tmp_pos = 0;
+                static const char HEX[] = "0123456789ABCDEF";
+
+                if (is_long_long)
+                {
+                    uint64_t v = va_arg(ap, uint64_t);
+
+                    if (v == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (v && tmp_pos < 16)
+                        {
+                            tmp[tmp_pos++] = HEX[v & 0xF];
+                            v >>= 4;
+                        }
+                    }
+                }
+                else
+                {
+                    unsigned int v = va_arg(ap, unsigned int);
+
+                    if (v == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (v && tmp_pos < 16)
+                        {
+                            tmp[tmp_pos++] = HEX[v & 0xF];
+                            v >>= 4;
+                        }
+                    }
+                }
+
+                int pad_len = (width > tmp_pos) ? (width - tmp_pos) : 0;
+                while (pad_len > 0)
+                {
+                    PUT_CHAR(zero_pad ? '0' : ' ');
+                    pad_len--;
+                }
+
+                while (tmp_pos > 0)
+                {
+                    PUT_CHAR(tmp[--tmp_pos]);
+                }
+                break;
+            }
+
+            case 'p':
+            {
+                void *ptr = va_arg(ap, void *);
+                unsigned int v = (unsigned int)ptr;
+                static const char HEX[] = "0123456789abcdef";
+
+                PUT_CHAR('0');
+                PUT_CHAR('x');
+
+                for (int i = 7; i >= 0; i--)
+                {
+                    PUT_CHAR(HEX[(v >> (i * 4)) & 0xF]);
+                }
+                break;
+            }
+
+            default:
+                PUT_CHAR('%');
+                PUT_CHAR(*fmt);
+                break;
+        }
+        fmt++;
+    }
+
+    if (pos < size)
+        buf[pos] = '\0';
+    else if (size > 0)
+        buf[size - 1] = '\0';
+
+#undef PUT_CHAR
+    return (int)pos;
+}
+
+int snprintf(char *buf, size_t size, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int ret = vsnprintf(buf, size, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int printf(const char *fmt, ...)
+{
+    char buf[512];
+    va_list ap;
+
+    va_start(ap, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    if (len > 0)
+    {
+        int to_write = (len < (int)sizeof(buf)) ? len : (int)sizeof(buf) - 1;
+        write(FD_STDOUT, buf, to_write);
+    }
+
+    return len;
+}
 
 extern uint32_t syscall_0(uint32_t nr);
 
@@ -602,4 +754,3 @@ uint64_t __udivmoddi4(uint64_t n, uint64_t d, uint64_t *rem)
 
     return q;
 }
-
