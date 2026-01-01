@@ -25,7 +25,7 @@ uint32_t syscall_0(uint32_t nr)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc", "edi"
+            : "memory", "cc", "edi"
     );
 
     return eax;
@@ -42,7 +42,7 @@ uint32_t syscall_1(uint32_t nr, uint32_t a1)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc", "edi"
+            : "memory", "cc", "edi"
     );
 
     return eax;
@@ -59,7 +59,7 @@ uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc", "edi"
+            : "memory", "cc", "edi"
     );
 
     return eax;
@@ -73,15 +73,12 @@ uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
     uint32_t ebx = a1, ecx = a2, edx = a3, esi = 0;
 
 
-    /* --- REAL SYSCALL --- */
     __asm__ volatile(
             "call *%[fn]"
             : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc", "edi"
+            : "memory", "cc", "edi"
     );
-
-//    *(volatile uint16_t*)0xB8000 = 0x1F51;  // 'Q'
 
     return eax;
 }
@@ -98,11 +95,8 @@ uint32_t syscall_4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t 
             "call *%[fn]\n\t"
            : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx), "+S"(esi)
             : [fn] "r"(fn)
-    : "memory", "cc", "edi"
+            : "memory", "cc", "edi"
     );
-
-
-//    *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
 
     return eax;
 }

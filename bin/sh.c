@@ -4,6 +4,7 @@
 #include "dirent.h"
 #include "stdio.h"
 #include "unistd.h"
+#include "stdlib.h"
 
 extern char **environ;
 
@@ -368,6 +369,8 @@ static void int_to_str(int n, char *buf, int buf_size)
     buf[i] = '\0';
 }
 
+
+
 /* ------------------------------------------------------------------
  * Expand variables ($VAR, $?, $$, $!) in a string
  * ------------------------------------------------------------------ */
@@ -587,6 +590,26 @@ static void load_environment(char **envp)
  * Built-in command implementations
  * ------------------------------------------------------------------ */
 
+/* exit */
+static int builtin_exit(int argc, char **argv)
+{
+    int exit_code = 0;
+
+    if (argc > 1)
+    {
+        /* parse exit code from argv[1] */
+        exit_code = atoi(argv[1]);
+    }
+    else
+    {
+        /* use last exit status */
+        exit_code = last_exit_status;
+    }
+
+    exit(exit_code);
+    return 1; /* never reached */
+}
+
 /* cd */
 static int builtin_cd(int argc, char **argv)
 {
@@ -742,6 +765,9 @@ static int handle_builtin(int argc, char **argv)
 {
     if (argc <= 0 || argv == NULL || argv[0] == NULL)
         return 0;
+
+    if (strcmp(argv[0], "exit") == 0)
+        return builtin_exit(argc, argv);
 
     if (strcmp(argv[0], "cd") == 0)
         return builtin_cd(argc, argv);

@@ -3,19 +3,59 @@
 #include "unistd.h"
 #include "kernel/constants.h"
 
-int main(int argc, char **argv)
+static pid_t tty_pids[TTY_COUNT];
+
+static pid_t spawn_shell(int tty_id)
 {
     char *sh_argv[] = {"/bin/sh", NULL};
     char *sh_envp[] = {NULL};
 
+    return sched_add_task("/bin/sh", tty_id, sh_argv, sh_envp);
+}
+
+int main(int argc, char **argv)
+{
+    /* Spawn initial shells for each TTY */
     for (int tty_id = 0; tty_id < TTY_COUNT; tty_id++)
     {
-        pid_t pid = sched_add_task("/bin/sh", tty_id, sh_argv, sh_envp);
+        tty_pids[tty_id] = spawn_shell(tty_id);
 
-        if (pid < 0)
+        if (tty_pids[tty_id] < 0)
         {
-            printf("Failed to start shell for tty_id: %d, res=%d\n", tty_id, pid);
+            printf("Failed to start shell for tty%d: res=%d\n", tty_id, tty_pids[tty_id]);
+            tty_pids[tty_id] = 0;
         }
     }
+
+    /* Wait and respawn loop */
+    while (1)
+    {
+        int status;
+        pid_t exited_pid = wait(&status);
+
+        if (exited_pid < 0)
+        {
+            printf("wait failed %d\n", exited_pid);
+            continue;
+        }
+
+        /* Find which TTY this PID belonged to and respawn */
+        for (int i = 0; i < TTY_COUNT; i++)
+        {
+            if (tty_pids[i] == exited_pid)
+            {
+                tty_pids[i] = spawn_shell(i);
+
+                if (tty_pids[i] < 0)
+                {
+                    printf("Failed to respawn shell for tty%d\n", i);
+                    tty_pids[i] = 0;
+                }
+
+                break;
+            }
+        }
+    }
+
     return 0;
 }

@@ -19,7 +19,8 @@ enum sched_state
     TASK_QUEUED = 2,            /* runnable and waiting in the run queue */
     TASK_RUNNING = 3,           /* currently executing on a CPU */
     TASK_INTERRUPTIBLE = 4,     /* sleeping; waiting for an event, may be woken by a signal */
-    TASK_UNINTERRUPTIBLE = 5    /* sleeping; waiting for an event, not woken by signals */
+    TASK_UNINTERRUPTIBLE = 5,   /* sleeping; waiting for an event, not woken by signals */
+    TASK_ZOMBIE = 6,            /* The thread has died, but has not been reaped */
 };
 
 struct signal{
@@ -36,6 +37,12 @@ struct task
     pid_t pid;
     struct task *next;
     struct task *parent;
+
+    struct task *children;      /* Head of my children list */
+    struct task *next_sibling;  /* Next child in parent's list */
+
+
+    int exit_status;
 
     char cwd[MAX_FILENAME_LEN];
 

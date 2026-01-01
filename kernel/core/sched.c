@@ -86,12 +86,14 @@ void sched_exit(int status)
         panic("sched_exit:exit failed because there is no current task.\n");
     }
 
-    if (current != sched.swapper)
-    {
-        task_table_free(&sched.task_table, current);
-    }
-
+    current->exit_status = status;
+    current->state = TASK_ZOMBIE;
     wakeup(&current->signal.wait_exit);
+
+    if(current->parent != current)
+    {
+        wakeup(&current->parent->signal.wait_child);
+    }
 
     sched.current = NULL;
     sched_schedule();
@@ -256,7 +258,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         size_t len = k_strlen(argv[argc]) + 1;
         if (argv_offset + len > sizeof(argv_buf))
+        {
             break;
+        }
         k_memcpy(argv_buf + argv_offset, argv[argc], len);
         argv_copy[argc] = argv_buf + argv_offset;
         argv_offset += len;
@@ -271,7 +275,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         size_t len = k_strlen(envp[envc]) + 1;
         if (envp_offset + len > sizeof(envp_buf))
+        {
             break;
+        }
         k_memcpy(envp_buf + envp_offset, envp[envc], len);
         envp_copy[envc] = envp_buf + envp_offset;
         envp_offset += len;
@@ -287,12 +293,25 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     k_strcpy(task->name, filename_buf);
 
     task->ctxt = 0;
+    task->exit_status = 0;
     task->signal.pending = 0;
+    task->state = TASK_QUEUED;
+    task->children = NULL;
+    if (parent == NULL)
+    {
+        task->parent = task;
+        task->next_sibling = NULL;
+    }
+    else
+    {
+        task->parent = parent;
+        task->next_sibling = parent->children;
+        parent->children = task;
+    }
+
     wait_queue_init(&task->signal.wait_exit);
     wait_queue_init(&task->signal.wait_child);
 
-    task->state = TASK_QUEUED;
-    task->parent = sched.current ? sched.current : task;
     task_init_tty(task, tty_id);
     task_init_cwd(task);
 
@@ -515,39 +534,141 @@ struct waitpid_ctx
     pid_t pid;
 };
 
-static bool child_exited(void *obj)
+static bool task_is_zombie(void *arg)
 {
-    const struct waitpid_ctx *ctx = (const struct waitpid_ctx *) obj;
-    return sched_find_by_pid(ctx->pid) == NULL;
+    struct task *task = (struct task *)arg;
+    return task->state == TASK_ZOMBIE;
+}
+
+static struct task *find_child_by_pid(struct task *parent, pid_t pid)
+{
+    for (struct task *c = parent->children; c; c = c->next_sibling)
+    {
+        if (c->pid == pid)
+        {
+            return c;
+        }
+    }
+    return NULL;
+}
+
+static struct task *find_zombie_child(struct task *parent)
+{
+    for (struct task *c = parent->children; c; c = c->next_sibling)
+    {
+        if (c->state == TASK_ZOMBIE)
+        {
+            return c;
+        }
+    }
+    return NULL;
+}
+
+static bool has_zombie_child(void *arg)
+{
+    struct task *parent = (struct task *)arg;
+    return find_zombie_child(parent) != NULL;
 }
 
 pid_t sched_waitpid(pid_t pid, int *status, int options)
 {
-    (void) status;
+    struct task *current = sched_current();
+    struct task *child = NULL;
 
     if (options & ~WNOHANG)
     {
         return -EINVAL;
     }
 
-    if (options & WNOHANG)
+    if (pid > 0)
     {
-        return (sched_find_by_pid(pid) == NULL) ? pid : 0;
-    }
+        /* ========== CASE 1: Wait for specific child ========== */
 
-    for (;;)
-    {
-        struct task *child = sched_find_by_pid(pid);
+        child = find_child_by_pid(current, pid);
 
-        if (child == NULL)
+        /* Not our child */
+        if (!child)
         {
-            return pid;
+            return -ECHILD;
         }
 
-        struct waitpid_ctx ctx = {.pid = pid};
+        /* Check if already zombie */
+        if (child->state != TASK_ZOMBIE)
+        {
+            /* Child exists but not zombie yet */
+            if (options & WNOHANG)
+            {
+                return 0;
+            }
 
-        wait_event(&child->signal.wait_exit, child_exited, &ctx, WAIT_INTERRUPTIBLE);
+            /* Wait for this specific child to exit */
+            wait_event(&child->signal.wait_exit, task_is_zombie, child, WAIT_INTERRUPTIBLE);
+
+            /* After waking, check if it's a zombie */
+            if (child->state != TASK_ZOMBIE)
+            {
+                return -EINTR;
+            }
+        }
     }
-}
+    else if (pid == -1)
+    {
+        /* ========== CASE 2: Wait for any child ========== */
 
+        child = find_zombie_child(current);
+
+        if (!child)
+        {
+            /* No zombie found */
+            if (!current->children)
+            {
+                return -ECHILD;
+            }
+
+            if (options & WNOHANG)
+            {
+                return 0;
+            }
+
+            /* Wait for any child to exit */
+            wait_event(&current->signal.wait_child, has_zombie_child, current, WAIT_INTERRUPTIBLE);
+
+            /* Search again for zombie */
+            child = find_zombie_child(current);
+
+            if (!child)
+            {
+                return -EINTR;
+            }
+        }
+    }
+    else
+    {
+        return -EINVAL;
+    }
+
+    /* ========== Reap the zombie ========== */
+
+    if (status)
+    {
+        *status = child->exit_status;
+    }
+
+    pid_t result = child->pid;
+
+    /* Remove from children list */
+    struct task **prev = &current->children;
+    while (*prev)
+    {
+        if (*prev == child)
+        {
+            *prev = child->next_sibling;
+            break;
+        }
+        prev = &(*prev)->next_sibling;
+    }
+
+    task_table_free(&sched.task_table, child);
+    return result;
+}
 
