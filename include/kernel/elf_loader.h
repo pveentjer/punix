@@ -124,6 +124,6 @@ struct embedded_bin
 extern const struct embedded_bin embedded_bins[];
 extern const size_t embedded_bin_count;
 
-const struct embedded_bin *find_app(const char *name);
+const struct embedded_bin *find_bin(const char *name);
 
 #endif /* ELF_LOADER_H */

@@ -221,8 +221,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    const struct embedded_bin *app = find_app(filename);
-    if (!app)
+    const struct embedded_bin *bin = find_bin(filename);
+    if (!bin)
     {
         kprintf("task_new: unknown binary '%s'\n", filename);
         return NULL;
@@ -294,8 +294,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task_init_cwd(task);
 
     /* Load ELF */
-    const void *image = app->start;
-    size_t image_size = (size_t) (app->end - app->start);
+    const void *image = bin->start;
+    size_t image_size = (size_t) (bin->end - bin->start);
 
     struct elf_info elf_info;
 

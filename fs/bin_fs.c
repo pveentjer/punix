@@ -5,8 +5,8 @@
 #include "kernel/elf_loader.h"
 #include "kernel/kutils.h"
 
-/* find_app is provided by the ELF / embedded app layer. */
-/* const struct embedded_bin *find_app(const char *name); */
+/* find_bin is provided by the ELF / embedded app layer. */
+/* const struct embedded_bin *find_bin(const char *name); */
 
 
 
@@ -132,7 +132,7 @@ int bin_open(struct file *file)
     }
 
     /* Validate that the program exists in the embedded bin table. */
-    const struct embedded_bin *bin = find_app(name);
+    const struct embedded_bin *bin = find_bin(name);
     if (!bin)
     {
         /* No such program -> open() should fail. */

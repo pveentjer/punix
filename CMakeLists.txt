@@ -134,7 +134,7 @@ endforeach()
 file(APPEND ${BUILD_DIR}/embedded_bins.c "};\n\n")
 file(APPEND ${BUILD_DIR}/embedded_bins.c "const size_t embedded_bin_count = sizeof(embedded_bins) / sizeof(embedded_bins[0]);\n\n")
 file(APPEND ${BUILD_DIR}/embedded_bins.c "
-const struct embedded_bin *find_app(const char *name)
+const struct embedded_bin *find_bin(const char *name)
 {
     for (size_t i = 0; i < embedded_bin_count; i++)
     {
