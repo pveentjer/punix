@@ -107,8 +107,7 @@ struct elf_info
  * Load ELF image into memory at base_va.
  * Returns 0 on success, <0 on error.
  */
-int elf_load(const void *image, size_t size,
-             uint32_t base_va, struct elf_info *out);
+int elf_load(const void *image, size_t size,uint32_t base_va, struct elf_info *out);
 
 /* ------------------------------------------------------------
  * Embedded bin table
