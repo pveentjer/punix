@@ -417,6 +417,12 @@ pid_t waitpid(pid_t pid, int *status, int options)
                             (uint32_t)options);
 }
 
+pid_t wait(int *status)
+{
+    return waitpid(-1, status, 0);
+}
+
+
 pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 {
     return (pid_t)syscall_4(SYS_add_task,

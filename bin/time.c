@@ -27,9 +27,7 @@ static void print_default(uint64_t real_ns)
     uint64_t sec = ms / 1000ULL;
     uint64_t rem_ms = ms % 1000ULL;
 
-    printf("real\t%llu.%03llus\n",
-           (unsigned long long) sec,
-           (unsigned long long) rem_ms);
+    printf("real\t%llu.%03llus\n",(unsigned long long) sec,(unsigned long long) rem_ms);
 
     // Not available without CPU accounting
     printf("user\t?\n");
@@ -42,9 +40,7 @@ static void print_posix(uint64_t real_ns)
     uint64_t sec = ms / 1000ULL;
     uint64_t rem_ms = ms % 1000ULL;
 
-    printf("real %llu.%03llu\n",
-           (unsigned long long) sec,
-           (unsigned long long) rem_ms);
+    printf("real %llu.%03llu\n", (unsigned long long) sec, (unsigned long long) rem_ms);
 
     printf("user ?\n");
     printf("sys  ?\n");
@@ -141,9 +137,13 @@ int main(int argc, char **argv, char **envp)
     char buf[32];
 
     if (posix_p)
+    {
         print_posix(real_ns);
+    }
     else
+    {
         print_default(real_ns);
+    }
 
     // Return child's exit code (your convention)
     return (status >> 8) & 0xff;

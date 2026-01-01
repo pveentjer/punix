@@ -31,6 +31,8 @@ int nice(int inc);
 
 pid_t waitpid(pid_t pid, int *status, int options);
 
+pid_t wait(int *status);
+
 void *sbrk(intptr_t increment);
 
 int brk(void *addr);
