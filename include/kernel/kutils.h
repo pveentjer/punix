@@ -1,7 +1,8 @@
 #ifndef KUTILS_H
 #define KUTILS_H
 
-#include <stddef.h>   // for size_t
+#include <stddef.h>
+#include <stdarg.h>
 #include <stdint.h>
 
 /* ------------------------------------------------------------
@@ -19,6 +20,10 @@ int k_strcmp(const char *a, const char *b);
 int k_strncmp(const char *s1, const char *s2, size_t n);
 
 char *k_strcat(char *dest, const char *src);
+
+int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap);
+
+int k_snprintf(char *buf, size_t size, const char *fmt, ...);
 
 char* k_strcpy(char *dest, const char *src);
 
