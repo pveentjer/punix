@@ -289,6 +289,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->ctxt = 0;
     task->signal.pending = 0;
     wait_queue_init(&task->signal.wait_exit);
+    wait_queue_init(&task->signal.wait_child);
 
     task->state = TASK_QUEUED;
     task->parent = sched.current ? sched.current : task;

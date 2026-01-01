@@ -24,6 +24,7 @@ enum sched_state
 
 struct signal{
     sigset_t pending;
+    struct wait_queue wait_child;
     struct wait_queue wait_exit;
 };
 
