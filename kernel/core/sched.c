@@ -221,7 +221,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
         return NULL;
     }
 
-    const struct embedded_app *app = find_app(filename);
+    const struct embedded_bin *app = find_app(filename);
     if (!app)
     {
         kprintf("task_new: unknown binary '%s'\n", filename);

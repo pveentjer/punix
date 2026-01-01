@@ -114,16 +114,16 @@ int elf_load(const void *image, size_t size,
  * Embedded application table
  * ------------------------------------------------------------ */
 
-struct embedded_app
+struct embedded_bin
 {
     const char *name;
     const unsigned char *start;
     const unsigned char *end;
 };
 
-extern const struct embedded_app embedded_apps[];
-extern const size_t embedded_app_count;
+extern const struct embedded_bin embedded_bins[];
+extern const size_t embedded_bin_count;
 
-const struct embedded_app *find_app(const char *name);
+const struct embedded_bin *find_app(const char *name);
 
 #endif /* ELF_LOADER_H */

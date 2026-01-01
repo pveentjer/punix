@@ -109,36 +109,40 @@ set(BIN_PATHS
 )
 
 # ------------------------------------------------------------
-# Generate embedded_apps.c
+# Generate embedded_bins.c
 # ------------------------------------------------------------
-file(WRITE ${BUILD_DIR}/embedded_apps.c "#include \"kernel/kutils.h\"\n")
-file(APPEND ${BUILD_DIR}/embedded_apps.c "#include \"kernel/console.h\"\n")
-file(APPEND ${BUILD_DIR}/embedded_apps.c "#include \"kernel/elf_loader.h\"\n\n")
-file(APPEND ${BUILD_DIR}/embedded_apps.c "/* Auto-generated - do not edit */\n\n")
+file(WRITE ${BUILD_DIR}/embedded_bins.c "#include \"kernel/kutils.h\"\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "#include \"kernel/console.h\"\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "#include \"kernel/elf_loader.h\"\n\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "/* Auto-generated - do not edit */\n\n")
 
 foreach(name ${ALL_BINS})
-    file(APPEND ${BUILD_DIR}/embedded_apps.c "extern unsigned char _binary_${name}_elf_start[];\n")
-    file(APPEND ${BUILD_DIR}/embedded_apps.c "extern unsigned char _binary_${name}_elf_end[];\n")
+    file(APPEND ${BUILD_DIR}/embedded_bins.c "extern unsigned char _binary_${name}_elf_start[];\n")
+    file(APPEND ${BUILD_DIR}/embedded_bins.c "extern unsigned char _binary_${name}_elf_end[];\n")
 endforeach()
 
-file(APPEND ${BUILD_DIR}/embedded_apps.c "\nconst struct embedded_app embedded_apps[] = {\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "\nconst struct embedded_bin embedded_bins[] = {\n")
 
 list(LENGTH ALL_BINS count)
 math(EXPR last "${count} - 1")
 foreach(idx RANGE ${last})
     list(GET ALL_BINS ${idx} name)
     list(GET BIN_PATHS ${idx} path)
-    file(APPEND ${BUILD_DIR}/embedded_apps.c "    {\"${path}\", _binary_${name}_elf_start, _binary_${name}_elf_end},\n")
+    file(APPEND ${BUILD_DIR}/embedded_bins.c "    {\"${path}\", _binary_${name}_elf_start, _binary_${name}_elf_end},\n")
 endforeach()
 
-file(APPEND ${BUILD_DIR}/embedded_apps.c "};\n\n")
-file(APPEND ${BUILD_DIR}/embedded_apps.c "const size_t embedded_app_count = sizeof(embedded_apps) / sizeof(embedded_apps[0]);\n\n")
-file(APPEND ${BUILD_DIR}/embedded_apps.c "
-const struct embedded_app *find_app(const char *name)
+file(APPEND ${BUILD_DIR}/embedded_bins.c "};\n\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "const size_t embedded_bin_count = sizeof(embedded_bins) / sizeof(embedded_bins[0]);\n\n")
+file(APPEND ${BUILD_DIR}/embedded_bins.c "
+const struct embedded_bin *find_app(const char *name)
 {
-    for (size_t i = 0; i < embedded_app_count; i++)
-        if (k_strcmp(embedded_apps[i].name, name) == 0)
-            return &embedded_apps[i];
+    for (size_t i = 0; i < embedded_bin_count; i++)
+    {
+        if (k_strcmp(embedded_bins[i].name, name) == 0)
+        {
+            return &embedded_bins[i];
+        }
+    }
     return NULL;
 }
 ")
@@ -157,7 +161,7 @@ set(KERNEL_CORE_SOURCES
         ${KERNEL_DIR}/core/tty.c
         ${KERNEL_DIR}/core/wait.c
         ${KERNEL_DIR}/core/mm.c
-        ${BUILD_DIR}/embedded_apps.c
+        ${BUILD_DIR}/embedded_bins.c
         arch/x86/panic.c
 )
 

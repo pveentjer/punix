@@ -3,19 +3,19 @@
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
 #include "kernel/elf_loader.h"
-#include "kernel/kutils.h"  /* k_strcmp, k_strrchr, etc */
+#include "kernel/kutils.h"
 
 /* find_app is provided by the ELF / embedded app layer. */
-/* const struct embedded_app *find_app(const char *name); */
+/* const struct embedded_bin *find_app(const char *name); */
 
 
 
 /* ------------------------------------------------------------
- * Fill dirent entries for /bin from embedded_apps
+ * Fill dirent entries for /bin from embedded_bins
  * ------------------------------------------------------------ */
 
 static void fill_dirent_from_app(struct dirent *de,
-                                 const struct embedded_app *app,
+                                 const struct embedded_bin *app,
                                  uint32_t ino)
 {
     de->d_ino = ino;
@@ -47,9 +47,9 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
         return 0;
     }
 
-    for (size_t i = 0; i < embedded_app_count && idx < max_entries; ++i)
+    for (size_t i = 0; i < embedded_bin_count && idx < max_entries; ++i)
     {
-        fill_dirent_from_app(&buf[idx], &embedded_apps[i],
+        fill_dirent_from_app(&buf[idx], &embedded_bins[i],
                              (uint32_t) (i + 1));  // fake inode
         idx++;
     }
@@ -128,7 +128,7 @@ int bin_open(struct file *file)
     }
 
     /* Validate that the program exists in the embedded app table. */
-    const struct embedded_app *app = find_app(name);
+    const struct embedded_bin *app = find_app(name);
     if (!app)
     {
         /* No such program -> open() should fail. */
