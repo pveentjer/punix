@@ -22,6 +22,11 @@ enum sched_state
     TASK_UNINTERRUPTIBLE = 5    /* sleeping; waiting for an event, not woken by signals */
 };
 
+struct signal{
+    sigset_t pending;
+    struct wait_queue wait_exit;
+};
+
 
 struct task
 {
@@ -39,8 +44,6 @@ struct task
 
     struct files files;
 
-    sigset_t pending_signals;
-
     struct tty *ctty;
 
     enum sched_state state;
@@ -53,7 +56,7 @@ struct task
 
     uint8_t kstack[KERNEL_STACK_SIZE];
 
-    struct wait_queue wait_exit;
+    struct signal signal;
 };
 
 /* Task table - must be defined before struct scheduler */

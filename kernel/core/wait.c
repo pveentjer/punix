@@ -152,7 +152,7 @@ void wait_event(struct wait_queue *queue, bool (*cond)(void *obj), void *ctx, wa
 
         wait_queue_remove(&wait_entry);
 
-        if (current->pending_signals != 0u && wait_mode == WAIT_INTERRUPTIBLE)
+        if (current->signal.pending != 0u && wait_mode == WAIT_INTERRUPTIBLE)
         {
             sched_exit(-1);
         }

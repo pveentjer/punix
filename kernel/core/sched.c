@@ -91,7 +91,7 @@ void sched_exit(int status)
         task_table_free(&sched.task_table, current);
     }
 
-    wakeup(&current->wait_exit);
+    wakeup(&current->signal.wait_exit);
 
     sched.current = NULL;
     sched_schedule();
@@ -287,7 +287,9 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     k_strcpy(task->name, filename_buf);
 
     task->ctxt = 0;
-    task->pending_signals = 0;
+    task->signal.pending = 0;
+    wait_queue_init(&task->signal.wait_exit);
+
     task->state = TASK_QUEUED;
     task->parent = sched.current ? sched.current : task;
     task_init_tty(task, tty_id);
@@ -396,7 +398,7 @@ int sched_kill(pid_t pid, int sig)
         return -1;
     }
 
-    task->pending_signals |= (1u << (sig - 1));
+    task->signal.pending |= (1u << (sig - 1));
     if (task->state == TASK_INTERRUPTIBLE || task->state == TASK_INTERRUPTIBLE)
     {
         sched_enqueue(task);
@@ -543,7 +545,7 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
 
         struct waitpid_ctx ctx = {.pid = pid};
 
-        wait_event(&child->wait_exit, child_exited, &ctx, WAIT_INTERRUPTIBLE);
+        wait_event(&child->signal.wait_exit, child_exited, &ctx, WAIT_INTERRUPTIBLE);
     }
 }
 

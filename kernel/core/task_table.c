@@ -38,8 +38,6 @@ void task_table_init(struct task_table *task_table)
                    next_free_pa);
         task->mm = mm;
 
-        wait_queue_init(&task->wait_exit);
-
         task_table->free_ring[task_idx] = task_idx;
         files_init(&task->files);
 
