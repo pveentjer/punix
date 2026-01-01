@@ -43,7 +43,9 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
     unsigned int idx = 0;
 
     if (!buf || max_entries == 0)
+    {
         return 0;
+    }
 
     for (size_t i = 0; i < embedded_app_count && idx < max_entries; ++i)
     {
@@ -60,10 +62,7 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
  * /bin directory listing
  * ------------------------------------------------------------------ */
 
-static int bin_getdents(
-        struct file *file,
-        struct dirent *buf,
-        unsigned int count)
+static int bin_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
     if (!buf || count < sizeof(struct dirent))
     {
@@ -92,7 +91,7 @@ static int bin_getdents(
         }
     }
 
-    int size = (int)(idx * sizeof(struct dirent));
+    int size = (int) (idx * sizeof(struct dirent));
     file->pos += size;
     return size;
 }
