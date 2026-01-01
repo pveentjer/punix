@@ -111,7 +111,7 @@ int elf_load(const void *image, size_t size,
              uint32_t base_va, struct elf_info *out);
 
 /* ------------------------------------------------------------
- * Embedded application table
+ * Embedded bin table
  * ------------------------------------------------------------ */
 
 struct embedded_bin

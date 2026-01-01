@@ -14,8 +14,8 @@
  * Fill dirent entries for /bin from embedded_bins
  * ------------------------------------------------------------ */
 
-static void fill_dirent_from_app(struct dirent *de,
-                                 const struct embedded_bin *app,
+static void fill_dirent_from_bin(struct dirent *de,
+                                 const struct embedded_bin *bin,
                                  uint32_t ino)
 {
     de->d_ino = ino;
@@ -23,16 +23,20 @@ static void fill_dirent_from_app(struct dirent *de,
     de->d_type = DT_REG;
 
     /* Strip any leading path: "/bin/ls" -> "ls" */
-    const char *name = app->name;
+    const char *name = bin->name;
     const char *base = name;
 
     const char *p = k_strrchr(name, '/');
     if (p && p[1] != '\0')
+    {
         base = p + 1;
+    }
 
     size_t len = k_strlen(base);
     if (len >= sizeof(de->d_name))
+    {
         len = sizeof(de->d_name) - 1;
+    }
 
     k_memcpy(de->d_name, base, len);
     de->d_name[len] = '\0';
@@ -49,7 +53,7 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
 
     for (size_t i = 0; i < embedded_bin_count && idx < max_entries; ++i)
     {
-        fill_dirent_from_app(&buf[idx], &embedded_bins[i],
+        fill_dirent_from_bin(&buf[idx], &embedded_bins[i],
                              (uint32_t) (i + 1));  // fake inode
         idx++;
     }
@@ -127,16 +131,16 @@ int bin_open(struct file *file)
         return -1;
     }
 
-    /* Validate that the program exists in the embedded app table. */
-    const struct embedded_bin *app = find_app(name);
-    if (!app)
+    /* Validate that the program exists in the embedded bin table. */
+    const struct embedded_bin *bin = find_app(name);
+    if (!bin)
     {
         /* No such program -> open() should fail. */
         return -1;
     }
 
     /* If you want, you could stash something on file here
-       (e.g. file->inode or a custom field) using 'app'. For now,
+       (e.g. file->inode or a custom field) using 'bin'. For now,
        just succeed and let exec/sched resolve again by name. */
     file->pos = 0;
     return 0;
