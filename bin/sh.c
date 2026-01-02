@@ -717,6 +717,68 @@ static int builtin_unset(int argc, char **argv)
     return 1;
 }
 
+/* repeat - execute command n times */
+/* repeat - execute command n times */
+static int builtin_repeat(int argc, char **argv)
+{
+    if (argc < 3)
+    {
+        printf("Usage: repeat <count> <command> [args...]\n");
+        last_exit_status = 1;
+        return 1;
+    }
+
+    int count = atoi(argv[1]);
+    if (count <= 0)
+    {
+        printf("repeat: count must be positive\n");
+        last_exit_status = 1;
+        return 1;
+    }
+
+    /* shift argv to get the actual command */
+    char **repeat_argv = &argv[2];
+    int repeat_argc = argc - 2;
+
+    for (int i = 0; i < count; i++)
+    {
+        printf("[%d/%d]\n", i + 1, count);
+
+        static char fullpath[LINE_MAX];
+        resolve_full_path(fullpath, sizeof(fullpath), repeat_argv[0]);
+
+        char **child_envp = build_environment();
+
+        pid_t pid = sched_add_task(fullpath, -1, repeat_argv, child_envp);
+        if (pid < 0)
+        {
+            printf("Failed to create task\n");
+            last_exit_status = 1;
+            return 1;
+        }
+
+        /* wait for completion */
+        int status = 0;
+        pid_t res = waitpid(pid, &status, 0);
+        if (res < 0)
+        {
+            printf("waitpid failed for pid %d\n", (int)pid);
+            last_exit_status = 1;
+            return 1;
+        }
+
+        last_exit_status = (status >> 8) & 0xff;
+
+
+        if (last_exit_status != 0)
+        {
+            break;
+        }
+    }
+
+    return 1;
+}
+
 /* ------------------------------------------------------------------
  * Built-in dispatch
  * ------------------------------------------------------------------ */
@@ -742,6 +804,9 @@ static int handle_builtin(int argc, char **argv)
 
     if (strcmp(argv[0], "unset") == 0)
         return builtin_unset(argc, argv);
+
+    if (strcmp(argv[0], "repeat") == 0)
+        return builtin_repeat(argc, argv);
 
     return 0; /* not a builtin */
 }
