@@ -48,17 +48,19 @@ void kmain(void)
     kprintf("Init Interrupt Descriptor Table.\n");
     idt_init();
 
-    kprintf("Init VM.\n");
+    kprintf("Init Memory Management.\n");
     mm_init();
+
+    dev_init();
 
     kprintf("Init VFS.\n");
     vfs_init(&vfs);
     vfs_mount("/", &root_fs);
+    vfs_mount("/sys", &sys_fs);
     vfs_mount("/proc", &proc_fs);
     vfs_mount("/dev", &dev_fs);
     vfs_mount("/bin", &bin_fs);
 
-    dev_init();
 
     kprintf("Init TTYs.\n");
     tty_system_init();

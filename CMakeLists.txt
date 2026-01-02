@@ -175,6 +175,7 @@ set(FS_SOURCES
         ${FS_DIR}/dev_fs.c
         ${FS_DIR}/fs_util.c
         ${FS_DIR}/proc_fs.c
+        ${FS_DIR}/sys_fs.c
         ${FS_DIR}/root_fs.c
 )
 

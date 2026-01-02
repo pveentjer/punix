@@ -20,6 +20,7 @@ extern struct fs root_fs;
 extern struct fs proc_fs;
 extern struct fs bin_fs;
 extern struct fs dev_fs;
+extern struct fs sys_fs;
 
 /* ------------------------------------------------------------------
  * Mounting API

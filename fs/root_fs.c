@@ -24,6 +24,7 @@ static int root_getdents(struct file *file, struct dirent *buf, unsigned int cou
     fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "proc");
     fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "bin");
     fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "dev");
+    fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "sys");
 
     int size = (int) (idx * sizeof(struct dirent));
     file->pos+=size;
