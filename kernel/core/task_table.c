@@ -112,4 +112,7 @@ void task_table_free(struct task_table *task_table, struct task *task)
     task_table->free_tail++;
     task->pid = PID_NONE;
     task->state = TASK_POOLED;
+    task->children = NULL;
+    task->parent = NULL;
+    task->next_sibling = NULL;
 }

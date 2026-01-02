@@ -89,7 +89,7 @@ void sched_exit(int status)
     // Close all files
     for (int fd = 0; fd < RLIMIT_NOFILE; fd++)
     {
-        struct file *file = files_free_fd(&current->files, fd);
+        struct file *file = current->files.slots[fd].file;
         if (file)
         {
             vfs_close(current, fd);
