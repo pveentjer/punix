@@ -20,29 +20,17 @@
 
 typedef long ssize_t;
 
-/*
- * Per-process file descriptor table.
- *
- * - MAX_FD_CNT must be a power of two if you want the mask trick.
- * - FDs are 0..MAX_FD_CNT-1.
- */
-
 struct files_slot
 {
-    int fd;
     struct file *file;
-    uint32_t generation;
 };
 
 struct files
 {
-    uint32_t free_ring[RLIMIT_NOFILE];  /* ring buffer of free fd indices */
-    uint32_t free_head;                 /* allocation side */
-    uint32_t free_tail;                 /* free side */
-
     struct files_slot slots[RLIMIT_NOFILE];
 };
 
+// todo: files are currently not yet shared when doing a fork (since there is no fork)
 struct file
 {
     uint32_t idx;
@@ -71,17 +59,11 @@ struct fs
     int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
 };
 
-/* ------------------------------------------------------------------
- * files
- * ------------------------------------------------------------------ */
-
 void files_init(struct files *files);
 
 int files_alloc_fd(struct files *files, struct file *file);
 
 struct file *files_free_fd(struct files *files, int fd);
-
-void files_free_all(struct files *files);
 
 struct file *files_find_by_fd(const struct files *files, int fd);
 

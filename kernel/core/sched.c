@@ -86,6 +86,16 @@ void sched_exit(int status)
         panic("sched_exit:exit failed because there is no current task.\n");
     }
 
+    // Close all files
+    for (int fd = 0; fd < RLIMIT_NOFILE; fd++)
+    {
+        struct file *file = files_free_fd(&current->files, fd);
+        if (file)
+        {
+            vfs_close(current, fd);
+        }
+    }
+
     current->exit_status = status;
     current->state = TASK_ZOMBIE;
     wakeup(&current->signal.wait_exit);
@@ -527,12 +537,6 @@ void sched_init(void)
         panic("sched_init: failed to allocate a task for the swapper\n");
     }
 }
-
-
-struct waitpid_ctx
-{
-    pid_t pid;
-};
 
 static bool task_is_zombie(void *arg)
 {
