@@ -54,7 +54,7 @@ struct file
     uint8_t ref_count;
     uint64_t pos;
     int fd;
-    struct tty *tty;
+    void *driver_data;
     struct fs *fs;
 };
 

@@ -35,8 +35,4 @@ void tty_input_put(struct tty *tty, char c);
 
 struct tty *tty_get(size_t idx);
 
-size_t tty_read(struct tty *tty, char *buf, size_t maxlen);
-
-size_t tty_write(struct tty *tty, const char *buf, size_t maxlen);
-
 #endif /* KERNEL_TTY_H */

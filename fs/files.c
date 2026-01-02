@@ -9,9 +9,9 @@
 #define FILES_FD_MASK (RLIMIT_NOFILE - 1)
 
 
-void files_init(
-        struct files *files)
+void files_init(struct files *files)
 {
+
     files->free_head = 0;
     files->free_tail = RLIMIT_NOFILE;
 
@@ -25,9 +25,7 @@ void files_init(
     }
 }
 
-struct file *files_find_by_fd(
-        const struct files *files,
-        const int fd)
+struct file *files_find_by_fd(const struct files *files, const int fd)
 {
     if (fd < 0)
     {
@@ -46,9 +44,7 @@ struct file *files_find_by_fd(
     }
 }
 
-int files_alloc_fd(
-        struct files *files,
-        struct file *file)
+int files_alloc_fd(struct files *files, struct file *file)
 {
     if (files->free_head == files->free_tail)
     {
@@ -73,9 +69,7 @@ int files_alloc_fd(
     return slot->fd;
 }
 
-struct file *files_free_fd(
-        struct files *files,
-        int fd)
+struct file *files_free_fd(struct files *files, int fd)
 {
     if (files->free_tail - files->free_head == RLIMIT_NOFILE)
     {

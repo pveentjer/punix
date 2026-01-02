@@ -40,12 +40,12 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
         case SYS_open:
         {
             sched_schedule();
-            return (uint32_t) vfs_open(&vfs, current, (const char *) a1, (int) a2, (int) a3);
+            return (uint32_t) vfs_open(current, (const char *) a1, (int) a2, (int) a3);
         }
         case SYS_close:
         {
             sched_schedule();
-            return (uint32_t) vfs_close(&vfs, current, (int) a1);
+            return (uint32_t) vfs_close(current, (int) a1);
         }
         case SYS_getdents:
         {

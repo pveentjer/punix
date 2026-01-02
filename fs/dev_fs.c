@@ -3,99 +3,171 @@
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
 #include "kernel/kutils.h"
-#include "kernel/console.h"
-#include "kernel/tty.h"
-#include "kernel/constants.h"
-#include "kernel/sched.h"
+#include "kernel/dev.h"
 
-static ssize_t dev_read(
-        struct file *file,
-        void *buf, size_t count)
+#define MAX_DEVICES 32
+
+
+struct dev_node
 {
-    if ((file == NULL) ||
-        (file->tty == NULL) ||
-        (buf == NULL) ||
-        (count == 0))
-    {
-        return 0;
-    }
+    char name[32];
+    struct dev_ops *ops;
+    void *driver_data;
+    int active;
+};
 
-    return tty_read(file->tty, (char *) buf, count);
+static struct dev_node devices[MAX_DEVICES];
+static int device_count = 0;
+
+void dev_init(void)
+{
+    for (int i = 0; i < MAX_DEVICES; i++)
+    {
+        devices[i].active = 0;
+        devices[i].ops = NULL;
+        devices[i].driver_data = NULL;
+        devices[i].name[0] = '\0';
+    }
+    device_count = 0;
 }
 
-static ssize_t dev_write(
-        struct file *file,
-        const void *buf, size_t count)
+
+int dev_register(const char *name, struct dev_ops *ops, void *driver_data)
 {
-    if ((file == NULL) ||
-        (file->tty == NULL) ||
-        (buf == NULL) ||
-        (count == 0))
-    {
-        return 0;
-    }
-
-    return tty_write(file->tty, (const char *) buf, count);
-}
-
-static int dev_getdents(
-        struct file *file,
-        struct dirent *buf,
-        unsigned int count)
-{
-    if (!buf || count < sizeof(struct dirent))
-    {
-        return 0;
-    }
-
-    /* Only one page of entries; subsequent calls return 0. */
-    if (file->pos > 0)
-    {
-        return 0;
-    }
-
-    unsigned int max_entries = count / sizeof(struct dirent);
-    unsigned int idx = 0;
-
-    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
-    fs_add_entry(buf, max_entries, &idx, 2, DT_DIR, "..");
-
-    fs_add_entry(buf, max_entries, &idx, FD_STDIN, DT_CHR, "stdin");
-    fs_add_entry(buf, max_entries, &idx, FD_STDOUT, DT_CHR, "stdout");
-    fs_add_entry(buf, max_entries, &idx, FD_STDERR, DT_CHR, "stderr");
-
-    for (size_t i = 0; i < TTY_COUNT; i++)
-    {
-        if (idx >= max_entries)
-        {
-            break;
-        }
-
-        char num_buf[8];
-        char name_buf[16];
-
-        k_strcpy(name_buf, "tty");
-        k_itoa((int) i, num_buf);
-        k_strcat(name_buf, num_buf);
-
-        fs_add_entry(buf, max_entries, &idx, (int) (100 + i), DT_CHR, name_buf);
-    }
-
-    int size = (int) (idx * sizeof(struct dirent));
-    file->pos += size;
-    return size;
-}
-
-int dev_open(
-        struct file *file)
-{
-    if ((file == NULL) || (file->pathname == NULL))
+    if (!name || !ops || device_count >= MAX_DEVICES)
     {
         return -1;
     }
 
-    if ((k_strcmp(file->pathname, "/dev") == 0) ||
-        (k_strcmp(file->pathname, "/dev/") == 0))
+    if (name[0] == '/')
+    {
+        kprintf("dev_register: invalid name (starts with /): %s\n", name);
+        return -1;
+    }
+
+    // Find free slot
+    for (int i = 0; i < MAX_DEVICES; i++)
+    {
+        if (!devices[i].active)
+        {
+            devices[i].active = 1;
+            k_strncpy(devices[i].name, name, sizeof(devices[i].name));
+            devices[i].name[sizeof(devices[i].name) - 1] = '\0';
+            devices[i].ops = ops;
+            devices[i].driver_data = driver_data;
+            device_count++;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+struct dev_node *dev_lookup(const char *name)
+{
+    if (!name)
+    {
+        return NULL;
+    }
+
+    for (int i = 0; i < MAX_DEVICES; i++)
+    {
+
+        if (devices[i].active && k_strcmp(devices[i].name, name) == 0)
+        {
+            return &devices[i];
+        }
+    }
+
+    return NULL;
+}
+
+static int dev_open(struct file *file)
+{
+    if (!file || !file->pathname)
+    {
+        return -1;
+    }
+
+    // Must start with /dev
+    if (k_strncmp(file->pathname, "/dev", 4) != 0)
+    {
+        return -1;
+    }
+
+    // Opening /dev or /dev/ itself (directory listing)
+    if (file->pathname[4] == '\0' ||
+        (file->pathname[4] == '/' && file->pathname[5] == '\0'))
+    {
+        return 0;  // Allow directory operations
+    }
+
+    // Must have /dev/ prefix for devices
+    if (file->pathname[4] != '/')
+    {
+        return -1;
+    }
+
+    // Get device name after /dev/
+    const char *dev_name = file->pathname + 5;
+
+    // Empty device name is invalid
+    if (dev_name[0] == '\0')
+    {
+        return -1;
+    }
+
+    struct dev_node *dev = dev_lookup(dev_name);
+    if (!dev)
+    {
+        kprintf("dev_open dev not found %s\n", dev_name);
+        return -1;
+    }
+
+    file->driver_data = dev->driver_data;
+
+    if (dev->ops->open)
+    {
+        return dev->ops->open(file);
+    }
+
+    return 0;
+}
+
+static int dev_close(struct file *file)
+{
+    if (!file || !file->pathname)
+    {
+        return -1;
+    }
+
+    const char *name = k_strrchr(file->pathname, '/');
+    if (!name)
+    {
+        name = file->pathname;
+    }
+    else
+    {
+        name++;
+    }
+
+    struct dev_node *dev = dev_lookup(name);
+    if (!dev)
+    {
+        return -1;
+    }
+
+    if (dev->ops->close)
+    {
+        return dev->ops->close(file);
+    }
+
+    return 0;
+}
+
+static ssize_t dev_read(struct file *file, void *buf, size_t count)
+{
+    if (!file || !file->pathname || !buf || count == 0)
     {
         return 0;
     }
@@ -110,59 +182,80 @@ int dev_open(
         name++;
     }
 
-    /* NEEDED CHANGE: bind std* to the task's controlling TTY (ctty) */
-    if ((k_strcmp(name, "stdin") == 0) ||
-        (k_strcmp(name, "stdout") == 0) ||
-        (k_strcmp(name, "stderr") == 0))
+    struct dev_node *dev = dev_lookup(name);
+    if (!dev || !dev->ops->read)
     {
-        struct task *curr = sched_current();
+        return -1;
+    }
 
-        if (curr && curr->ctty)
-        {
-            file->tty = curr->ctty;
-        }
-        else
-        {
-            file->tty = tty_active();  // fallback (e.g. early boot)
-        }
+    return dev->ops->read(file, buf, count);
+}
 
+static ssize_t dev_write(struct file *file, const void *buf, size_t count)
+{
+    if (!file || !file->pathname || !buf || count == 0)
+    {
         return 0;
     }
 
-    if (k_strncmp(name, "tty", 3) == 0)
+    const char *name = k_strrchr(file->pathname, '/');
+    if (!name)
     {
-        const char *p = name + 3;
-        if (*p == '\0')
-        {
-            return -1;
-        }
+        name = file->pathname;
+    }
+    else
+    {
+        name++;
+    }
 
-        int idx = 0;
-        while (*p)
-        {
-            if (*p < '0' || *p > '9')
-            {
-                return -1;
-            }
-            idx = idx * 10 + (*p - '0');
-            p++;
-        }
+    struct dev_node *dev = dev_lookup(name);
+    if (!dev || !dev->ops->write)
+    {
+        return -1;
+    }
 
-        if (idx < 0 || (size_t) idx >= TTY_COUNT)
-        {
-            return -1;
-        }
+    return dev->ops->write(file, buf, count);
+}
 
-        file->tty = tty_get((size_t) idx);
+static int dev_getdents(struct file *file, struct dirent *buf, unsigned int count)
+{
+    if (!buf || count < sizeof(struct dirent))
+    {
         return 0;
     }
 
-    return -1;
+    if (file->pos > 0)
+    {
+        return 0;
+    }
+
+    unsigned int max_entries = count / sizeof(struct dirent);
+    unsigned int idx = 0;
+
+    fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
+    fs_add_entry(buf, max_entries, &idx, 2, DT_DIR, "..");
+
+    for (int i = 0; i < MAX_DEVICES; i++)
+    {
+        if (idx >= max_entries)
+        {
+            break;
+        }
+
+        if (devices[i].active)
+        {
+            fs_add_entry(buf, max_entries, &idx, 100 + i, DT_CHR, devices[i].name);
+        }
+    }
+
+    int size = (int) (idx * sizeof(struct dirent));
+    file->pos += size;
+    return size;
 }
 
 struct fs dev_fs = {
         .open     = dev_open,
-        .close    = NULL,
+        .close    = dev_close,
         .read     = dev_read,
         .write    = dev_write,
         .getdents = dev_getdents

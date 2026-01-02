@@ -13,6 +13,7 @@
 #include "kernel/panic.h"
 #include "kernel/clock.h"
 #include "kernel/mm.h"
+#include "kernel/dev.h"
 
 extern uint8_t __bss_start;
 extern uint8_t __bss_end;
@@ -57,6 +58,7 @@ void kmain(void)
     vfs_mount("/dev", &dev_fs);
     vfs_mount("/bin", &bin_fs);
 
+    dev_init();
 
     kprintf("Init TTYs.\n");
     tty_system_init();

@@ -280,25 +280,25 @@ static struct fs *path_to_fs(const char *pathname)
     return best_fs;
 }
 
-struct file *vfs_alloc_file(struct vfs *vfs)
+struct file *vfs_alloc_file()
 {
-    if (vfs->free_head == vfs->free_tail)
+    if (vfs.free_head == vfs.free_tail)
     {
         return NULL;
     }
 
-    const uint32_t free_ring_idx = vfs->free_head & VFS_RING_MASK;
-    const uint32_t file_idx = vfs->free_ring[free_ring_idx];
+    const uint32_t free_ring_idx = vfs.free_head & VFS_RING_MASK;
+    const uint32_t file_idx = vfs.free_ring[free_ring_idx];
 
-    struct file *file = &vfs->files[file_idx];
+    struct file *file = &vfs.files[file_idx];
 
-    vfs->free_head++;
+    vfs.free_head++;
     return file;
 }
 
-void vfs_free_file(struct vfs *vfs, struct file *file)
+void vfs_free_file(struct file *file)
 {
-    if (vfs->free_tail - vfs->free_head == MAX_FILE_CNT)
+    if (vfs.free_tail - vfs.free_head == MAX_FILE_CNT)
     {
         panic("vfs_free_file: too many frees");
     }
@@ -306,10 +306,10 @@ void vfs_free_file(struct vfs *vfs, struct file *file)
     file->fd = -1;
 
     const uint32_t file_idx = file->idx;
-    const uint32_t free_ring_idx = vfs->free_tail & VFS_RING_MASK;
+    const uint32_t free_ring_idx = vfs.free_tail & VFS_RING_MASK;
 
-    vfs->free_ring[free_ring_idx] = file_idx;
-    vfs->free_tail++;
+    vfs.free_ring[free_ring_idx] = file_idx;
+    vfs.free_tail++;
 }
 
 /* ------------------------------------------------------------
@@ -398,7 +398,7 @@ void vfs_resolve_path(const char *cwd, const char *pathname, char *resolved, siz
     vfs_normalize_path(resolved, resolved_size);
 }
 
-int vfs_open(struct vfs *vfs, struct task *task, const char *pathname, int flags, int mode)
+int vfs_open(struct task *task, const char *pathname, int flags, int mode)
 {
     char resolved_path[MAX_FILENAME_LEN];
     vfs_resolve_path(task->cwd, pathname, resolved_path, sizeof(resolved_path));
@@ -406,28 +406,32 @@ int vfs_open(struct vfs *vfs, struct task *task, const char *pathname, int flags
     struct fs *fs = path_to_fs(resolved_path);
     if (fs == NULL)
     {
+        kprintf("vfs_open: no fs found\n");
         return -1;
     }
 
     if (task == NULL)
     {
+        kprintf("vfs_open: no task found\n");
         return -1;
     }
 
-    struct file *file = vfs_alloc_file(vfs);
+    struct file *file = vfs_alloc_file();
     if (file == NULL)
     {
+        kprintf("vfs_open: can't allocate file\n");
         return -1;
     }
 
     int fd = files_alloc_fd(&task->files, file);
     if (fd < 0)
     {
-        vfs_free_file(vfs, file);
+        kprintf("vfs_open: can't allocate fd\n");
+        vfs_free_file(file);
         return -1;
     }
 
-    file->tty = NULL;
+    file->driver_data = NULL;
     file->fd = fd;
     file->pos = 0;
     file->flags = flags;
@@ -439,19 +443,18 @@ int vfs_open(struct vfs *vfs, struct task *task, const char *pathname, int flags
     if (fs->open != NULL)
     {
         int res = fs->open(file);
-
         if (res < 0)
         {
             files_free_fd(&task->files, fd);
-            vfs_free_file(vfs, file);
+            vfs_free_file(file);
             return -1;
         }
     }
 
-    return fd;
+     return fd;
 }
 
-int vfs_close(struct vfs *vfs, struct task *task, const int fd)
+int vfs_close(struct task *task, const int fd)
 {
     if (fd < 0 || task == NULL)
     {
@@ -471,7 +474,7 @@ int vfs_close(struct vfs *vfs, struct task *task, const int fd)
     }
 
     files_free_fd(&task->files, fd);
-    vfs_free_file(vfs, file);
+    vfs_free_file(file);
     return 0;
 }
 
@@ -557,12 +560,12 @@ int vfs_chdir(const char *path)
     vfs_resolve_path(current->cwd, path, resolved, sizeof(resolved));
 
     // Optional check: try opening it (helps confirm existence)
-    int fd = vfs_open(&vfs, current, resolved, 0, 0);
+    int fd = vfs_open(current, resolved, 0, 0);
     if (fd < 0)
     {
         return -1;
     }
-    vfs_close(&vfs, current, fd);
+    vfs_close(current, fd);
 
     // Copy the resolved path into task->cwd safely
     k_strncpy(current->cwd, resolved, sizeof(current->cwd));

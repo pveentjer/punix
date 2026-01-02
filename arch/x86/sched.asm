@@ -106,36 +106,33 @@ task_trampoline:
     call sched_current
     mov [ebp - 16], eax      ; save current
 
-    ; vfs_open(&vfs, current, "/dev/stdin", O_RDONLY, 0)
+    ; vfs_open(current, "/dev/stdin", O_RDONLY, 0)
     push dword 0
     push dword O_RDONLY
     push .stdin_str
     push eax
-    push vfs
     call vfs_open
-    add esp, 20
+    add esp, 16
 
     mov eax, [ebp - 16]
 
-    ; vfs_open(&vfs, current, "/dev/stdout", O_WRONLY, 0)
+    ; vfs_open(current, "/dev/stdout", O_WRONLY, 0)
     push dword 0
     push dword O_WRONLY
     push .stdout_str
     push eax
-    push vfs
     call vfs_open
-    add esp, 20
+    add esp, 16
 
     mov eax, [ebp - 16]
 
-    ; vfs_open(&vfs, current, "/dev/stderr", O_WRONLY, 0)
+    ; vfs_open(current, "/dev/stderr", O_WRONLY, 0)
     push dword 0
     push dword O_WRONLY
     push .stderr_str
     push eax
-    push vfs
     call vfs_open
-    add esp, 20
+    add esp, 16
 
     ; Get current and u_sp
     mov edi, [ebp - 16]      ; current

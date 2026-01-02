@@ -7,7 +7,9 @@ struct console kconsole;
 void _console_init(struct console *con)
 {
     if (con && con->ops && con->ops->init)
+    {
         con->ops->init(con);
+    }
 }
 
 void console_init()
@@ -35,7 +37,9 @@ void console_put_char(struct console *con, char c)
 int console_printf(struct console *con, const char *fmt, ...)
 {
     if (!con || !fmt)
+    {
         return 0;
+    }
 
     char buf[512];  // Temporary buffer
     va_list ap;

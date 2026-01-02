@@ -50,16 +50,8 @@ void vfs_resolve_path(
 
 void vfs_init(struct vfs *vfs);
 
-int vfs_open(
-        struct vfs *vfs,
-        struct task *task,
-        const char *pathname,
-        int flags,
-        int mode);
+int vfs_open(struct task *task, const char *pathname, int flags, int mode);
 
-int vfs_close(
-        struct vfs *vfs,
-        struct task *task,
-        int fd);
+int vfs_close(struct task *task, int fd);
 
 #endif //VFS_H

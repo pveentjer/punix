@@ -96,6 +96,14 @@ static inline uint16_t read_ss(void)
     return ss;
 }
 
+static void delay_cycles(uint64_t cycles)
+{
+    for (volatile uint64_t i = 0; i < cycles; i++)
+    {
+        __asm__ volatile("nop");
+    }
+}
+
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size);
 
 #endif // KUTILS_H
