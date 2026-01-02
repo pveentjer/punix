@@ -8,6 +8,9 @@ global sys_return
 extern sys_enter_dispatch_c
 extern sched
 
+%define OFF_U_ESP  0
+%define OFF_K_ESP  4
+
 ; ============================================================
 ; Syscall entry point
 ; ============================================================
@@ -23,11 +26,11 @@ sys_enter:
     push edi
 
     ; Get current task and save user ESP
-    mov edi, [sched]            ; edi = sched.current
-    mov [edi], esp              ; task->cpu_ctx.u_esp = esp
+    mov edi, [sched]                    ; edi = sched.current
+    mov [edi + OFF_U_ESP], esp          ; task->cpu_ctx.u_esp = esp
 
     ; Load kernel stack
-    mov edi, [edi + 4]          ; edi = task->cpu_ctx.k_esp
+    mov edi, [edi + OFF_K_ESP]          ; edi = task->cpu_ctx.k_esp
 
     ; Copy args to kernel stack
     mov eax, [esp + 28]
@@ -53,11 +56,15 @@ sys_enter:
 ; ============================================================
 sys_return:
     ; EAX contains return value
-    ; We're on kernel stack
+    ; ESP is on kernel stack (fully unwound)
+
+    mov edi, [sched]                    ; edi = sched.current
+
+    ; Save kernel ESP (should be at top after unwinding)
+    mov [edi + OFF_K_ESP], esp          ; task->cpu_ctx.k_esp = esp
 
     ; Restore user ESP
-    mov edi, [sched]            ; edi = sched.current
-    mov esp, [edi]              ; esp = task->cpu_ctx.u_esp
+    mov esp, [edi + OFF_U_ESP]          ; esp = task->cpu_ctx.u_esp
 
     ; Restore callee-saved
     pop edi

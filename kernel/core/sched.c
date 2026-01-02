@@ -106,6 +106,7 @@ void sched_exit(int status)
     }
 
     sched.current = NULL;
+
     sched_schedule();
 }
 
@@ -225,8 +226,6 @@ static char **task_init_env(struct task *task,
  * ------------------------------------------------------------ */
 struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
 {
-//    kprintf("new task %s\n", filename);
-
     if (tty_id >= (int) TTY_COUNT)
     {
         kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
@@ -375,7 +374,6 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     {
         mm_activate(parent->mm);
     }
-
     return task;
 }
 
