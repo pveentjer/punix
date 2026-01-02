@@ -15,8 +15,11 @@
 /* Errors                                            */
 /* -------------------------------------------------- */
 
-#define EFAULT 14
-#define ENOSYS 38
+#define EFAULT      14
+#define ENOSYS      38
+#define EINTR       4
+#define EINVAL      22
+#define ECHILD      10
 
 /* -------------------------------------------------- */
 /* Physical memory layout                             */
@@ -100,8 +103,5 @@
 
 #define WNOHANG     0x01
 
-#define EINTR       4
-#define EINVAL      22
-#define ECHILD      10
 
 #endif /* CONSTANTS_H */
