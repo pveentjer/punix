@@ -1,1 +1,1 @@
-All these apps will be deleted and will come from e.g. BusyBox.
+All these binaries will be deleted and will come from e.g. BusyBox.
