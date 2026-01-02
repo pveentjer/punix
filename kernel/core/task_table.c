@@ -27,6 +27,7 @@ void task_table_init(struct task_table *task_table)
 
         k_memset(task, 0, sizeof(struct task));
 
+        task->state = TASK_POOLED;
         task->pid = PID_NONE;
 
         struct mm *mm = mm_fork_kernel();

@@ -9,9 +9,7 @@
 /* ------------------------------------------------------------
  * Helper: fill one dirent entry from a task
  * ------------------------------------------------------------ */
-static void fill_dirent_from_task(
-        struct dirent *de,
-        const struct task *task)
+static void fill_dirent_from_task(struct dirent *de, const struct task *task)
 {
     de->d_ino = (uint32_t) task->pid;
     de->d_reclen = (uint16_t) sizeof(struct dirent);
@@ -33,9 +31,7 @@ static void fill_dirent_from_task(
 /* ------------------------------------------------------------
  * Fill struct dirent entries for /proc
  * ------------------------------------------------------------ */
-int sched_fill_proc_dirents(
-        struct dirent *buf,
-        unsigned int max_entries)
+int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
 {
     unsigned int idx = 0;
 
@@ -44,21 +40,14 @@ int sched_fill_proc_dirents(
         return 0;
     }
 
-    if (sched.current && idx < max_entries)
+    for (int k = 0; k < MAX_PROCESS_CNT; k++)
     {
-        fill_dirent_from_task(&buf[idx], sched.current);
-        idx++;
-    }
-
-    struct task *t = sched.run_queue.first;
-    while (t && idx < max_entries)
-    {
-        if (t != sched.current)
+        struct task *task = &sched.task_table.slots[k].task;
+        if (task->state != TASK_POOLED)
         {
-            fill_dirent_from_task(&buf[idx], t);
+            fill_dirent_from_task(&buf[idx], task);
             idx++;
         }
-        t = t->next;
     }
 
     return (int) idx;
@@ -237,10 +226,7 @@ static ssize_t read_proc_pid_stat(
 /* ------------------------------------------------------------
  * proc_read
  * ------------------------------------------------------------ */
-static ssize_t proc_read(
-        struct file *file,
-        void *buf,
-        size_t count)
+static ssize_t proc_read(struct file *file, void *buf, size_t count)
 {
     if (file->pos > 0 || !buf || count == 0)
     {
@@ -288,11 +274,7 @@ static ssize_t proc_read(
     return -1;
 }
 
-static ssize_t read_proc_pid_cmdline(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task)
+static ssize_t read_proc_pid_cmdline(struct file *file, void *buf, size_t count, const struct task *task)
 {
     size_t len = k_strlen(task->name);
     if (len > count)
@@ -305,11 +287,7 @@ static ssize_t read_proc_pid_cmdline(
     return (ssize_t) len;
 }
 
-static ssize_t read_proc_pid_comm(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task)
+static ssize_t read_proc_pid_comm(struct file *file, void *buf, size_t count, const struct task *task)
 {
     size_t len = k_strlen(task->name);
     if (len + 1 > count)
@@ -326,15 +304,11 @@ static ssize_t read_proc_pid_comm(
 }
 
 /* /proc/<pid>/stat -> prints task->ctxt as decimal + '\n' */
-static ssize_t read_proc_pid_stat(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task)
+static ssize_t read_proc_pid_stat(struct file *file, void *buf, size_t count, const struct task *task)
 {
     /* Convert ctxt to string */
     char num[64];
-    u64_to_str((uint64_t)task->ctxt, num, sizeof(num));
+    u64_to_str((uint64_t) task->ctxt, num, sizeof(num));
 
     size_t num_len = k_strlen(num);
     size_t len = num_len + 1; /* newline */
@@ -361,17 +335,14 @@ static ssize_t read_proc_pid_stat(
     /* Add newline if we have space for it */
     if (len > digits_to_copy)
     {
-        ((char *)buf)[digits_to_copy] = '\n';
+        ((char *) buf)[digits_to_copy] = '\n';
     }
 
     file->pos += len;
-    return (ssize_t)len;
+    return (ssize_t) len;
 }
 
-static ssize_t read_proc_stat(
-        struct file *file,
-        void *buf,
-        size_t count)
+static ssize_t read_proc_stat(struct file *file, void *buf, size_t count)
 {
     struct sched_stat st;
     sched_stat(&st);
@@ -403,10 +374,7 @@ static ssize_t read_proc_stat(
  *  - list /proc root
  *  - list /proc/<pid> directory (comm, cmdline, stat)
  * ------------------------------------------------------------ */
-static int proc_getdents(
-        struct file *file,
-        struct dirent *buf,
-        unsigned int count)
+static int proc_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
     if (!buf || count < sizeof(struct dirent))
     {
