@@ -19,6 +19,8 @@ int k_strcmp(const char *a, const char *b);
 
 int k_strncmp(const char *s1, const char *s2, size_t n);
 
+char *k_strchr(const char *s, int c);
+
 char *k_strcat(char *dest, const char *src);
 
 int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap);

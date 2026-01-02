@@ -29,6 +29,9 @@ extern struct fs sys_fs;
 /* Mount a filesystem at a path */
 int vfs_mount(const char *path, struct fs *fs);
 
+void vfs_get_root_mounts(struct dirent *buf, unsigned int max_entries, unsigned int *idx);
+
+
 /* ------------------------------------------------------------------
  * File API
  * ------------------------------------------------------------------ */

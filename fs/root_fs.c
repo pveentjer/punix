@@ -2,6 +2,7 @@
 
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
+#include "kernel/vfs.h"
 #include "dirent.h"
 
 static int root_getdents(struct file *file, struct dirent *buf, unsigned int count)
@@ -21,13 +22,11 @@ static int root_getdents(struct file *file, struct dirent *buf, unsigned int cou
 
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
     fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
-    fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "proc");
-    fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "bin");
-    fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "dev");
-    fs_add_entry(buf, max_entries, &idx, 0, DT_DIR, "sys");
 
-    int size = (int) (idx * sizeof(struct dirent));
-    file->pos+=size;
+    vfs_get_root_mounts(buf, max_entries, &idx);
+
+    int size = (int)(idx * sizeof(struct dirent));
+    file->pos += size;
     return size;
 }
 

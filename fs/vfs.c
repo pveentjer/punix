@@ -1,6 +1,7 @@
 // vfs.c
 
 #include "kernel/vfs.h"
+#include "kernel/fs_util.h"
 #include "kernel/kutils.h"
 #include "kernel/console.h"
 
@@ -10,14 +11,12 @@
 
 
 
-/* Mount point entry - internal only */
 struct mount_point {
     char path[MAX_FILENAME_LEN];
     struct fs *fs;
     int active;
 };
 
-/* VFS structure - internal only */
 struct vfs {
     uint32_t free_ring[MAX_FILE_CNT];
     uint32_t free_head;
@@ -235,6 +234,45 @@ int vfs_mount(const char *path, struct fs *fs)
     }
 
     return -1; // No free slots
+}
+
+void vfs_get_root_mounts(struct dirent *buf, unsigned int max_entries, unsigned int *idx)
+{
+    for (int i = 0; i < MAX_MOUNTS; i++)
+    {
+        if (*idx >= max_entries)
+        {
+            break;
+        }
+
+        if (!vfs.mounts[i].active)
+        {
+            continue;
+        }
+
+        const char *path = vfs.mounts[i].path;
+
+        // Skip root mount itself
+        if (path[0] == '/' && path[1] == '\0')
+        {
+            continue;
+        }
+
+        // Must start with /
+        if (path[0] != '/')
+        {
+            continue;
+        }
+
+        // Extract name after /
+        const char *name = path + 1;
+
+        // Only add if it's a direct child of root (no more slashes)
+        if (k_strchr(name, '/') == NULL && name[0] != '\0')
+        {
+            fs_add_entry(buf, max_entries, idx, 0, DT_DIR, name);
+        }
+    }
 }
 
 /* ------------------------------------------------------------

@@ -80,6 +80,31 @@ int k_strncmp(const char *s1, const char *s2, size_t n)
     return 0;
 }
 
+char *k_strchr(const char *s, int c)
+{
+    if (!s)
+    {
+        return NULL;
+    }
+
+    while (*s != '\0')
+    {
+        if (*s == (char)c)
+        {
+            return (char *)s;
+        }
+        s++;
+    }
+
+    // strchr also matches the null terminator
+    if ((char)c == '\0')
+    {
+        return (char *)s;
+    }
+
+    return NULL;
+}
+
 char *k_strcat(char *dest, const char *src)
 {
     char *d = dest;
