@@ -718,7 +718,6 @@ static int builtin_unset(int argc, char **argv)
 }
 
 /* repeat - execute command n times */
-/* repeat - execute command n times */
 static int builtin_repeat(int argc, char **argv)
 {
     if (argc < 3)
@@ -769,13 +768,103 @@ static int builtin_repeat(int argc, char **argv)
 
         last_exit_status = (status >> 8) & 0xff;
 
-
         if (last_exit_status != 0)
         {
             break;
         }
     }
 
+    return 1;
+}
+
+/* help - show help for builtin commands */
+static int builtin_help(int argc, char **argv)
+{
+    if (argc == 1)
+    {
+        /* show all builtins */
+        printf("Shell builtin commands:\n");
+        printf("  cd [dir]              Change directory\n");
+        printf("  exit [n]              Exit shell with status n\n");
+        printf("  export [VAR[=val]]    Mark variables for export to child processes\n");
+        printf("  unset VAR             Remove variable\n");
+        printf("  set                   Display all variables\n");
+        printf("  env                   Display exported variables\n");
+        printf("  printenv [VAR]        Display exported variable(s)\n");
+        printf("  repeat N CMD [args]   Execute command N times\n");
+        printf("  help [command]        Show help for builtin commands\n");
+        printf("\nSpecial variables:\n");
+        printf("  $?                    Exit status of last command\n");
+        printf("  $$                    Shell process ID\n");
+        printf("  $!                    Last background process ID\n");
+        last_exit_status = 0;
+        return 1;
+    }
+
+    /* show help for specific command */
+    const char *cmd = argv[1];
+
+    if (strcmp(cmd, "cd") == 0)
+    {
+        printf("cd: cd [dir]\n");
+        printf("  Change the current directory to DIR.\n");
+        printf("  If DIR is not specified, change to $HOME.\n");
+    }
+    else if (strcmp(cmd, "exit") == 0)
+    {
+        printf("exit: exit [n]\n");
+        printf("  Exit the shell with status N.\n");
+        printf("  If N is omitted, use the exit status of last command.\n");
+    }
+    else if (strcmp(cmd, "export") == 0)
+    {
+        printf("export: export [VAR[=value] ...]\n");
+        printf("  Mark variables to be passed to child processes.\n");
+        printf("  With no arguments, display all exported variables.\n");
+        printf("  Examples:\n");
+        printf("    export PATH=/bin:/usr/bin\n");
+        printf("    export MYVAR\n");
+    }
+    else if (strcmp(cmd, "unset") == 0)
+    {
+        printf("unset: unset VAR [VAR ...]\n");
+        printf("  Remove variables.\n");
+    }
+    else if (strcmp(cmd, "set") == 0)
+    {
+        printf("set: set\n");
+        printf("  Display all shell variables and their values.\n");
+    }
+    else if (strcmp(cmd, "env") == 0 || strcmp(cmd, "printenv") == 0)
+    {
+        printf("env/printenv: env | printenv [VAR]\n");
+        printf("  Display exported environment variables.\n");
+        printf("  With VAR, display only that variable's value.\n");
+    }
+    else if (strcmp(cmd, "repeat") == 0)
+    {
+        printf("repeat: repeat COUNT COMMAND [args ...]\n");
+        printf("  Execute COMMAND with args COUNT times.\n");
+        printf("  Shows iteration counter [N/COUNT] before each execution.\n");
+        printf("  Stops early if command exits with non-zero status.\n");
+        printf("  Example:\n");
+        printf("    repeat 5 echo hello\n");
+    }
+    else if (strcmp(cmd, "help") == 0)
+    {
+        printf("help: help [command]\n");
+        printf("  Display help for builtin commands.\n");
+        printf("  With no arguments, show all builtins.\n");
+        printf("  With COMMAND, show detailed help for that builtin.\n");
+    }
+    else
+    {
+        printf("help: no help for '%s'\n", cmd);
+        last_exit_status = 1;
+        return 1;
+    }
+
+    last_exit_status = 0;
     return 1;
 }
 
@@ -807,6 +896,9 @@ static int handle_builtin(int argc, char **argv)
 
     if (strcmp(argv[0], "repeat") == 0)
         return builtin_repeat(argc, argv);
+
+    if (strcmp(argv[0], "help") == 0)
+        return builtin_help(argc, argv);
 
     return 0; /* not a builtin */
 }
@@ -930,8 +1022,6 @@ static void process_command(char *line)
  * ------------------------------------------------------------------ */
 int main(int argc, char **argv)
 {
-
-
     if (argc != 1)
     {
         printf("shell: no arguments expected\n");
