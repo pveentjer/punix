@@ -64,6 +64,8 @@ struct task
 
     uint8_t kstack[KERNEL_STACK_SIZE];
 
+    uint64_t sys_call_cnt;
+
     struct signal signal;
 };
 

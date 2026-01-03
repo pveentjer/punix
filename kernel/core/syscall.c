@@ -28,6 +28,8 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
         goto done;
     }
 
+    current->sys_call_cnt++;
+
     switch ((enum sys_call_nr) nr)
     {
         case SYS_write:

@@ -101,7 +101,7 @@ void sched_exit(int status)
     current->state = TASK_ZOMBIE;
     wakeup(&current->signal.wait_exit);
 
-    if(current->parent != current)
+    if (current->parent != current)
     {
         wakeup(&current->parent->signal.wait_child);
     }
@@ -303,6 +303,7 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     k_strcpy(task->name, filename_buf);
 
     task->ctxt = 0;
+    task->sys_call_cnt = 0;
     task->exit_status = 0;
     task->signal.pending = 0;
     task->state = TASK_QUEUED;
@@ -539,7 +540,7 @@ void sched_init(void)
 
 static bool task_is_zombie(void *arg)
 {
-    struct task *task = (struct task *)arg;
+    struct task *task = (struct task *) arg;
     return task->state == TASK_ZOMBIE;
 }
 
@@ -569,7 +570,7 @@ static struct task *find_zombie_child(struct task *parent)
 
 static bool has_zombie_child(void *arg)
 {
-    struct task *parent = (struct task *)arg;
+    struct task *parent = (struct task *) arg;
     return find_zombie_child(parent) != NULL;
 }
 
