@@ -375,7 +375,7 @@ pid_t sched_fork(void)
         return -ENOMEM;
     }
 
-    kprintf("fork:");
+//    kprintf("fork:");
 
     /* Copy basic info */
     k_strcpy(child->name, parent->name);
@@ -384,7 +384,6 @@ pid_t sched_fork(void)
     child->parent = parent;
     child->next_sibling = parent->children;
     parent->children = child;
-
 
     /* Initialize child's kernel stack pointer to top of stack */
     child->cpu_ctx.k_sp = (unsigned long)(child->kstack + KERNEL_STACK_SIZE);
@@ -395,7 +394,7 @@ pid_t sched_fork(void)
     /* Setup child's kernel stack to return via sys_return */
     ctx_setup_fork_return(&child->cpu_ctx);
 
-    kprintf("2");
+//    kprintf("2");
 
     /* Copy heap boundaries */
     child->brk = parent->brk;
@@ -416,7 +415,7 @@ pid_t sched_fork(void)
     k_strcpy(child->cwd, parent->cwd);
     child->ctty = parent->ctty;
 
-    kprintf("3");
+//    kprintf("3");
 
     /* Initialize signals */
     child->signal.pending = 0;
@@ -428,7 +427,7 @@ pid_t sched_fork(void)
     child->sys_call_cnt = 0;
     child->exit_status = 0;
 
-    kprintf("4");
+//    kprintf("4");
 
     /* Copy user address space */
     struct vma *parent_vma = mm_find_vma_by_type(parent->mm, VMA_TYPE_PROCESS);
@@ -443,12 +442,12 @@ pid_t sched_fork(void)
         }
     }
 
-    kprintf("5");
+//    kprintf("5");
 
     child->state = TASK_QUEUED;
     sched_enqueue(child);
 
-    kprintf("6");
+//    kprintf("6");
 
     return child->pid;
 }
@@ -461,6 +460,8 @@ pid_t sched_fork(void)
  * ------------------------------------------------------------ */
 int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 {
+//    kprintf("sched_execve %s\n",pathname);
+
     struct task *current = sched_current();
     if (!current)
     {
@@ -485,6 +486,9 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     }
     */
 
+//    kprintf("sched_execve 1 pathname %s\n",pathname);
+
+
     /* Get process VMA */
     struct vma *vma = mm_find_vma_by_type(current->mm, VMA_TYPE_PROCESS);
     if (!vma)
@@ -494,9 +498,17 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 
     /* Zero out user memory */
     uintptr_t base_va = vma->base_va;
-    k_memset((void *)base_va, 0, vma->length);
 
-    /* Update task name */
+
+    // is the execve running on the kernel stack?
+    // it should be, you get here using a sys call
+
+    // bug: zo zeroing out the process memory, causes the path name to become empty string
+    // this smell like we are not in the kernel stack but in the user stack
+
+    // also the user stack we don't want null btw; because it would fuck up the call stack
+//    k_memset((void *)base_va, 0, vma->length);
+
     k_strcpy(current->name, pathname);
 
     /* Load ELF */
@@ -545,6 +557,7 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     /* Reset signal state */
     current->signal.pending = 0;
 
+    // can you return from execve??
     return 0;
 }
 
@@ -586,14 +599,15 @@ void sched_schedule(void)
 {
     static uint32_t countdown = 1000;
 
+//    kprintf("sched_schedule:");
+
     if (--countdown == 0)
     {
         kprintf("sched_schedule: ctxt=%u\n", sched.ctxt);
         countdown = 1000;
     }
 
-
-//    kprintf("sched_schedule %u\n", sched.ctxt);
+//    kprintf("1");
 
     struct task *prev = sched.current;
     struct task *next = run_queue_poll(&sched.run_queue);
@@ -607,35 +621,60 @@ void sched_schedule(void)
     struct cpu_ctx *next_cpu_ctx = &next->cpu_ctx;
     if (prev == NULL)
     {
+//        kprintf("2");
+
         prev_cpu_ctx = &dummy_cpu_ctx;
     }
     else
     {
+//        kprintf("3");
+
         prev->ctxt++;
+
+//        kprintf("4");
+
         prev_cpu_ctx = &prev->cpu_ctx;
+
+//        kprintf("5");
+
 
         if (next == sched.swapper)
         {
+//            kprintf("6");
+
+
             if (prev->state == TASK_RUNNING)
             {
+//                kprintf("7");
+
                 return;
             }
         }
 
         if (prev->state != TASK_INTERRUPTIBLE && prev->state != TASK_UNINTERRUPTIBLE)
         {
+//            kprintf("8");
+
             prev->state = TASK_QUEUED;
+
             if (prev != sched.swapper)
             {
+//                kprintf("9");
+
+
                 run_queue_push(&sched.run_queue, prev);
             }
         }
     }
 
+//    kprintf("4");
+
     next->state = TASK_RUNNING;
     sched.current = next;
 
     sched.ctxt++;
+
+//    kprintf("ctx_switch %s pid=%d\n", next->name, next->pid);
 
     ctx_switch(prev_cpu_ctx, next_cpu_ctx, next->mm);
 }

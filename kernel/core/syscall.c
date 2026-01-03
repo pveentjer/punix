@@ -63,8 +63,13 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
 
         case SYS_execve:
             result = (uint32_t) sched_execve((const char *) a1, (char *const *) a2, (char *const *) a3);
+
             if (result == 0)
             {
+                current->state = TASK_QUEUED;
+                sched_enqueue(current);
+                sched.current = NULL;  // Force context switch even if we're the only task
+                sched_schedule();
                 __builtin_unreachable();
             }
             break;

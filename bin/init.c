@@ -7,11 +7,7 @@ static pid_t tty_pids[TTY_COUNT];
 
 static pid_t spawn_shell(int tty_id)
 {
-    printf("fork:");
-
     pid_t pid = fork();
-
-    printf("fork:done");
 
     if (pid < 0)
     {
