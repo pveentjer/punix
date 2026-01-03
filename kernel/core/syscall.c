@@ -113,12 +113,24 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
             result = (uint32_t) kclock_gettime((clockid_t) a1, (struct timespec *) a2);
             break;
 
+        case SYS_setctty:
+            struct tty *tty = tty_get((int) a1);
+            if (!tty)
+            {
+                result = -EINVAL;
+            }
+            else
+            {
+                current->ctty = tty;
+                result = 0;
+            }
+            break;
         default:
             result = (uint32_t) -ENOSYS;
             break;
     }
 
     done:
-        //kprintf("sys_enter_dispatch_c: %u Done\n", nr);
-        return result;
+    //kprintf("sys_enter_dispatch_c: %u Done\n", nr);
+    return result;
 }

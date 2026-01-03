@@ -561,6 +561,12 @@ int nice(int inc)
     return (int)syscall_1(SYS_nice, (uint32_t)inc);
 }
 
+int setctty(int tty_id)
+{
+    return (int)syscall_1(SYS_setctty, (uint32_t)tty_id);
+}
+
+
 pid_t waitpid(pid_t pid, int *status, int options)
 {
     return (pid_t)syscall_3(SYS_waitpid,

@@ -43,4 +43,7 @@ char *getcwd(char *buf, size_t size);
 
 void delay(uint32_t count);
 
+int setctty(int tty_id);
+
+
 #endif /* UNISTD_H */
