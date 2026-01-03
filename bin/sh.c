@@ -718,6 +718,7 @@ static int builtin_unset(int argc, char **argv)
 }
 
 /* repeat - execute command n times */
+/* repeat - execute command n times */
 static int builtin_repeat(int argc, char **argv)
 {
     if (argc < 3)
@@ -748,15 +749,23 @@ static int builtin_repeat(int argc, char **argv)
 
         char **child_envp = build_environment();
 
-        pid_t pid = sched_add_task(fullpath, -1, repeat_argv, child_envp);
+        pid_t pid = fork();
         if (pid < 0)
         {
-            printf("Failed to create task\n");
+            printf("Failed to fork\n");
             last_exit_status = 1;
             return 1;
         }
 
-        /* wait for completion */
+        if (pid == 0)
+        {
+            /* Child process */
+            execve(fullpath, repeat_argv, child_envp);
+            printf("execve failed\n");
+            exit(1);
+        }
+
+        /* Parent: wait for completion */
         int status = 0;
         pid_t res = waitpid(pid, &status, 0);
         if (res < 0)
@@ -988,14 +997,23 @@ static void process_command(char *line)
 
     char **child_envp = build_environment();
 
-    pid_t pid = sched_add_task(fullpath, -1, cmd_argv, child_envp);
+    pid_t pid = fork();
     if (pid < 0)
     {
-        printf("Failed to create task\n");
+        printf("Failed to fork\n");
         last_exit_status = 1;
         return;
     }
 
+    if (pid == 0)
+    {
+        /* Child process */
+        execve(fullpath, cmd_argv, child_envp);
+        printf("execve failed for '%s'\n", fullpath);
+        exit(1);
+    }
+
+    /* Parent process */
     if (background)
     {
         last_bg_pid = pid;
@@ -1008,7 +1026,7 @@ static void process_command(char *line)
     pid_t res = waitpid(pid, &status, 0);
     if (res < 0)
     {
-        printf("waitpid failed for pid %d\n", (int) pid);
+        printf("waitpid failed for pid %d\n", (int)pid);
         last_exit_status = 1;
     }
     else

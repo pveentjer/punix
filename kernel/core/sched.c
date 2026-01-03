@@ -17,6 +17,8 @@ void ctx_setup_trampoline(
         char **heap_argv,
         char **heap_envp);
 
+void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
+
 void task_init_cwd(struct task *task);
 
 /* ---------------- Run queue ---------------- */
@@ -121,7 +123,7 @@ void task_init_tty(struct task *task, int tty_id)
     {
         if (sched.current && sched.current->ctty)
         {
-            /* inherit parent’s controlling terminal */
+            /* inherit parent's controlling terminal */
             task->ctty = sched.current->ctty;
         }
         else
@@ -223,84 +225,43 @@ static char **task_init_env(struct task *task,
 }
 
 /* ------------------------------------------------------------
- * task_new
+ * task_kernel_exec
+ *
+ * Create a new task from kernel context (used ONLY for init).
  * ------------------------------------------------------------ */
-struct task *task_new(const char *filename, int tty_id, char **argv, char **envp)
+/* ------------------------------------------------------------
+ * task_kernel_exec
+ *
+ * Create a new task from kernel context (used ONLY for init).
+ * ------------------------------------------------------------ */
+struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, char **envp)
 {
     if (tty_id >= (int) TTY_COUNT)
     {
-        kprintf("task_new: too high tty %d for binary %s\n", tty_id, filename);
+        kprintf("task_kernel_exec: too high tty %d for binary %s\n", tty_id, filename);
         return NULL;
     }
 
     const struct embedded_bin *bin = find_bin(filename);
     if (!bin)
     {
-        kprintf("task_new: unknown binary '%s'\n", filename);
+        kprintf("task_kernel_exec: unknown binary '%s'\n", filename);
         return NULL;
     }
 
     struct task *task = task_table_alloc(&sched.task_table);
     if (!task)
     {
-        kprintf("task_new: failed to allocate task for %s\n", filename);
+        kprintf("task_kernel_exec: failed to allocate task for %s\n", filename);
         return NULL;
     }
 
     task->cpu_ctx.k_sp = (unsigned long) (task->kstack + KERNEL_STACK_SIZE);
     task->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
-    // Copy filename to stack buffer BEFORE switching PDs
-    char filename_buf[MAX_FILENAME_LEN];
-    k_strcpy(filename_buf, filename);
-
-    //todo:ugly; but we'll rewrite when doing fork/execve
-    // Copy argv/envp to stack buffers BEFORE switching PDs
-    char argv_buf[1024];
-    char envp_buf[1024];
-    char *argv_copy[32];
-    char *envp_copy[32];
-
-    // Copy argv
-    size_t argv_offset = 0;
-    int argc = 0;
-    while (argv && argv[argc] && argc < 31)
-    {
-        size_t len = k_strlen(argv[argc]) + 1;
-        if (argv_offset + len > sizeof(argv_buf))
-        {
-            break;
-        }
-        k_memcpy(argv_buf + argv_offset, argv[argc], len);
-        argv_copy[argc] = argv_buf + argv_offset;
-        argv_offset += len;
-        argc++;
-    }
-    argv_copy[argc] = NULL;
-
-    // Copy envp
-    size_t envp_offset = 0;
-    int envc = 0;
-    while (envp && envp[envc] && envc < 31)
-    {
-        size_t len = k_strlen(envp[envc]) + 1;
-        if (envp_offset + len > sizeof(envp_buf))
-        {
-            break;
-        }
-        k_memcpy(envp_buf + envp_offset, envp[envc], len);
-        envp_copy[envc] = envp_buf + envp_offset;
-        envp_offset += len;
-        envc++;
-    }
-    envp_copy[envc] = NULL;
-
-    struct task *parent = sched_current();
-    mm_activate(task->mm);
-
     uintptr_t base_va = mm_find_vma_by_type(task->mm, VMA_TYPE_PROCESS)->base_va;
 
-    k_strcpy(task->name, filename_buf);
+    k_strcpy(task->name, filename);
 
     task->ctxt = 0;
     task->sys_call_cnt = 0;
@@ -308,17 +269,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
     task->signal.pending = 0;
     task->state = TASK_QUEUED;
     task->children = NULL;
-    if (parent == NULL)
-    {
-        task->parent = task;
-        task->next_sibling = NULL;
-    }
-    else
-    {
-        task->parent = parent;
-        task->next_sibling = parent->children;
-        parent->children = task;
-    }
+    task->parent = task;  /* Init is its own parent */
+    task->next_sibling = NULL;
 
     wait_queue_init(&task->signal.wait_exit);
     wait_queue_init(&task->signal.wait_child);
@@ -334,9 +286,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
     {
-        kprintf("task_new: Failed to load the binary %s\n", filename_buf);
+        kprintf("task_kernel_exec: Failed to load the binary %s\n", filename);
         task_table_free(&sched.task_table, task);
-        mm_activate(mm_kernel());
         return NULL;
     }
 
@@ -349,15 +300,14 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     if ((uintptr_t) task->brk > task->brk_limit)
     {
-        kprintf("task_new: not enough space %s\n", filename_buf);
+        kprintf("task_kernel_exec: not enough space %s\n", filename);
         task_table_free(&sched.task_table, task);
-        mm_activate(mm_kernel());
         return NULL;
     }
 
     int argc_out = 0;
-    char **heap_argv = task_init_args(task, argv_copy, &argc_out);
-    char **heap_envp = task_init_env(task, envp_copy, environ_off);
+    char **heap_argv = task_init_args(task, argv, &argc_out);
+    char **heap_envp = task_init_env(task, envp, environ_off);
 
     if (elf_info.curbrk_off != 0)
     {
@@ -368,17 +318,8 @@ struct task *task_new(const char *filename, int tty_id, char **argv, char **envp
 
     ctx_setup_trampoline(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
 
-    if (parent == NULL)
-    {
-        mm_activate(mm_kernel());
-    }
-    else
-    {
-        mm_activate(parent->mm);
-    }
     return task;
 }
-
 
 void task_init_cwd(struct task *task)
 {
@@ -392,27 +333,200 @@ void task_init_cwd(struct task *task)
     }
 }
 
-pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
+/* ------------------------------------------------------------
+ * sched_kernel_exec
+ *
+ * Create and schedule a new task from kernel context.
+ * Used ONLY during boot for init process.
+ * ------------------------------------------------------------ */
+pid_t sched_kernel_exec(const char *filename, int tty_id, char **argv, char **envp)
 {
-    struct task *task = task_new(filename, tty_id, argv, envp);
+    struct task *task = task_kernel_exec(filename, tty_id, argv, envp);
 
     if (!task)
     {
         return -1;
     }
 
-    run_queue_push(&sched.run_queue, task);
+    sched_enqueue(task);
     return task->pid;
 }
 
+/* ------------------------------------------------------------
+ * sched_fork
+ *
+ * Duplicate the current process.
+ * Child returns 0, parent returns child PID.
+ * ------------------------------------------------------------ */
 pid_t sched_fork(void)
 {
-    return -ENOSYS;
+    struct task *parent = sched_current();
+    if (!parent)
+    {
+        return -ESRCH;
+    }
+
+    struct task *child = task_table_alloc(&sched.task_table);
+    if (!child)
+    {
+        return -ENOMEM;
+    }
+
+    /* Copy basic info */
+    k_strcpy(child->name, parent->name);
+
+    /* Parent-child relationship */
+    child->parent = parent;
+    child->next_sibling = parent->children;
+    parent->children = child;
+
+    /* Child returns to same user stack location */
+    child->cpu_ctx.u_sp = parent->cpu_ctx.u_sp;
+
+    /* Setup child's kernel stack to return via sys_return */
+    ctx_setup_fork_return(&child->cpu_ctx);
+
+    /* Copy heap boundaries */
+    child->brk = parent->brk;
+    child->brk_limit = parent->brk_limit;
+
+    /* TODO: Fix file descriptor sharing/reference counting
+    for (int fd = 0; fd < RLIMIT_NOFILE; fd++)
+    {
+        child->files.slots[fd] = parent->files.slots[fd];
+        if (child->files.slots[fd].file)
+        {
+            child->files.slots[fd].file->ref_count++;
+        }
+    }
+    */
+
+    /* Copy cwd and TTY */
+    k_strcpy(child->cwd, parent->cwd);
+    child->ctty = parent->ctty;
+
+    /* Initialize signals */
+    child->signal.pending = 0;
+    wait_queue_init(&child->signal.wait_exit);
+    wait_queue_init(&child->signal.wait_child);
+
+    /* Initialize counters */
+    child->ctxt = 0;
+    child->sys_call_cnt = 0;
+    child->exit_status = 0;
+
+    /* Copy user address space */
+    struct vma *parent_vma = mm_find_vma_by_type(parent->mm, VMA_TYPE_PROCESS);
+    if (parent_vma)
+    {
+        struct vma *child_vma = mm_find_vma_by_type(child->mm, VMA_TYPE_PROCESS);
+        if (child_vma)
+        {
+            mm_copy_vma(child->mm, child_vma,
+                        parent->mm, parent_vma,
+                        parent_vma->length);
+        }
+    }
+
+    child->state = TASK_QUEUED;
+    sched_enqueue(child);
+
+    return child->pid;
 }
 
+/* ------------------------------------------------------------
+ * sched_execve
+ *
+ * Replace current process with a new program.
+ * Returns -errno on failure, never returns on success.
+ * ------------------------------------------------------------ */
 int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    return -ENOSYS;
+    struct task *current = sched_current();
+    if (!current)
+    {
+        return -ESRCH;
+    }
+
+    /* Find the binary */
+    const struct embedded_bin *bin = find_bin(pathname);
+    if (!bin)
+    {
+        return -ENOENT;
+    }
+
+    /* TODO: Implement close-on-exec (O_CLOEXEC)
+    for (int fd = 0; fd < RLIMIT_NOFILE; fd++)
+    {
+        struct file *file = current->files.slots[fd].file;
+        if (file && (current->files.slots[fd].flags & FD_CLOEXEC))
+        {
+            vfs_close(current, fd);
+        }
+    }
+    */
+
+    /* Get process VMA */
+    struct vma *vma = mm_find_vma_by_type(current->mm, VMA_TYPE_PROCESS);
+    if (!vma)
+    {
+        return -ENOMEM;
+    }
+
+    /* Zero out user memory */
+    uintptr_t base_va = vma->base_va;
+    k_memset((void *)base_va, 0, vma->length);
+
+    /* Update task name */
+    k_strcpy(current->name, pathname);
+
+    /* Load ELF */
+    const void *image = bin->start;
+    size_t image_size = (size_t)(bin->end - bin->start);
+
+    struct elf_info elf_info;
+    if (elf_load(image, image_size, (uint32_t)base_va, &elf_info) < 0)
+    {
+        /* Failed to load - process is now broken, must exit */
+        sched_exit(-1);
+    }
+
+    uint32_t main_addr = elf_info.entry_va;
+    uint32_t environ_off = elf_info.environ_off;
+
+    /* Reset heap */
+    uintptr_t program_end = (uintptr_t)elf_info.max_offset;
+    current->brk = (uintptr_t)align_up(program_end, 16);
+    current->brk_limit = current->brk + PROCESS_HEAP_SIZE;
+
+    if (current->brk > current->brk_limit)
+    {
+        sched_exit(-1);
+    }
+
+    /* Setup args and environment */
+    int argc_out = 0;
+    char **heap_argv = task_init_args(current, (char **)argv, &argc_out);
+    char **heap_envp = task_init_env(current, (char **)envp, environ_off);
+
+    /* Initialize curbrk if present */
+    if (elf_info.curbrk_off != 0)
+    {
+        uintptr_t curbrk_va = base_va + (uintptr_t)elf_info.curbrk_off;
+        char **curbrk_ptr = (char **)curbrk_va;
+        *curbrk_ptr = (char *)current->brk;
+    }
+
+    /* Reset user stack pointer */
+    current->cpu_ctx.u_sp = PROCESS_STACK_TOP;
+
+    /* Setup trampoline to jump to new program */
+    ctx_setup_trampoline(&current->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
+
+    /* Reset signal state */
+    current->signal.pending = 0;
+
+    return 0;
 }
 
 int sched_kill(pid_t pid, int sig)
@@ -528,10 +642,7 @@ void sched_init(void)
     char *argv[] = {"/sbin/swapper", NULL};
     char *envp[] = {NULL};
 
-    const char *filename = "/sbin/swapper";
-    int tty_id = 0;
-
-    sched.swapper = task_new(filename, tty_id, argv, envp);
+    sched.swapper = task_kernel_exec("/sbin/swapper", 0, argv, envp);
     if (!sched.swapper)
     {
         panic("sched_init: failed to allocate a task for the swapper\n");
@@ -675,4 +786,3 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
     task_table_free(&sched.task_table, child);
     return result;
 }
-

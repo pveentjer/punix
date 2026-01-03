@@ -91,34 +91,39 @@ int main(int argc, char **argv, char **envp)
     }
 
     char **cmd_argv = &argv[i];
-
-    // If your task loader expects a full path, your shell likely already resolved it.
-    // We'll just pass argv[0] as given.
     const char *fullpath = cmd_argv[0];
 
     struct timespec start, end;
 
     // Start timestamp (monotonic)
-    // If clock_gettime can fail in your OS, it likely returns < 0; we keep it simple.
     if (clock_gettime(CLOCK_MONOTONIC, &start) < 0)
     {
         printf("time: clock_gettime failed\n");
         return 1;
     }
 
-    // Spawn + wait (foreground only; time(1) measures completion)
-    pid_t pid = sched_add_task(fullpath, -1, cmd_argv, envp);
+    // Fork and exec
+    pid_t pid = fork();
     if (pid < 0)
     {
-        printf("time: Failed to create task\n");
+        printf("time: fork failed\n");
         return 1;
     }
 
+    if (pid == 0)
+    {
+        /* Child process */
+        execve(fullpath, cmd_argv, envp);
+        printf("time: execve failed for '%s'\n", fullpath);
+        exit(1);
+    }
+
+    /* Parent process - wait for child */
     int status = 0;
     pid_t res = waitpid(pid, &status, 0);
     if (res < 0)
     {
-        printf("time: waitpid failed for pid %d\n", (int) pid);
+        printf("time: waitpid failed for pid %d\n", (int)pid);
         return 1;
     }
 
@@ -134,8 +139,6 @@ int main(int argc, char **argv, char **envp)
     uint64_t end_ns = ts_to_ns(&end);
     uint64_t real_ns = end_ns - start_ns;
 
-    char buf[32];
-
     if (posix_p)
     {
         print_posix(real_ns);
@@ -145,6 +148,6 @@ int main(int argc, char **argv, char **envp)
         print_default(real_ns);
     }
 
-    // Return child's exit code (your convention)
+    // Return child's exit code
     return (status >> 8) & 0xff;
 }

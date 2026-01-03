@@ -5,6 +5,8 @@ section .text
 global ctx_switch
 global ctx_setup_trampoline
 global task_trampoline
+global ctx_setup_fork_return
+extern sys_return
 
 extern sched_current
 extern vfs_open
@@ -205,4 +207,47 @@ ctx_switch:
 
     sti
     xor eax, eax
+    ret
+
+
+
+; ============================================================
+; void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
+; Sets up child's kernel stack to return to sys_return
+; ============================================================
+ctx_setup_fork_return:
+    push ebp
+    mov ebp, esp
+
+    mov eax, [ebp+8]         ; cpu_ctx*
+    mov edi, [eax + OFF_K_ESP]  ; Load kernel stack top
+
+    ; Build kernel stack for ctx_switch to restore
+    ; ctx_switch will: popfd, pop ebp, pop edi, pop esi, pop ebx, ret
+
+    ; Return address - where ctx_switch will ret to
+    sub edi, 4
+    mov edx, sys_return
+    mov [edi], edx
+
+    ; Saved registers
+    sub edi, 4
+    mov dword [edi], 0       ; EBX
+
+    sub edi, 4
+    mov dword [edi], 0       ; ESI
+
+    sub edi, 4
+    mov dword [edi], 0       ; EDI
+
+    sub edi, 4
+    mov dword [edi], 0       ; EBP
+
+    sub edi, 4
+    mov dword [edi], 0x202   ; EFLAGS (IF=1)
+
+    ; Save kernel ESP back to cpu_ctx
+    mov [eax + OFF_K_ESP], edi
+
+    pop ebp
     ret

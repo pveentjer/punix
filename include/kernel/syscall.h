@@ -15,7 +15,6 @@ enum sys_call_nr
     SYS_open = 2,
     SYS_close = 3,
     SYS_getdents = 4,
-    SYS_add_task = 5,
     SYS_fork = 6,
     SYS_execve = 7,
     SYS_exit = 8,

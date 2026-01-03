@@ -7,10 +7,37 @@ static pid_t tty_pids[TTY_COUNT];
 
 static pid_t spawn_shell(int tty_id)
 {
-    char *sh_argv[] = {"/bin/sh", NULL};
-    char *sh_envp[] = {NULL};
+    pid_t pid = fork();
 
-    return sched_add_task("/bin/sh", tty_id, sh_argv, sh_envp);
+    if (pid < 0)
+    {
+        /* Fork failed */
+        return pid;
+    }
+
+    if (pid == 0)
+    {
+        /* Child process */
+        if (setctty(tty_id) < 0)
+        {
+            printf("setctty failed for tty%d\n", tty_id);
+            exit(1);
+        }
+
+        char *sh_argv[] = {"/bin/sh", NULL};
+        char *sh_envp[] = {NULL};
+
+        if (execve("/bin/sh", sh_argv, sh_envp) < 0)
+        {
+            printf("execve failed for tty%d\n", tty_id);
+            exit(1);
+        }
+
+        /* Never reached if execve succeeds */
+    }
+
+    /* Parent process */
+    return pid;
 }
 
 int main(int argc, char **argv)

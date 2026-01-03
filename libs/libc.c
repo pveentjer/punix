@@ -580,16 +580,6 @@ pid_t wait(int *status)
     return waitpid(-1, status, 0);
 }
 
-
-pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
-{
-    return (pid_t)syscall_4(SYS_add_task,
-                            (uint32_t)filename,
-                            (uint32_t)tty_id,
-                            (uint32_t)argv,
-                            (uint32_t)envp);
-}
-
 pid_t fork(void)
 {
     return (pid_t)syscall_0(SYS_fork);

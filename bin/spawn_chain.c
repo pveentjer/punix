@@ -131,8 +131,32 @@ int main(int argc, char **argv)
     printf("[pid %d] scheduling child %s --count %s\n",
            current_pid, argv[0], next_count_str);
 
-    sched_add_task(argv[0], -1, child_args, child_envp);
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        printf("[pid %d] fork failed\n", current_pid);
+        return 1;
+    }
 
-    printf("[pid %d] spawned child, exiting.\n", current_pid);
+    if (pid == 0)
+    {
+        /* Child process */
+        execve(argv[0], child_args, child_envp);
+        printf("[pid %d] execve failed\n", getpid());
+        exit(1);
+    }
+
+    /* Parent process - wait for child */
+    printf("[pid %d] spawned child pid %d, waiting...\n", current_pid, pid);
+
+    int status = 0;
+    pid_t res_wait = waitpid(pid, &status, 0);
+    if (res_wait < 0)
+    {
+        printf("[pid %d] waitpid failed\n", current_pid);
+        return 1;
+    }
+
+    printf("[pid %d] child %d completed, exiting.\n", current_pid, pid);
     return 0;
 }

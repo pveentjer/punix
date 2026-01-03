@@ -124,7 +124,7 @@ void sched_init(void);
 
 void sched_stat(struct sched_stat *stat);
 
-pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp);
+pid_t sched_kernel_exec(const char *filename, int tty_id, char **argv, char **envp);
 
 pid_t sched_fork(void);
 
@@ -151,5 +151,8 @@ void ctx_setup_trampoline(
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct mm *mm);
 
 pid_t sched_waitpid(pid_t pid, int *status, int options);
+
+void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
+
 
 #endif // SCHED_H
