@@ -8,7 +8,26 @@
 /* find_bin is provided by the ELF / embedded app layer. */
 /* const struct embedded_bin *find_bin(const char *name); */
 
+/* ------------------------------------------------------------
+ * Helper to lookup bin by pathname
+ * ------------------------------------------------------------ */
 
+static int bin_lookup(const char *pathname, const struct embedded_bin **out_bin)
+{
+    if (!pathname || *pathname == '\0')
+    {
+        return -1;
+    }
+
+    const struct embedded_bin *bin = find_bin(pathname);
+    if (!bin)
+    {
+        return -1;
+    }
+
+    *out_bin = bin;
+    return 0;
+}
 
 /* ------------------------------------------------------------
  * Fill dirent entries for /bin from embedded_bins
@@ -61,6 +80,71 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
     return (int) idx;
 }
 
+/* ------------------------------------------------------------------
+ * /bin file operations
+ * ------------------------------------------------------------------ */
+
+int bin_open(struct file *file)
+{
+    if (!file || !file->pathname)
+    {
+        return -1;
+    }
+
+    /* Opening the /bin directory itself is allowed. */
+    if ((k_strcmp(file->pathname, "/bin") == 0) ||
+        (k_strcmp(file->pathname, "/bin/") == 0))
+    {
+        file->driver_data = NULL;  // directory, not a file
+        file->pos = 0;
+        return 0;
+    }
+
+    const struct embedded_bin *bin = NULL;
+    if (bin_lookup(file->pathname, &bin) < 0)
+    {
+        /* No such program -> open() should fail. */
+        return -1;
+    }
+
+    /* Store the bin pointer so read can use it */
+    file->driver_data = (void *)bin;
+    file->pos = 0;
+    return 0;
+}
+
+static ssize_t bin_read(struct file *file, void *buf, size_t count)
+{
+    if (!file || !buf)
+    {
+        return -1;
+    }
+
+    const struct embedded_bin *bin = (const struct embedded_bin *)file->driver_data;
+    if (!bin)
+    {
+        /* Reading from directory or invalid file */
+        return -1;
+    }
+
+    size_t size = (size_t)(bin->end - bin->start);
+
+    /* Check if we're at or past EOF */
+    if (file->pos >= size)
+    {
+        return 0;  /* EOF */
+    }
+
+    /* Calculate how much to read */
+    size_t remaining = size - file->pos;
+    size_t to_read = (count < remaining) ? count : remaining;
+
+    /* Copy data */
+    k_memcpy(buf, bin->start + file->pos, to_read);
+    file->pos += to_read;
+
+    return (ssize_t)to_read;
+}
 
 /* ------------------------------------------------------------------
  * /bin directory listing
@@ -100,52 +184,6 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
     return size;
 }
 
-int bin_open(struct file *file)
-{
-    if (!file || !file->pathname)
-    {
-        return -1;
-    }
-
-    /* Opening the /bin directory itself is allowed. */
-    if ((k_strcmp(file->pathname, "/bin") == 0) ||
-        (k_strcmp(file->pathname, "/bin/") == 0))
-    {
-        return 0;
-    }
-
-    /* Extract basename (program name) from the path. */
-    const char *name = k_strrchr(file->pathname, '/');
-    if (name)
-    {
-        name++;  /* skip '/' */
-    }
-    else
-    {
-        name = file->pathname;
-    }
-
-    if (*name == '\0')
-    {
-        /* Path ends with '/', but no actual name: treat as error. */
-        return -1;
-    }
-
-    /* Validate that the program exists in the embedded bin table. */
-    const struct embedded_bin *bin = find_bin(name);
-    if (!bin)
-    {
-        /* No such program -> open() should fail. */
-        return -1;
-    }
-
-    /* If you want, you could stash something on file here
-       (e.g. file->inode or a custom field) using 'bin'. For now,
-       just succeed and let exec/sched resolve again by name. */
-    file->pos = 0;
-    return 0;
-}
-
 /* ------------------------------------------------------------------
  * /bin filesystem operations
  * ------------------------------------------------------------------ */
@@ -153,7 +191,7 @@ int bin_open(struct file *file)
 struct fs bin_fs = {
         .open     = bin_open,
         .close    = NULL,
-        .read     = NULL,
+        .read     = bin_read,
         .write    = NULL,
         .getdents = bin_getdents
 };
