@@ -1,4 +1,5 @@
 // sched.c
+#include "errno.h"
 #include "kernel/sched.h"
 #include "kernel/console.h"
 #include "kernel/irq.h"

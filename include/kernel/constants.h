@@ -8,18 +8,7 @@
 #define FD_STDIN   0
 #define FD_STDOUT  1
 #define FD_STDERR  2
-
 #define FD_NONE   -1
-
-/* -------------------------------------------------- */
-/* Errors                                            */
-/* -------------------------------------------------- */
-
-#define EFAULT      14
-#define ENOSYS      38
-#define EINTR       4
-#define EINVAL      22
-#define ECHILD      10
 
 /* -------------------------------------------------- */
 /* Physical memory layout                             */

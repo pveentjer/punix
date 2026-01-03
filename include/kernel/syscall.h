@@ -28,6 +28,7 @@ enum sys_call_nr
     SYS_chdir = 15,
     SYS_getcwd = 16,
     SYS_clock_gettime = 17,
+    SYS_lseek = 18,
 };
 
 typedef uint32_t (*sys_enter_fn_t)(void);

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "errno.h"
 #include "kernel/syscall.h"
 #include "kernel/console.h"
 #include "kernel/kutils.h"
@@ -57,11 +58,9 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
         case SYS_add_task:
             result = sched_add_task((const char *) a1, (int) a2, (char **) a3, (char **) a4);
             break;
-
         case SYS_fork:
             result = (uint32_t) -ENOSYS;
             break;
-
         case SYS_execve:
             result = (uint32_t) -ENOSYS;
             break;
