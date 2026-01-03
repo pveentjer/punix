@@ -33,7 +33,11 @@ char *k_strncpy(char *dest, const char *src, size_t n);
 
 char *k_strrchr(const char *str, int c);
 
+const char *k_strstr(const char *haystack, const char *needle);
+
 void k_itoa(int value, char *str);
+
+void k_itoa_hex(uint32_t value, char *str);
 
 size_t k_strlen(const char *s);
 

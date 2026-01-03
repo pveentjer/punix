@@ -1,5 +1,6 @@
 // vfs.c
 
+#include "errno.h"
 #include "kernel/vfs.h"
 #include "kernel/fs_util.h"
 #include "kernel/kutils.h"
@@ -583,27 +584,38 @@ int vfs_chdir(const char *path)
 {
     if (path == NULL)
     {
-        return -1;
+        return -EINVAL;
     }
 
     struct task *current = sched_current();
     if (current == NULL)
     {
-        return -1;
+        return -ESRCH;
     }
 
     char resolved[MAX_FILENAME_LEN];
 
-    // Use VFS to resolve relative or absolute paths against current->cwd
     vfs_resolve_path(current->cwd, path, resolved, sizeof(resolved));
 
-    // Optional check: try opening it (helps confirm existence)
     int fd = vfs_open(current, resolved, 0, 0);
     if (fd < 0)
     {
-        return -1;
+        return fd;
     }
+
+    struct dirent test_dirent;
+    int result = vfs_getdents(fd, &test_dirent, sizeof(test_dirent));
     vfs_close(current, fd);
+
+    if (result == -ENOTDIR)
+    {
+        return -ENOTDIR;
+    }
+
+    if (result < 0)
+    {
+        return result;
+    }
 
     // Copy the resolved path into task->cwd safely
     k_strncpy(current->cwd, resolved, sizeof(current->cwd));

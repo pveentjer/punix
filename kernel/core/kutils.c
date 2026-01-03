@@ -206,6 +206,35 @@ void k_itoa(int value, char *str)
     str[j] = '\0';
 }
 
+void k_itoa_hex(uint32_t value, char *str)
+{
+    const char hex_digits[] = "0123456789abcdef";
+    char temp[9]; // 8 hex digits + null terminator
+    int i = 0;
+
+    // Handle 0 specially
+    if (value == 0)
+    {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+
+    // Build string in reverse
+    while (value > 0)
+    {
+        temp[i++] = hex_digits[value & 0xF];
+        value >>= 4;
+    }
+
+    // Reverse into output string
+    int j = 0;
+    while (i > 0)
+    {
+        str[j++] = temp[--i];
+    }
+    str[j] = '\0';
+}
 
 size_t k_strlen(const char *s)
 {
@@ -217,6 +246,38 @@ size_t k_strlen(const char *s)
     return len;
 }
 
+
+const char *k_strstr(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle)
+        return NULL;
+
+    // Empty needle matches at the beginning
+    if (*needle == '\0')
+        return haystack;
+
+    // Search for needle in haystack
+    while (*haystack)
+    {
+        const char *h = haystack;
+        const char *n = needle;
+
+        // Try to match needle starting at current position
+        while (*h && *n && *h == *n)
+        {
+            h++;
+            n++;
+        }
+
+        // If we reached end of needle, we found a match
+        if (*n == '\0')
+            return haystack;
+
+        haystack++;
+    }
+
+    return NULL;
+}
 
 size_t u64_to_str(uint64_t value, char *buf, size_t buf_size)
 {

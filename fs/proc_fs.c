@@ -1,5 +1,6 @@
 // proc_fs.c
 
+#include "errno.h"
 #include "kernel/files.h"
 #include "kernel/fs_util.h"
 #include "kernel/sched.h"
@@ -55,22 +56,25 @@ int sched_fill_proc_dirents(struct dirent *buf, unsigned int max_entries)
 
 /* ------------------------------------------------------------
  * Extract PID from /proc/<pid>[/...]
- * - must have at least one digit
- * - next char must be '\0' or '/'
  * ------------------------------------------------------------ */
 static pid_t proc_path_to_pid(const char *pathname)
 {
     if (!pathname || pathname[0] != '/')
+    {
         return PID_NONE;
+    }
 
     if (k_strncmp(pathname, "/proc/", 6) != 0)
+    {
         return PID_NONE;
+    }
 
     const char *p = pathname + 6;
 
-    /* must start with a digit */
     if (*p < '0' || *p > '9')
+    {
         return PID_NONE;
+    }
 
     pid_t pid = 0;
     while (*p >= '0' && *p <= '9')
@@ -79,9 +83,10 @@ static pid_t proc_path_to_pid(const char *pathname)
         p++;
     }
 
-    /* must end or be followed by '/' */
     if (*p != '\0' && *p != '/')
+    {
         return PID_NONE;
+    }
 
     return pid;
 }
@@ -126,38 +131,14 @@ static bool proc_is_pid_dir(const char *pathname, pid_t *pid_out)
 }
 
 /* ------------------------------------------------------------
- * proc_open: validate that the requested /proc path exists
+ * Helper: is pathname /proc/<pid>/fd or /proc/<pid>/fd/
  * ------------------------------------------------------------ */
-static int proc_open(struct file *file)
+static bool proc_is_fd_dir(const char *pathname, pid_t *pid_out)
 {
-    const char *pathname = file->pathname;
-
-    /* Root /proc directory */
-    if (proc_is_root(pathname))
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    /* /proc/stat */
-    if (k_strcmp(pathname, "/proc/stat") == 0)
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    /* Everything else must be /proc/<pid>[/...] */
     pid_t pid = proc_path_to_pid(pathname);
     if (pid == PID_NONE)
     {
-        return -1;
-    }
-
-    struct task *task =
-            task_table_find_task_by_pid(&sched.task_table, pid);
-    if (!task)
-    {
-        return -1;
+        return false;
     }
 
     const char *p = pathname + 6;
@@ -166,113 +147,110 @@ static int proc_open(struct file *file)
         p++;
     }
 
-    /* "/proc/<pid>" */
-    if (*p == '\0')
+    if (*p != '/')
     {
-        file->pos = 0;
-        return 0;
+        return false;
     }
+    p++;
 
-    /* "/proc/<pid>/" */
-    if (*p == '/' && p[1] == '\0')
+    if (k_strcmp(p, "fd") == 0 || k_strcmp(p, "fd/") == 0)
     {
-        file->pos = 0;
-        return 0;
-    }
-
-    /* "/proc/<pid>/<file>" */
-    if (*p == '/')
-    {
-        const char *leaf = p + 1;
-
-        if (k_strcmp(leaf, "comm") == 0 ||
-            k_strcmp(leaf, "cmdline") == 0 ||
-            k_strcmp(leaf, "stat") == 0)
+        if (pid_out)
         {
-            file->pos = 0;
-            return 0;
+            *pid_out = pid;
         }
+        return true;
     }
 
-    return -1;
+    return false;
 }
 
 /* ------------------------------------------------------------
- * Forward declarations
+ * Helper: extract fd number from /proc/<pid>/fd/<num>
  * ------------------------------------------------------------ */
-static ssize_t read_proc_stat(
-        struct file *file,
-        void *buf,
-        size_t count);
-
-static ssize_t read_proc_pid_comm(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task);
-
-static ssize_t read_proc_pid_cmdline(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task);
-
-static ssize_t read_proc_pid_stat(
-        struct file *file,
-        void *buf,
-        size_t count,
-        const struct task *task);
-
-/* ------------------------------------------------------------
- * proc_read
- * ------------------------------------------------------------ */
-static ssize_t proc_read(struct file *file, void *buf, size_t count)
+static int proc_extract_fd_num(const char *pathname)
 {
-    if (file->pos > 0 || !buf || count == 0)
-    {
-        return 0;
-    }
+    const char *p = pathname;
 
-    if (k_strcmp(file->pathname, "/proc/stat") == 0)
-    {
-        return read_proc_stat(file, buf, count);
-    }
-
-    pid_t pid = proc_path_to_pid(file->pathname);
-    if (pid == PID_NONE)
+    const char *fd_pos = k_strstr(p, "/fd/");
+    if (!fd_pos)
     {
         return -1;
     }
 
-    struct task *task =
-            task_table_find_task_by_pid(&sched.task_table, pid);
-    if (!task)
+    p = fd_pos + 4;
+
+    if (*p < '0' || *p > '9')
     {
         return -1;
     }
 
-    const char *leaf = k_strrchr(file->pathname, '/');
-    if (!leaf)
+    int fd = 0;
+    while (*p >= '0' && *p <= '9')
+    {
+        fd = fd * 10 + (*p - '0');
+        p++;
+    }
+
+    if (*p != '\0')
     {
         return -1;
     }
-    leaf++;
 
-    if (k_strcmp(leaf, "comm") == 0)
-    {
-        return read_proc_pid_comm(file, buf, count, task);
-    }
-    else if (k_strcmp(leaf, "cmdline") == 0)
-    {
-        return read_proc_pid_cmdline(file, buf, count, task);
-    }
-    else if (k_strcmp(leaf, "stat") == 0)
-    {
-        return read_proc_pid_stat(file, buf, count, task);
-    }
-
-    return -1;
+    return fd;
 }
+
+/* ------------------------------------------------------------
+ * Helper: convert task state to character
+ * ------------------------------------------------------------ */
+static char task_state_to_char(enum sched_state state)
+{
+    switch (state)
+    {
+        case TASK_RUNNING:
+            return 'R';
+        case TASK_QUEUED:
+            return 'R';
+        case TASK_INTERRUPTIBLE:
+            return 'S';
+        case TASK_UNINTERRUPTIBLE:
+            return 'D';
+        case TASK_ZOMBIE:
+            return 'Z';
+        case TASK_POOLED:
+            return 'X';
+        default:
+            return '?';
+    }
+}
+
+/* ------------------------------------------------------------
+ * Helper: convert task state to string
+ * ------------------------------------------------------------ */
+static const char *task_state_to_str(enum sched_state state)
+{
+    switch (state)
+    {
+        case TASK_RUNNING:
+            return "running";
+        case TASK_QUEUED:
+            return "runnable";
+        case TASK_INTERRUPTIBLE:
+            return "sleeping";
+        case TASK_UNINTERRUPTIBLE:
+            return "disk sleep";
+        case TASK_ZOMBIE:
+            return "zombie";
+        case TASK_POOLED:
+            return "dead";
+        default:
+            return "unknown";
+    }
+}
+
+/* ------------------------------------------------------------
+ * Read functions - defined before proc_read uses them
+ * ------------------------------------------------------------ */
 
 static ssize_t read_proc_pid_cmdline(struct file *file, void *buf, size_t count, const struct task *task)
 {
@@ -303,43 +281,178 @@ static ssize_t read_proc_pid_comm(struct file *file, void *buf, size_t count, co
     return size;
 }
 
-/* /proc/<pid>/stat -> prints task->ctxt as decimal + '\n' */
+/* /proc/<pid>/stat -> Linux-style format
+ * Format: pid (comm) state ppid pgrp session ctxt syscalls brk brk_limit
+ */
 static ssize_t read_proc_pid_stat(struct file *file, void *buf, size_t count, const struct task *task)
 {
-    /* Convert ctxt to string */
-    char num[64];
-    u64_to_str((uint64_t) task->ctxt, num, sizeof(num));
+    char output[512];
+    char pid_str[32];
+    char ppid_str[32];
+    char ctxt_str[32];
+    char syscall_str[32];
+    char brk_str[32];
+    char brk_limit_str[32];
 
-    size_t num_len = k_strlen(num);
-    size_t len = num_len + 1; /* newline */
+    k_itoa(task->pid, pid_str);
+    k_itoa(task->parent ? task->parent->pid : 0, ppid_str);
+    u64_to_str(task->ctxt, ctxt_str, sizeof(ctxt_str));
+    u64_to_str(task->sys_call_cnt, syscall_str, sizeof(syscall_str));
+    k_itoa(task->brk, brk_str);
+    k_itoa(task->brk_limit, brk_limit_str);
 
+    char state = task_state_to_char(task->state);
+
+    k_strcpy(output, pid_str);
+    k_strcat(output, " (");
+    k_strcat(output, task->name);
+    k_strcat(output, ") ");
+
+    char state_str[2] = {state, '\0'};
+    k_strcat(output, state_str);
+    k_strcat(output, " ");
+
+    k_strcat(output, ppid_str);
+    k_strcat(output, " 0 0 ");
+    k_strcat(output, ctxt_str);
+    k_strcat(output, " ");
+    k_strcat(output, syscall_str);
+    k_strcat(output, " ");
+    k_strcat(output, brk_str);
+    k_strcat(output, " ");
+    k_strcat(output, brk_limit_str);
+    k_strcat(output, "\n");
+
+    size_t len = k_strlen(output);
     if (len > count)
     {
         len = count;
     }
 
-    if (len == 0)
-    {
-        return 0;
-    }
-
-    /* Copy digits */
-    size_t digits_to_copy = (len > 0) ? (len - 1) : 0;
-    if (digits_to_copy > num_len)
-    {
-        digits_to_copy = num_len;
-    }
-
-    k_memcpy(buf, num, digits_to_copy);
-
-    /* Add newline if we have space for it */
-    if (len > digits_to_copy)
-    {
-        ((char *) buf)[digits_to_copy] = '\n';
-    }
-
+    k_memcpy(buf, output, len);
     file->pos += len;
     return (ssize_t) len;
+}
+
+/* /proc/<pid>/status -> Human-readable status */
+static ssize_t read_proc_pid_status(struct file *file, void *buf, size_t count, const struct task *task)
+{
+    char output[1024];
+    char temp[256];
+
+    output[0] = '\0';
+
+    k_strcpy(output, "Name:\t");
+    k_strcat(output, task->name);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "State:\t");
+    char state_char[2] = {task_state_to_char(task->state), '\0'};
+    k_strcat(output, state_char);
+    k_strcat(output, " (");
+    k_strcat(output, task_state_to_str(task->state));
+    k_strcat(output, ")\n");
+
+    k_strcat(output, "Pid:\t");
+    k_itoa(task->pid, temp);
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "PPid:\t");
+    k_itoa(task->parent ? task->parent->pid : 0, temp);
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "Ctxt:\t");
+    u64_to_str(task->ctxt, temp, sizeof(temp));
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "Syscalls:\t");
+    u64_to_str(task->sys_call_cnt, temp, sizeof(temp));
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "Brk:\t0x");
+    k_itoa_hex(task->brk, temp);
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    k_strcat(output, "BrkLimit:\t0x");
+    k_itoa_hex(task->brk_limit, temp);
+    k_strcat(output, temp);
+    k_strcat(output, "\n");
+
+    size_t len = k_strlen(output);
+    if (len > count)
+    {
+        len = count;
+    }
+
+    k_memcpy(buf, output, len);
+    file->pos += len;
+    return (ssize_t) len;
+}
+
+static ssize_t read_proc_pid_cwd(struct file *file, void *buf, size_t count, const struct task *task)
+{
+    size_t len = k_strlen(task->cwd);
+    if (len + 1 > count)
+    {
+        len = count - 1;
+    }
+
+    k_memcpy(buf, task->cwd, len);
+    ((char *) buf)[len] = '\n';
+
+    ssize_t size = (ssize_t) (len + 1);
+    file->pos += size;
+    return size;
+}
+
+static ssize_t read_proc_pid_exe(struct file *file, void *buf, size_t count, const struct task *task)
+{
+    size_t len = k_strlen(task->name);
+    if (len + 1 > count)
+    {
+        len = count - 1;
+    }
+
+    k_memcpy(buf, task->name, len);
+    ((char *) buf)[len] = '\n';
+
+    ssize_t size = (ssize_t) (len + 1);
+    file->pos += size;
+    return size;
+}
+
+static ssize_t read_proc_pid_fd_link(struct file *file, void *buf, size_t count, const struct task *task, int fd)
+{
+    if (fd < 0 || fd >= RLIMIT_NOFILE)
+    {
+        return -1;
+    }
+
+    struct file *target = task->files.slots[fd].file;
+    if (!target)
+    {
+        return -1;
+    }
+
+    const char *path = target->pathname ? target->pathname : "(unknown)";
+    size_t len = k_strlen(path);
+
+    if (len + 1 > count)
+    {
+        len = count - 1;
+    }
+
+    k_memcpy(buf, path, len);
+    ((char *) buf)[len] = '\n';
+
+    ssize_t size = (ssize_t) (len + 1);
+    file->pos += size;
+    return size;
 }
 
 static ssize_t read_proc_stat(struct file *file, void *buf, size_t count)
@@ -350,7 +463,7 @@ static ssize_t read_proc_stat(struct file *file, void *buf, size_t count)
     char num[64];
     u64_to_str(st.ctxt, num, sizeof(num));
 
-    const char *prefix = "ctxt = ";
+    const char *prefix = "ctxt ";
     size_t prefix_len = k_strlen(prefix);
     size_t num_len = k_strlen(num);
 
@@ -370,9 +483,164 @@ static ssize_t read_proc_stat(struct file *file, void *buf, size_t count)
 }
 
 /* ------------------------------------------------------------
- * proc_getdents:
- *  - list /proc root
- *  - list /proc/<pid> directory (comm, cmdline, stat)
+ * proc_read
+ * ------------------------------------------------------------ */
+static ssize_t proc_read(struct file *file, void *buf, size_t count)
+{
+    if (file->pos > 0 || !buf || count == 0)
+    {
+        return 0;
+    }
+
+    if (k_strcmp(file->pathname, "/proc/stat") == 0)
+    {
+        return read_proc_stat(file, buf, count);
+    }
+
+    pid_t pid = proc_path_to_pid(file->pathname);
+    if (pid == PID_NONE)
+    {
+        return -1;
+    }
+
+    struct task *task =
+            task_table_find_task_by_pid(&sched.task_table, pid);
+    if (!task)
+    {
+        return -1;
+    }
+
+    int fd = proc_extract_fd_num(file->pathname);
+    if (fd >= 0)
+    {
+        return read_proc_pid_fd_link(file, buf, count, task, fd);
+    }
+
+    const char *leaf = k_strrchr(file->pathname, '/');
+    if (!leaf)
+    {
+        return -1;
+    }
+    leaf++;
+
+    if (k_strcmp(leaf, "comm") == 0)
+    {
+        return read_proc_pid_comm(file, buf, count, task);
+    }
+    else if (k_strcmp(leaf, "cmdline") == 0)
+    {
+        return read_proc_pid_cmdline(file, buf, count, task);
+    }
+    else if (k_strcmp(leaf, "stat") == 0)
+    {
+        return read_proc_pid_stat(file, buf, count, task);
+    }
+    else if (k_strcmp(leaf, "status") == 0)
+    {
+        return read_proc_pid_status(file, buf, count, task);
+    }
+    else if (k_strcmp(leaf, "cwd") == 0)
+    {
+        return read_proc_pid_cwd(file, buf, count, task);
+    }
+    else if (k_strcmp(leaf, "exe") == 0)
+    {
+        return read_proc_pid_exe(file, buf, count, task);
+    }
+
+    return -1;
+}
+
+/* ------------------------------------------------------------
+ * proc_open
+ * ------------------------------------------------------------ */
+static int proc_open(struct file *file)
+{
+    const char *pathname = file->pathname;
+
+    if (proc_is_root(pathname))
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    if (k_strcmp(pathname, "/proc/stat") == 0)
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    pid_t pid = proc_path_to_pid(pathname);
+    if (pid == PID_NONE)
+    {
+        return -1;
+    }
+
+    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
+    if (!task)
+    {
+        return -1;
+    }
+
+    const char *p = pathname + 6;
+    while (*p >= '0' && *p <= '9')
+    {
+        p++;
+    }
+
+    if (*p == '\0')
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    if (*p == '/' && p[1] == '\0')
+    {
+        file->pos = 0;
+        return 0;
+    }
+
+    if (*p == '/')
+    {
+        const char *leaf = p + 1;
+
+        if (k_strcmp(leaf, "comm") == 0 ||
+            k_strcmp(leaf, "cmdline") == 0 ||
+            k_strcmp(leaf, "stat") == 0 ||
+            k_strcmp(leaf, "status") == 0 ||
+            k_strcmp(leaf, "cwd") == 0 ||
+            k_strcmp(leaf, "exe") == 0)
+        {
+            file->pos = 0;
+            return 0;
+        }
+
+        if (k_strcmp(leaf, "fd") == 0 || k_strcmp(leaf, "fd/") == 0)
+        {
+            file->pos = 0;
+            return 0;
+        }
+
+        if (k_strncmp(leaf, "fd/", 3) == 0)
+        {
+            int fd = proc_extract_fd_num(pathname);
+            if (fd >= 0 && fd < RLIMIT_NOFILE)
+            {
+                if (task->files.slots[fd].file)
+                {
+                    file->pos = 0;
+                    return 0;
+                }
+            }
+            return -1;
+        }
+    }
+
+    return -1;
+}
+
+/* ------------------------------------------------------------
+ * proc_getdents
  * ------------------------------------------------------------ */
 static int proc_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
@@ -389,7 +657,6 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
     unsigned int max_entries = count / sizeof(struct dirent);
     unsigned int idx = 0;
 
-    /* Root directory listing */
     if (proc_is_root(file->pathname))
     {
         fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
@@ -411,7 +678,33 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
         return size;
     }
 
-    /* /proc/<pid> directory listing */
+    pid_t fd_pid;
+    if (proc_is_fd_dir(file->pathname, &fd_pid))
+    {
+        struct task *task = task_table_find_task_by_pid(&sched.task_table, fd_pid);
+        if (!task)
+        {
+            return -1;
+        }
+
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
+
+        for (int i = 0; i < RLIMIT_NOFILE && idx < max_entries; i++)
+        {
+            if (task->files.slots[i].file)
+            {
+                char fd_name[16];
+                k_itoa(i, fd_name);
+                fs_add_entry(buf, max_entries, &idx, i + 10, DT_LNK, fd_name);
+            }
+        }
+
+        int size = (int) (idx * sizeof(struct dirent));
+        file->pos += size;
+        return size;
+    }
+
     pid_t pid;
     if (proc_is_pid_dir(file->pathname, &pid))
     {
@@ -423,16 +716,21 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
 
         fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, ".");
         fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "..");
-        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "comm");
         fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "cmdline");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "comm");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "cwd");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "exe");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_DIR, "fd");
         fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "stat");
+        fs_add_entry(buf, max_entries, &idx, 1, DT_REG, "status");
 
         int size = (int) (idx * sizeof(struct dirent));
         file->pos += size;
         return size;
     }
 
-    return -1;
+    /* Not a directory */
+    return -ENOTDIR;
 }
 
 /* ------------------------------------------------------------
