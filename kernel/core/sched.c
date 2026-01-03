@@ -229,11 +229,6 @@ static char **task_init_env(struct task *task,
  *
  * Create a new task from kernel context (used ONLY for init).
  * ------------------------------------------------------------ */
-/* ------------------------------------------------------------
- * task_kernel_exec
- *
- * Create a new task from kernel context (used ONLY for init).
- * ------------------------------------------------------------ */
 struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, char **envp)
 {
     if (tty_id >= (int) TTY_COUNT)
@@ -258,6 +253,9 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
 
     task->cpu_ctx.k_sp = (unsigned long) (task->kstack + KERNEL_STACK_SIZE);
     task->cpu_ctx.u_sp = PROCESS_STACK_TOP;
+
+    /* Activate task's address space to set it up */
+    mm_activate(task->mm);
 
     uintptr_t base_va = mm_find_vma_by_type(task->mm, VMA_TYPE_PROCESS)->base_va;
 
@@ -288,6 +286,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     {
         kprintf("task_kernel_exec: Failed to load the binary %s\n", filename);
         task_table_free(&sched.task_table, task);
+        mm_activate(mm_kernel());
         return NULL;
     }
 
@@ -302,6 +301,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     {
         kprintf("task_kernel_exec: not enough space %s\n", filename);
         task_table_free(&sched.task_table, task);
+        mm_activate(mm_kernel());
         return NULL;
     }
 
@@ -317,6 +317,9 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     }
 
     ctx_setup_trampoline(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
+
+    /* Switch back to kernel address space */
+    mm_activate(mm_kernel());
 
     return task;
 }
@@ -643,6 +646,7 @@ void sched_init(void)
     char *envp[] = {NULL};
 
     sched.swapper = task_kernel_exec("/sbin/swapper", 0, argv, envp);
+
     if (!sched.swapper)
     {
         panic("sched_init: failed to allocate a task for the swapper\n");

@@ -297,7 +297,6 @@ void tty_system_init(void)
     for (int i = 0; i < TTY_COUNT; i++)
     {
         k_snprintf(dev_name, sizeof(dev_name), "tty%d", i);
-        kprintf("register dev %s\n", dev_name);
         dev_register(dev_name, &tty_dev_ops, &ctx.ttys[i]);
     }
 

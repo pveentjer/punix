@@ -76,7 +76,7 @@ void kmain(void)
 //    volatile uint32_t *p = (uint32_t *)0x40000000;
 //    uint32_t x = *p;   // <- should page fault
 
-    console_clear(&kconsole);
+//    console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};
     sched_kernel_exec("/sbin/init", 0, argv, 0);
     sched_schedule();
