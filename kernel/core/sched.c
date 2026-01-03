@@ -375,6 +375,8 @@ pid_t sched_fork(void)
         return -ENOMEM;
     }
 
+    kprintf("fork:");
+
     /* Copy basic info */
     k_strcpy(child->name, parent->name);
 
@@ -383,11 +385,17 @@ pid_t sched_fork(void)
     child->next_sibling = parent->children;
     parent->children = child;
 
+
+    /* Initialize child's kernel stack pointer to top of stack */
+    child->cpu_ctx.k_sp = (unsigned long)(child->kstack + KERNEL_STACK_SIZE);
+
     /* Child returns to same user stack location */
     child->cpu_ctx.u_sp = parent->cpu_ctx.u_sp;
 
     /* Setup child's kernel stack to return via sys_return */
     ctx_setup_fork_return(&child->cpu_ctx);
+
+    kprintf("2");
 
     /* Copy heap boundaries */
     child->brk = parent->brk;
@@ -408,6 +416,8 @@ pid_t sched_fork(void)
     k_strcpy(child->cwd, parent->cwd);
     child->ctty = parent->ctty;
 
+    kprintf("3");
+
     /* Initialize signals */
     child->signal.pending = 0;
     wait_queue_init(&child->signal.wait_exit);
@@ -417,6 +427,8 @@ pid_t sched_fork(void)
     child->ctxt = 0;
     child->sys_call_cnt = 0;
     child->exit_status = 0;
+
+    kprintf("4");
 
     /* Copy user address space */
     struct vma *parent_vma = mm_find_vma_by_type(parent->mm, VMA_TYPE_PROCESS);
@@ -431,8 +443,12 @@ pid_t sched_fork(void)
         }
     }
 
+    kprintf("5");
+
     child->state = TASK_QUEUED;
     sched_enqueue(child);
+
+    kprintf("6");
 
     return child->pid;
 }

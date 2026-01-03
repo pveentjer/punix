@@ -60,6 +60,15 @@ extern uint32_t __premain_pa_end;
 #define MAX_VMAS_TOTAL (MAX_PROCESS_CNT * MAX_VMAS_PER_PROCESS)
 
 /* ------------------------------------------------------------
+ * Copy window (ONE page table max; 4MB hard cap)
+ * ------------------------------------------------------------ */
+#define COPY_WINDOW_MAX_BYTES   VM_PT_COVERS_BYTES
+
+/* Put both src+dst in the SAME PT (same PDE), different PTEs */
+#define COPY_SRC_VA   0xFF000000u
+#define COPY_DST_VA   0xFF001000u
+
+/* ------------------------------------------------------------
  * Paging structures (x86 32-bit non-PAE)
  * ------------------------------------------------------------ */
 
@@ -139,6 +148,11 @@ static uint8_t mm_paging_pool[MM_PAGING_PAGES_TOTAL * PAGE_SIZE]
 static uint32_t mm_paging_next = 0;
 
 /* ------------------------------------------------------------
+ * Permanent copy-window PT (inherited by all processes)
+ * ------------------------------------------------------------ */
+static struct page_table *copy_pt = NULL;
+
+/* ------------------------------------------------------------
  * Page fault debug handler (exception #14 with error code)
  * ------------------------------------------------------------ */
 
@@ -184,7 +198,6 @@ void page_fault_handler(uint32_t err)
 
     panic("page fault");
 }
-
 
 MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
 
@@ -399,6 +412,33 @@ void mm_init(void)
     mm_add_vma(&kernel_mm, VMA_TYPE_VGA, VGA_TEXT_BUFFER_VA, VGA_TEXT_BUFFER_SIZE, VMA_READ | VMA_WRITE,
                VGA_TEXT_BUFFER_VA);
 
+    /* ------------------------------------------------------------
+     * Permanent copy window (one PT, PTEs non-present by default)
+     * ------------------------------------------------------------ */
+    {
+        uint32_t pde_idx = PDE_INDEX(COPY_SRC_VA);
+
+        uintptr_t pt_pa = mm_alloc_page_pa();
+        if (!pt_pa)
+        {
+            panic("mm_init: copy PT alloc failed");
+        }
+
+        copy_pt = (struct page_table *) kernel_pa_to_va(pt_pa);
+        pt_clear(copy_pt);
+
+        struct pde *pde = &kernel_impl.pd_va->e[pde_idx];
+        pde->frame = (uint32_t) (pt_pa >> 12);
+        pde->present = 1;
+        pde->writable = 1;
+        pde->user = 0;
+        pde->ps = 0;
+
+        /* Ensure no stale TLB (mostly irrelevant this early, but deterministic) */
+        invlpg(COPY_SRC_VA);
+        invlpg(COPY_DST_VA);
+    }
+
     mm_activate(&kernel_mm);
 }
 
@@ -445,7 +485,7 @@ struct mm *mm_fork_kernel(void)
 
     impl->kernel_pde_start = kernel_impl.kernel_pde_start;
 
-    /* Copy all present kernel PDEs */
+    /* Copy all present kernel PDEs (includes the copy-window PDE) */
     for (uint32_t i = 0; i < PAGE_DIR_ENTRIES; i++)
     {
         if (kernel_impl.pd_va->e[i].present)
@@ -584,50 +624,83 @@ bool mm_va_to_pa(const struct mm *mm, uint32_t va, uint32_t *out_pa)
     return true;
 }
 
-/* Temporary mapping addresses - reserve space for max VMA size */
-#define TEMP_COPY_VA_SRC   0xFF000000   /* Source VMA mapped here */
-#define TEMP_COPY_VA_DEST  0xFE000000   /* Dest VMA mapped here */
-
 void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
                  const struct mm *src_mm, const struct vma *src_vma,
                  size_t length)
 {
+    if (!copy_pt)
+    {
+        panic("mm_copy_vma: copy window not initialized");
+    }
+
+    /* Hard cap: one PT window max (4MB) */
+    if (length > COPY_WINDOW_MAX_BYTES)
+    {
+        panic("mm_copy_vma: length exceeds 1-PT copy window");
+    }
+
     /* Validate length fits in both VMAs */
     if (length > src_vma->length || length > dest_vma->length)
     {
         panic("mm_copy_vma: length exceeds VMA bounds");
     }
 
-    /* Map entire source VMA to temp kernel VA */
-    uintptr_t src_va = src_vma->base_va;
-    for (size_t offset = 0; offset < length; offset += PAGE_SIZE)
+    size_t offset = 0;
+
+    while (offset < length)
     {
-        uint32_t src_pa;
-        if (!mm_va_to_pa(src_mm, src_va + offset, &src_pa))
+        uintptr_t src_va = src_vma->base_va + offset;
+        uintptr_t dst_va = dest_vma->base_va + offset;
+
+        uintptr_t src_page_va = PAGE_ALIGN_DOWN(src_va);
+        uintptr_t dst_page_va = PAGE_ALIGN_DOWN(dst_va);
+
+        uint32_t src_pa, dst_pa;
+
+        /* Translate to PA (source PD is assumed active, but this works regardless) */
+        if (!mm_va_to_pa(src_mm, (uint32_t)src_page_va, &src_pa))
         {
             panic("mm_copy_vma: source VA not mapped");
         }
-        vm_map_impl(&kernel_impl, TEMP_COPY_VA_SRC + offset, src_pa, PAGE_SIZE);
-    }
 
-    /* Map entire dest VMA to temp kernel VA */
-    uintptr_t dest_va = dest_vma->base_va;
-    for (size_t offset = 0; offset < length; offset += PAGE_SIZE)
-    {
-        uint32_t dest_pa;
-        if (!mm_va_to_pa(dest_mm, dest_va + offset, &dest_pa))
+        if (!mm_va_to_pa(dest_mm, (uint32_t)dst_page_va, &dst_pa))
         {
             panic("mm_copy_vma: dest VA not mapped");
         }
-        vm_map_impl(&kernel_impl, TEMP_COPY_VA_DEST + offset, dest_pa, PAGE_SIZE);
+
+        struct pte *src_pte = &copy_pt->e[PTE_INDEX(COPY_SRC_VA)];
+        struct pte *dst_pte = &copy_pt->e[PTE_INDEX(COPY_DST_VA)];
+
+        /* Arm mappings (PTEs normally non-present) */
+        pte_set(src_pte, (uintptr_t)(src_pa & PAGE_MASK), PTE_P);
+        pte_set(dst_pte, (uintptr_t)(dst_pa & PAGE_MASK), PTE_P | PTE_W);
+
+        invlpg(COPY_SRC_VA);
+        invlpg(COPY_DST_VA);
+
+        size_t src_off = (size_t)(src_va - src_page_va);
+        size_t dst_off = (size_t)(dst_va - dst_page_va);
+
+        size_t chunk = PAGE_SIZE - src_off;
+        size_t tmp = PAGE_SIZE - dst_off;
+        if (tmp < chunk) chunk = tmp;
+
+        size_t remain = length - offset;
+        if (remain < chunk) chunk = remain;
+
+        k_memcpy((void *)(COPY_DST_VA + dst_off),
+                 (void *)(COPY_SRC_VA + src_off),
+                 chunk);
+
+        /* Disarm immediately */
+        pte_clear(src_pte);
+        pte_clear(dst_pte);
+
+        invlpg(COPY_SRC_VA);
+        invlpg(COPY_DST_VA);
+
+        offset += chunk;
     }
-
-    /* Copy entire VMA in one go */
-    k_memcpy((void *) TEMP_COPY_VA_DEST, (void *) TEMP_COPY_VA_SRC, length);
-
-    /* Unmap */
-    vm_unmap_impl(&kernel_impl, TEMP_COPY_VA_SRC, length);
-    vm_unmap_impl(&kernel_impl, TEMP_COPY_VA_DEST, length);
 }
 
 uint32_t vm_debug_read_pd_pa(void)
