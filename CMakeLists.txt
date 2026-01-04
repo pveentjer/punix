@@ -31,6 +31,7 @@ set(COMMON_C_FLAGS "-ffreestanding -nostdlib -m32 -O2 -Wall -Wextra")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_C_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/arch/${ARCH}/include)
 
 # ------------------------------------------------------------
 # Directory layout
@@ -237,7 +238,6 @@ function(add_bin name)
     add_executable(${name}.elf
             ${BIN_DIR}/${name}.c
             ${LIBS_DIR}/libc.c
-            ${ARCH_SRC_DIR}/libc.c
     )
 
     target_compile_options(${name}.elf PRIVATE

@@ -6,6 +6,7 @@
 #include "fcntl.h"
 #include "time.h"
 #include "unistd.h"
+#include "syscall_arch.h"
 
 void delay(uint32_t count)
 {
@@ -506,17 +507,19 @@ int printf(const char *fmt, ...)
     return len;
 }
 
-extern uint32_t __syscall0(uint32_t nr);
+extern long __syscall0(long nr);
 
-extern uint32_t __syscall1(uint32_t nr, uint32_t a1);
+extern long __syscall1(long nr, long a1);
 
-extern uint32_t __syscall2(uint32_t nr, uint32_t a1, uint32_t a2);
+extern long __syscall2(long nr, long a1, long a2);
 
-extern uint32_t __syscall3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3);
+extern long __syscall3(long nr, long a1, long a2, long a3);
 
-extern uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4);
+extern long __syscall4(long nr, long a1, long a2, long a3, long a4);
 
-extern uint32_t syscall_5(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5);
+extern long __syscall_5(long nr, long a1, long a2, long a3, long a4, long a5);
+
+extern long __syscall_6(long nr, long a1, long a2, long a3, long a4, long a5);
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
@@ -657,8 +660,6 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp)
                           (uint32_t)clk_id,
                           (uint32_t)tp);
 }
-
-#include <stdint.h>
 
 /* unsigned 64-bit division */
 uint64_t __udivdi3(uint64_t n, uint64_t d)

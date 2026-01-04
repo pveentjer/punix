@@ -1,3 +1,7 @@
+#ifndef SYSCALL_ARCH_H
+#define SYSCALL_ARCH_H
+
+
 #include <stdint.h>
 #include "errno.h"
 #include "kernel/syscall.h"
@@ -15,7 +19,7 @@
  *   EAX = ret
  * ------------------------------------------------------------------ */
 
-long __syscall0(long nr)
+static inline long __syscall0(long nr)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -32,7 +36,7 @@ long __syscall0(long nr)
     return eax;
 }
 
-long __syscall1(long nr, long a1)
+static inline long __syscall1(long nr, long a1)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -49,7 +53,7 @@ long __syscall1(long nr, long a1)
     return eax;
 }
 
-long __syscall2(long nr, long a1, long a2)
+static inline long __syscall2(long nr, long a1, long a2)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -66,7 +70,7 @@ long __syscall2(long nr, long a1, long a2)
     return eax;
 }
 
-long __syscall3(long nr, long a1, long a2, long a3)
+static inline long __syscall3(long nr, long a1, long a2, long a3)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -85,7 +89,7 @@ long __syscall3(long nr, long a1, long a2, long a3)
 }
 
 
-long __syscall4(long nr, long a1, long a2, long a3, long a4)
+static inline long __syscall4(long nr, long a1, long a2, long a3, long a4)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -102,12 +106,14 @@ long __syscall4(long nr, long a1, long a2, long a3, long a4)
     return eax;
 }
 
-long __syscall5(long nr, long a1, long a2, long a3, long a4, long a5)
+static inline long __syscall5(long nr, long a1, long a2, long a3, long a4, long a5)
 {
     return -ENOSYS;
 }
 
-long __syscall6(long nr, long a1, long a2, long a3, long a4, long a5, long a6)
+static inline long __syscall6(long nr, long a1, long a2, long a3, long a4, long a5, long a6)
 {
     return -ENOSYS;
 }
+
+#endif // SYSCALL_ARCH_H
