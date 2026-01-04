@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "errno.h"
 #include "kernel/syscall.h"
 
 /* ------------------------------------------------------------------
@@ -101,3 +102,12 @@ uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t
     return eax;
 }
 
+uint32_t __syscall5(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
+{
+    return -ENOSYS;
+}
+
+uint32_t __syscall6(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6)
+{
+    return -ENOSYS;
+}
