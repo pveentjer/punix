@@ -1,5 +1,5 @@
 ; ========================================================================
-;  loader.asm — chunked loader for PUnix with progress dots
+;  loader.asm — chunked loader for PUnix
 ; ========================================================================
 
 bits 16
@@ -10,10 +10,6 @@ org 0x7E00
 ; ------------------------------------------------------------------------
 %define KB(x) (x * 1024)
 %define MB(x) (x * 1024 * 1024)
-
-; ------------------------------------------------------------------------
-; Kernel layout - 2MB kernel image
-; ------------------------------------------------------------------------
 
 ; THe size of the image.
 %define IMAGE_SIZE           MB(4)
@@ -33,12 +29,14 @@ org 0x7E00
 %define KERNEL_SECTORS        (IMAGE_SECTORS - KERNEL_START_LBA)
 ; The of the intermediate buffer
 %define CHUNK_SIZE            KB(64)
-; sectors per chunk (64KB)
+; sectors per chunk
 %define CHUNK_SECTORS         (CHUNK_SIZE / SECTOR_SIZE)
-; stack at 2MB
+; kernel virtual address stack at 2MB
 %define KERNEL_STACK_TOP_VA   MB(2)
 
 %define PREMAIN_PA            KERNEL_LOAD_ADDR   ; premain at offset 0
+
+%define VGA                   0xB800
 
 ; ========================================================================
 ; Boot entry
@@ -55,7 +53,7 @@ start:
     ; --------------------------------------------------------------------
     ; Clear full VGA text screen
     ; --------------------------------------------------------------------
-    mov ax, 0xB800
+    mov ax, VGA
     mov es, ax
     xor di, di
     mov ax, 0x0720            ; ' ' with attribute 0x07
@@ -166,7 +164,7 @@ copy_chunk_return:
     ; --------------------------------------------------------
     ; All chunks loaded - move to new line
     ; --------------------------------------------------------
-    mov ax, 0xB800
+    mov ax, VGA
     mov es, ax
     mov eax, [vga_cursor]
     shl eax, 1                          ; convert back to byte offset
@@ -192,7 +190,7 @@ copy_chunk_return:
     or  eax, 1
     mov cr0, eax
 
-    jmp CODE_SEG:final_hang
+    jmp CODE_SEG:kernel_start
 
 ; ========================================================================
 ; read_chunk_to_temp - Read current chunk to KERNEL_LOAD_TEMP
@@ -336,7 +334,7 @@ disk_reset_fail:
     jmp hang
 
 read_error:
-    mov ax, 0xB800
+    mov ax, VGA
     mov es, ax
     mov eax, [vga_cursor]
     shl eax, 1
@@ -407,12 +405,14 @@ copy_chunk_return_real:
     jmp copy_chunk_return
 
 bits 32
-final_hang:
+kernel_start:
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov esp, KERNEL_STACK_TOP_VA
+
+    jmp PREMAIN_PA
 
 .loop:
     hlt
