@@ -116,4 +116,10 @@ static inline long __syscall6(long nr, long a1, long a2, long a3, long a4, long 
     return -ENOSYS;
 }
 
+#define VDSO_USEFUL
+#define VDSO_CGT32_SYM "__vdso_clock_gettime"
+#define VDSO_CGT32_VER "LINUX_2.6"
+#define VDSO_CGT_SYM "__vdso_clock_gettime64"
+#define VDSO_CGT_VER "LINUX_2.6"
+
 #endif // SYSCALL_ARCH_H
