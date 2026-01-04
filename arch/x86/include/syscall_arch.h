@@ -26,6 +26,8 @@ typedef struct kernel_entry
 
 };
 
+#define GB(x)                   ((x) * 1024UL * 1024UL * 1024UL)
+#define KERNEL_VA_BASE          GB(2)
 #define KERNEL_ENTRY_ADDR       KERNEL_VA_BASE
 
 #define KERNEL_ENTRY ((const struct kernel_entry *)KERNEL_ENTRY_ADDR)
