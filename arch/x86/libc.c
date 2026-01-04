@@ -15,12 +15,12 @@
  *   EAX = ret
  * ------------------------------------------------------------------ */
 
-uint32_t __syscall0(uint32_t nr)
+long __syscall0(long nr)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
-    uint32_t eax = nr;
-    uint32_t ebx = 0, ecx = 0, edx = 0, esi = 0;
+    long eax = nr;
+    long ebx = 0, ecx = 0, edx = 0, esi = 0;
 
     __asm__ volatile(
             "call *%[fn]"
@@ -32,12 +32,12 @@ uint32_t __syscall0(uint32_t nr)
     return eax;
 }
 
-uint32_t __syscall1(uint32_t nr, uint32_t a1)
+long __syscall1(long nr, long a1)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
-    uint32_t eax = nr;
-    uint32_t ebx = a1, ecx = 0, edx = 0, esi = 0;
+    long eax = nr;
+    long ebx = a1, ecx = 0, edx = 0, esi = 0;
 
     __asm__ volatile(
             "call *%[fn]"
@@ -49,12 +49,12 @@ uint32_t __syscall1(uint32_t nr, uint32_t a1)
     return eax;
 }
 
-uint32_t __syscall2(uint32_t nr, uint32_t a1, uint32_t a2)
+long __syscall2(long nr, long a1, long a2)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
-    uint32_t eax = nr;
-    uint32_t ebx = a1, ecx = a2, edx = 0, esi = 0;
+    long eax = nr;
+    long ebx = a1, ecx = a2, edx = 0, esi = 0;
 
     __asm__ volatile(
             "call *%[fn]"
@@ -66,12 +66,12 @@ uint32_t __syscall2(uint32_t nr, uint32_t a1, uint32_t a2)
     return eax;
 }
 
-uint32_t __syscall3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
+long __syscall3(long nr, long a1, long a2, long a3)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
-    uint32_t eax = nr;
-    uint32_t ebx = a1, ecx = a2, edx = a3, esi = 0;
+    long eax = nr;
+    long ebx = a1, ecx = a2, edx = a3, esi = 0;
 
 
     __asm__ volatile(
@@ -85,12 +85,12 @@ uint32_t __syscall3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
 }
 
 
-uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4)
+long __syscall4(long nr, long a1, long a2, long a3, long a4)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
-    uint32_t eax = nr;
-    uint32_t ebx = a1, ecx = a2, edx = a3, esi = a4;
+    long eax = nr;
+    long ebx = a1, ecx = a2, edx = a3, esi = a4;
 
     __asm__ volatile(
             "call *%[fn]\n\t"
@@ -102,12 +102,12 @@ uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t
     return eax;
 }
 
-uint32_t __syscall5(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
+long __syscall5(long nr, long a1, long a2, long a3, long a4, long a5)
 {
     return -ENOSYS;
 }
 
-uint32_t __syscall6(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6)
+long __syscall6(long nr, long a1, long a2, long a3, long a4, long a5, long a6)
 {
     return -ENOSYS;
 }
