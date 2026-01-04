@@ -8,28 +8,26 @@
 #include "kernel/cpu_ctx.h"
 
 
-enum sys_call_nr
-{
-    SYS_write = 0,
-    SYS_read = 1,
-    SYS_open = 2,
-    SYS_close = 3,
-    SYS_getdents = 4,
-    SYS_fork = 6,
-    SYS_execve = 7,
-    SYS_exit = 8,
-    SYS_kill = 9,
-    SYS_waitpid = 10,
-    SYS_getpid = 11,
-    SYS_sched_yield = 12,
-    SYS_nice = 13,
-    SYS_brk = 14,
-    SYS_chdir = 15,
-    SYS_getcwd = 16,
-    SYS_clock_gettime = 17,
-    SYS_lseek = 18,
-    SYS_setctty = 19,
-};
+#define SYS_exit            1
+#define SYS_fork            2
+#define SYS_read            3
+#define SYS_write           4
+#define SYS_open            5
+#define SYS_close           6
+#define SYS_waitpid         7
+#define SYS_execve          11
+#define SYS_chdir           12
+#define SYS_getpid          20
+#define SYS_nice            34
+#define SYS_kill            37
+#define SYS_brk             45
+#define SYS_getdents        141
+#define SYS_sched_yield     158
+#define SYS_getcwd          183
+#define SYS_clock_gettime   265
+
+// Custom syscalls (no Linux equivalent)
+#define SYS_setctty   500 // Linux uses ioctl(fd, TIOCSCTTY, 0)
 
 typedef uint32_t (*sys_enter_fn_t)(void);
 
