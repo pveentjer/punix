@@ -14,12 +14,29 @@ org 0x7E00
 ; ------------------------------------------------------------------------
 ; Kernel layout - 2MB kernel image
 ; ------------------------------------------------------------------------
-%define KERNEL_LOAD_ADDR      MB(1)              ; final run address (1 MiB)
-%define KERNEL_LOAD_TEMP      KB(64)             ; temporary load address (64KB)
-%define KERNEL_SECTORS        8189               ; 4MB = 4096 sectors
-%define CHUNK_SECTORS         128                ; sectors per chunk (64KB)
-%define KERNEL_START_LBA      3                  ; kernel starts at LBA 3
-%define KERNEL_STACK_TOP_VA   MB(2)              ; stack at 2MB
+
+; THe size of the image.
+%define IMAGE_SIZE           MB(4)
+; Size of a single sector
+%define SECTOR_SIZE          512
+; The number of sectors required to hold the image
+%define IMAGE_SECTORS        (IMAGE_SIZE / SECTOR_SIZE)
+; final run address (1 MiB)
+%define KERNEL_LOAD_ADDR      MB(1)
+; temporary load address (64KB)
+%define KERNEL_LOAD_TEMP      KB(64)
+; The loader is 2 sectors (2x 512B)
+%define LOADER_SECTORS        2
+; kernel starts at LBA 3
+%define KERNEL_START_LBA      (1 + LOADER_SECTORS)
+; The number of kernel sectors. We don't need to copy the bootsector/loader sectors
+%define KERNEL_SECTORS        (IMAGE_SECTORS - KERNEL_START_LBA)
+; The of the intermediate buffer
+%define CHUNK_SIZE            KB(64)
+; sectors per chunk (64KB)
+%define CHUNK_SECTORS         (CHUNK_SIZE / SECTOR_SIZE)
+; stack at 2MB
+%define KERNEL_STACK_TOP_VA   MB(2)
 
 %define PREMAIN_PA            KERNEL_LOAD_ADDR   ; premain at offset 0
 
