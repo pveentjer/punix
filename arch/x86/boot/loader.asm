@@ -16,7 +16,7 @@ org 0x7E00
 ; ------------------------------------------------------------------------
 %define KERNEL_LOAD_ADDR      MB(1)              ; final run address (1 MiB)
 %define KERNEL_LOAD_TEMP      KB(64)             ; temporary load address (64KB)
-%define KERNEL_SECTORS        4096               ; 2MB = 4096 sectors
+%define KERNEL_SECTORS        8189               ; 4MB = 4096 sectors
 %define CHUNK_SECTORS         128                ; sectors per chunk (64KB)
 %define KERNEL_START_LBA      3                  ; kernel starts at LBA 3
 %define KERNEL_STACK_TOP_VA   MB(2)              ; stack at 2MB
@@ -190,6 +190,7 @@ read_chunk_to_temp:
 
     mov cx, [current_chunk_size]       ; total sectors for this chunk
     xor di, di                          ; byte offset into temp buffer
+    xor si, si                          ; sector offset within chunk
 
 .read_loop:
     ; Determine batch size (max 127 sectors)
@@ -215,21 +216,24 @@ read_chunk_to_temp:
     mov [dap_segment], ax
     mov [dap_sectors], bx
 
-    ; LBA = cur_lba
+    ; LBA = cur_lba + sectors_read_so_far_in_chunk
     mov eax, [cur_lba]
+    movzx edx, si
+    add eax, edx
     mov [dap_lba_low], eax
     mov dword [dap_lba_high], 0
 
     ; Execute read
+    push si
     mov si, dap
     mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
+    pop si
     jc .error
 
-    ; Advance cur_lba by the batch we just read
-    movzx eax, bx
-    add [cur_lba], eax
+    ; Advance offset within chunk
+    add si, bx
 
     ; Advance offset in temp buffer
     mov ax, bx

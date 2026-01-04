@@ -337,7 +337,7 @@ add_custom_command(
 # ------------------------------------------------------------
 add_custom_command(
         OUTPUT ${BUILD_DIR}/disk.img
-        COMMAND dd if=/dev/zero of=disk.img bs=512 count=2880
+        COMMAND dd if=/dev/zero of=disk.img bs=512 count=8192
         COMMAND dd if=bootsector.bin of=disk.img conv=notrunc
         COMMAND dd if=loader.bin     of=disk.img bs=512 seek=1 conv=notrunc
         COMMAND dd if=kernel.bin     of=disk.img bs=512 seek=3 conv=notrunc
