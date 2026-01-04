@@ -1,5 +1,5 @@
 ; ========================================================================
-;  loader.asm — verbose BIOS loader for PUnix using LBA INT 13h extensions
+;  loader.asm — chunked loader for PUnix with progress dots
 ; ========================================================================
 
 bits 16
@@ -12,25 +12,16 @@ org 0x7E00
 %define MB(x) (x * 1024 * 1024)
 
 ; ------------------------------------------------------------------------
-; Kernel layout
-;   CMake layout:
-;     sector 0 : bootsector
-;     sectors 1–2 : loader
-;     sector 3 : kernel.bin start
-;
-;   New kernel layout (starting at LBA 3):
-;     page 0 : premain (_kpremain entry at start)
-;     page 1 : kernel header
-;     page 2+ : high kernel (.text, .rodata, .data, paging structs, etc.)
+; Kernel layout - 2MB kernel image
 ; ------------------------------------------------------------------------
-%define KERNEL_LOAD_ADDR   MB(1)              ; final run address (1 MiB)
-%define KERNEL_LOAD_TEMP   KB(64)             ; temporary load address (64KB)
-%define KERNEL_SECTORS     512                ; the kernel can now be up to 256 KB
-%define KERNEL_SIZE_BYTES  (KERNEL_SECTORS * 512)
-%define KERNEL_START_LBA   3                  ; kernel starts at LBA 3
-%define KERNEL_STACK_TOP_VA   MB(2)              ; the kernel stack top starts at 2MB
+%define KERNEL_LOAD_ADDR      MB(1)              ; final run address (1 MiB)
+%define KERNEL_LOAD_TEMP      KB(64)             ; temporary load address (64KB)
+%define KERNEL_SECTORS        4096               ; 2MB = 4096 sectors
+%define CHUNK_SECTORS         128                ; sectors per chunk (64KB)
+%define KERNEL_START_LBA      3                  ; kernel starts at LBA 3
+%define KERNEL_STACK_TOP_VA   MB(2)              ; stack at 2MB
 
-%define PREMAIN_PA         KERNEL_LOAD_ADDR   ; premain is now at offset 0
+%define PREMAIN_PA            KERNEL_LOAD_ADDR   ; premain at offset 0
 
 ; ========================================================================
 ; Boot entry
@@ -45,7 +36,7 @@ start:
     mov [boot_drive], dl
 
     ; --------------------------------------------------------------------
-    ; Clear full VGA text screen (white-on-black)
+    ; Clear full VGA text screen
     ; --------------------------------------------------------------------
     mov ax, 0xB800
     mov es, ax
@@ -55,7 +46,7 @@ start:
 clear_screen:
     stosw
     loop clear_screen
-    xor di, di                ; cursor at top-left
+    xor di, di
 
     ; --------------------------------------------------------------------
     ; Intro
@@ -80,93 +71,98 @@ clear_screen:
     call newline
 
     ; --------------------------------------------------------------------
-    ; Read kernel with INT 13h extensions (LBA)
+    ; Chunked kernel loading with progress
     ; --------------------------------------------------------------------
     mov si, msg_reading
     call print_str
     call newline
 
-    ; init destination address (physical) and LBA
-    mov dword [dest_phys], KERNEL_LOAD_TEMP
-    mov dword [cur_lba],   KERNEL_START_LBA
-    mov cx, KERNEL_SECTORS          ; sectors remaining
+    mov si, msg_progress
+    call print_str
 
-read_lba_loop:
-    ; batch size: at most 127 sectors per BIOS call (safe limit)
-    cmp cx, 127
-    jbe set_batch_last
-    mov bx, 127
-    jmp short set_batch_common
-set_batch_last:
-    mov bx, cx
-set_batch_common:
+    ; Save current VGA cursor position for dot printing
+    mov ax, di
+    shr ax, 1                           ; convert to character position
+    movzx eax, ax                       ; zero-extend to 32-bit
+    mov [vga_cursor], eax               ; store as dword
+
+    ; Initialize chunk loop
+    mov dword [cur_lba], KERNEL_START_LBA
+    mov word [sectors_remaining], KERNEL_SECTORS
+    mov dword [dest_offset], 0
+
+chunk_loop:
     ; --------------------------------------------------------
-    ; Prepare DAP for this batch
+    ; Determine chunk size
     ; --------------------------------------------------------
-    ; Compute segment:offset of dest_phys
-    mov eax, [dest_phys]        ; 32-bit physical address
-    mov dx, ax                  ; low 16 bits
-    and dx, 0x000F              ; offset = low 4 bits
-    shr eax, 4                  ; segment = phys >> 4
+    mov cx, [sectors_remaining]
+    cmp cx, CHUNK_SECTORS
+    jbe last_chunk
+    mov cx, CHUNK_SECTORS
+last_chunk:
+    mov [current_chunk_size], cx
 
-    mov [dap_offset],  dx
-    mov [dap_segment], ax
-    mov [dap_sectors], bx
-
-    mov eax, [cur_lba]
-    mov [dap_lba_low],  eax
-    mov dword [dap_lba_high], 0
-
-    ; DS is 0, so SI = offset of dap is fine
-    mov si, dap
-    mov ah, 0x42                ; extended read
-    mov dl, [boot_drive]
-    int 0x13
+    ; --------------------------------------------------------
+    ; Read chunk to temp buffer
+    ; --------------------------------------------------------
+    call read_chunk_to_temp
     jc read_error
 
     ; --------------------------------------------------------
-    ; Advance dest_phys += batch * 512
+    ; Switch to protected mode and copy chunk
+    ; --------------------------------------------------------
+    cli
+    call make_gdt_descriptor
+    lgdt [gdt_ptr]
+
+    mov eax, cr0
+    or  eax, 1
+    mov cr0, eax
+
+    jmp CODE_SEG:copy_chunk_pm
+
+copy_chunk_return:
+    ; Back from protected mode
+
+    ; --------------------------------------------------------
+    ; Update for next chunk
     ; --------------------------------------------------------
     xor eax, eax
-    mov ax, bx                  ; batch count
-    shl eax, 9                  ; * 512
-    mov edx, [dest_phys]
-    add edx, eax
-    mov [dest_phys], edx
+    mov ax, [current_chunk_size]
 
-    ; cur_lba += batch
-    mov eax, [cur_lba]
-    xor edx, edx
-    mov dx, bx
-    add eax, edx
-    mov [cur_lba], eax
+    ; dest_offset += chunk_size * 512
+    shl eax, 9                          ; * 512
+    add [dest_offset], eax
 
-    ; remaining sectors -= batch
-    sub cx, bx
-    jnz read_lba_loop
+    ; cur_lba += chunk_size
+    shr eax, 9                          ; back to sectors
+    add [cur_lba], eax
 
-    ; done
+    ; sectors_remaining -= chunk_size
+    mov ax, [current_chunk_size]
+    sub [sectors_remaining], ax
+
+    ; Continue if more sectors remain
+    cmp word [sectors_remaining], 0
+    jne chunk_loop
+
+    ; --------------------------------------------------------
+    ; All chunks loaded - move to new line
+    ; --------------------------------------------------------
+    mov ax, 0xB800
+    mov es, ax
+    mov eax, [vga_cursor]
+    shl eax, 1                          ; convert back to byte offset
+    mov di, ax
+    call newline
+
     mov si, msg_done
     call print_str
     call newline
-    jmp after_read
 
-disk_reset_fail:
-    mov si, msg_reset_fail
-    call print_str
-    call newline
-    jmp hang
-
-read_error:
-    mov si, msg_read_fail
-    call print_str
-    call newline
-    jmp hang
-
-after_read:
-    ; --------------------------------------------------------------------
-    ; Enter protected mode
-    ; --------------------------------------------------------------------
+    ; --------------------------------------------------------
+    ; Enter protected mode for final hang
+    ; --------------------------------------------------------
     mov si, msg_pm
     call print_str
     call newline
@@ -179,166 +175,300 @@ after_read:
     or  eax, 1
     mov cr0, eax
 
-    jmp CODE_SEG:kernel_start
+    jmp CODE_SEG:final_hang
+
+; ========================================================================
+; read_chunk_to_temp - Read current chunk to KERNEL_LOAD_TEMP
+; ========================================================================
+read_chunk_to_temp:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    mov cx, [current_chunk_size]       ; total sectors for this chunk
+    xor di, di                          ; byte offset into temp buffer
+
+.read_loop:
+    ; Determine batch size (max 127 sectors)
+    cmp cx, 127
+    jbe .last_batch
+    mov bx, 127
+    jmp .do_batch
+.last_batch:
+    mov bx, cx
+
+.do_batch:
+    ; Calculate physical destination address: KERNEL_LOAD_TEMP + di
+    mov eax, KERNEL_LOAD_TEMP
+    movzx edx, di
+    add eax, edx
+
+    ; Convert to segment:offset
+    mov dx, ax
+    and dx, 0x000F                      ; offset = low 4 bits
+    shr eax, 4                          ; segment = addr >> 4
+
+    mov [dap_offset], dx
+    mov [dap_segment], ax
+    mov [dap_sectors], bx
+
+    ; LBA = cur_lba
+    mov eax, [cur_lba]
+    mov [dap_lba_low], eax
+    mov dword [dap_lba_high], 0
+
+    ; Execute read
+    mov si, dap
+    mov ah, 0x42
+    mov dl, [boot_drive]
+    int 0x13
+    jc .error
+
+    ; Advance cur_lba by the batch we just read
+    movzx eax, bx
+    add [cur_lba], eax
+
+    ; Advance offset in temp buffer
+    mov ax, bx
+    shl ax, 9                           ; * 512
+    add di, ax
+
+    ; Continue batch loop
+    sub cx, bx
+    jnz .read_loop
+
+    clc                                 ; success
+    jmp .done
+
+.error:
+    stc                                 ; error flag
+
+.done:
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
 
 ; ========================================================================
 ; Helper routines (real mode)
 ; ========================================================================
 
-; print_str: DS:SI -> ES:DI, prints null-terminated string
 print_str:
     push ax
-print_str_loop:
+.loop:
     lodsb
     test al, al
-    jz print_str_done
+    jz .done
     mov ah, 0x07
     stosw
-    jmp print_str_loop
-print_str_done:
+    jmp .loop
+.done:
     pop ax
     ret
 
-; newline: move DI to start of next VGA row
-; DI = byte offset, 2 bytes per cell, 80 cells per row
 newline:
     push ax
     push bx
     push dx
 
-    mov ax, di            ; ax = current byte offset
-    shr ax, 1             ; cells = di / 2
+    mov ax, di
+    shr ax, 1
     mov bx, 80
     xor dx, dx
-    div bx                ; ax = row, dx = col
-    inc ax                ; next row
+    div bx
+    inc ax
     cmp ax, 25
-    jb nl_ok_row
-    mov ax, 24            ; clamp to last row
-nl_ok_row:
-    mov bx, 160           ; 80 columns * 2 bytes
-    mul bx                ; DX:AX = row * 160
-    mov di, ax            ; new byte offset at col 0
+    jb .ok_row
+    mov ax, 24
+.ok_row:
+    mov bx, 160
+    mul bx
+    mov di, ax
 
     pop dx
     pop bx
     pop ax
     ret
 
-; build proper 6-byte GDT descriptor (limit + 32-bit base)
 make_gdt_descriptor:
     mov ax, gdt_end - gdt_start - 1
-    mov [gdt_ptr], ax             ; limit
+    mov [gdt_ptr], ax
     mov eax, gdt_start
-    mov [gdt_ptr + 2], eax        ; base (32-bit)
+    mov [gdt_ptr + 2], eax
     ret
 
-; hang forever
 hang:
     cli
     hlt
     jmp hang
 
+disk_reset_fail:
+    mov si, msg_reset_fail
+    call print_str
+    call newline
+    jmp hang
+
+read_error:
+    mov ax, 0xB800
+    mov es, ax
+    mov eax, [vga_cursor]
+    shl eax, 1
+    mov di, ax
+    call newline
+    mov si, msg_read_fail
+    call print_str
+    call newline
+    jmp hang
+
 ; ========================================================================
-; Stage 2 — Protected mode
+; Protected mode code
 ; ========================================================================
 bits 32
-kernel_start:
+
+; Copy current chunk from temp to final location and print dot
+copy_chunk_pm:
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
     mov ss, ax
-    mov esp, KERNEL_STACK_TOP_VA
 
-    ; copy kernel from temp to 1 MiB
+    ; Calculate copy size
+    xor ecx, ecx
+    mov cx, [current_chunk_size]
+    shl ecx, 9                          ; * 512
+    shr ecx, 2                          ; / 4 for dwords
+
+    ; Setup copy
     mov esi, KERNEL_LOAD_TEMP
     mov edi, KERNEL_LOAD_ADDR
-    mov ecx, KERNEL_SIZE_BYTES / 4
+    add edi, [dest_offset]
+
     rep movsd
 
-    ; Jump directly to _kpremain at start of kernel image
-    ; With new layout: premain is first, so _kpremain is at KERNEL_LOAD_ADDR
-    jmp PREMAIN_PA
+    ; Print progress dot to VGA
+    mov edi, [vga_cursor]               ; load character position
+    mov ax, 0x0E2E                      ; bright white dot
+    mov [0xB8000 + edi*2], ax
+    inc edi
+    mov [vga_cursor], edi
 
-; ========================================================================
-; GDT entry helpers
-; ========================================================================
-;   GDT_ENTRY base, limit, access, flags
-;   - base  : 32-bit base address
-;   - limit : 20-bit limit (will be truncated)
-;   - access: access byte (e.g. 0x9A code, 0x92 data)
-;   - flags : high 4 bits (e.g. 0xC = 4K granularity + 32-bit)
-%macro GDT_ENTRY 4
-    dw  %2 & 0xFFFF                       ; limit low
-    dw  %1 & 0xFFFF                       ; base low
-    db  (%1 >> 16) & 0xFF                 ; base mid
-    db  %3                                ; access
-    db  ((%2 >> 16) & 0x0F) | ((%4 & 0x0F) << 4) ; limit high + flags
-    db  (%1 >> 24) & 0xFF                 ; base high
-%endmacro
+    ; Return to real mode
+    jmp CODE_SEG_16:return_to_real
 
-%define GDT_FLAG_GRAN_4K   0x8
-%define GDT_FLAG_32BIT     0x4
-%define GDT_FLAGS_FLAT     (GDT_FLAG_GRAN_4K | GDT_FLAG_32BIT) ; 0xC
+bits 16
+return_to_real:
+    mov ax, DATA_SEG_16
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
 
-%define GDT_ACCESS_CODE    0x9A   ; present, ring 0, code, exec/read
-%define GDT_ACCESS_DATA    0x92   ; present, ring 0, data, read/write
+    mov eax, cr0
+    and eax, 0xFFFFFFFE                 ; clear PE bit
+    mov cr0, eax
+
+    jmp 0x0000:copy_chunk_return_real
+
+copy_chunk_return_real:
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    jmp copy_chunk_return
+
+bits 32
+final_hang:
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    mov esp, KERNEL_STACK_TOP_VA
+
+.loop:
+    hlt
+    jmp .loop
 
 ; ========================================================================
 ; GDT
 ; ========================================================================
+%macro GDT_ENTRY 4
+    dw  %2 & 0xFFFF
+    dw  %1 & 0xFFFF
+    db  (%1 >> 16) & 0xFF
+    db  %3
+    db  ((%2 >> 16) & 0x0F) | ((%4 & 0x0F) << 4)
+    db  (%1 >> 24) & 0xFF
+%endmacro
+
+%define GDT_FLAGS_FLAT     0xC
+%define GDT_ACCESS_CODE    0x9A
+%define GDT_ACCESS_DATA    0x92
+
+bits 16
 gdt_start:
-    ; Null descriptor
     dq 0
-
-    ; Code segment: base=0, limit=0xFFFFF (4 GiB with 4K granularity)
-    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_CODE, GDT_FLAGS_FLAT
-
-    ; Data segment: base=0, limit=0xFFFFF (4 GiB with 4K granularity)
-    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_DATA, GDT_FLAGS_FLAT
+    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_CODE, GDT_FLAGS_FLAT    ; 32-bit code
+    GDT_ENTRY 0, 0x000FFFFF, GDT_ACCESS_DATA, GDT_FLAGS_FLAT    ; 32-bit data
+    GDT_ENTRY 0, 0x0000FFFF, 0x9A, 0x0                          ; 16-bit code
+    GDT_ENTRY 0, 0x0000FFFF, 0x92, 0x0                          ; 16-bit data
 gdt_end:
 
 gdt_ptr:
-    dw 0                        ; limit
-    dd 0                        ; base
+    dw 0
+    dd 0
 
-CODE_SEG equ 0x08
-DATA_SEG equ 0x10
+CODE_SEG    equ 0x08
+DATA_SEG    equ 0x10
+CODE_SEG_16 equ 0x18
+DATA_SEG_16 equ 0x20
 
 ; ========================================================================
-; Disk Address Packet (for INT 13h AH=42h)
+; Disk Address Packet
 ; ========================================================================
 dap:
-    db 0x10                     ; size of packet (16 bytes)
-    db 0x00                     ; reserved
+    db 0x10
+    db 0x00
 dap_sectors:
-    dw 0                        ; number of sectors for this call
+    dw 0
 dap_offset:
-    dw 0                        ; buffer offset
+    dw 0
 dap_segment:
-    dw 0                        ; buffer segment
+    dw 0
 dap_lba_low:
-    dd 0                        ; starting LBA (low dword)
+    dd 0
 dap_lba_high:
-    dd 0                        ; starting LBA (high dword, unused here)
+    dd 0
 
-dest_phys   dd 0                ; current physical destination address
-cur_lba     dd 0                ; current LBA
+; ========================================================================
+; Variables
+; ========================================================================
+cur_lba              dd 0
+dest_offset          dd 0
+sectors_remaining    dw 0
+current_chunk_size   dw 0
+vga_cursor           dd 0
+boot_drive           db 0
 
 ; ========================================================================
 ; Messages
 ; ========================================================================
-msg_intro      db 'PUnix loader starting...',0
-msg_reset      db 'Resetting disk... ',0
-msg_reset_fail db 'Disk reset failed!',0
-msg_ok         db 'OK',0
-msg_reading    db 'Reading kernel from disk (LBA)...',0
-msg_done       db 'Kernel read complete.',0
-msg_read_fail  db 'Disk read failed!',0
-msg_pm         db 'Entering protected mode...',0
-
-boot_drive db 0
+msg_intro       db 'PUnix chunked loader starting...',0
+msg_reset       db 'Resetting disk... ',0
+msg_reset_fail  db 'Disk reset failed!',0
+msg_ok          db 'OK',0
+msg_reading     db 'Reading kernel from disk (2MB, chunked):',0
+msg_progress    db 'Progress: ',0
+msg_done        db 'Kernel load complete (32 chunks).',0
+msg_read_fail   db 'Disk read failed!',0
+msg_pm          db 'Hanging in protected mode...',0
 
 times 1024 - ($ - $$) db 0
