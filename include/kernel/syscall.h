@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include "dirent.h"
 #include "kernel/constants.h"
-#include "kernel/cpu_ctx.h"
 
 
 #define SYS_exit            1
@@ -36,7 +35,6 @@ typedef struct kernel_entry
       // the function to enter the kernel
     sys_enter_fn_t sys_enter;
 
-    struct cpu_ctx k_cpu_ctx;
 };
 
 #define KERNEL_ENTRY_ADDR       KERNEL_VA_BASE
