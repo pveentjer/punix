@@ -506,21 +506,21 @@ int printf(const char *fmt, ...)
     return len;
 }
 
-extern uint32_t syscall_0(uint32_t nr);
+extern uint32_t __syscall0(uint32_t nr);
 
-extern uint32_t syscall_1(uint32_t nr, uint32_t a1);
+extern uint32_t __syscall1(uint32_t nr, uint32_t a1);
 
-extern uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2);
+extern uint32_t __syscall2(uint32_t nr, uint32_t a1, uint32_t a2);
 
-extern uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3);
+extern uint32_t __syscall3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3);
 
-extern uint32_t syscall_4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4);
+extern uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4);
 
 extern uint32_t syscall_5(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5);
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
-    return (ssize_t)syscall_3(SYS_write,
+    return (ssize_t)__syscall3(SYS_write,
                               (uint32_t)fd,
                               (uint32_t)buf,
                               (uint32_t)count);
@@ -528,7 +528,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 
 ssize_t read(int fd, void *buf, size_t count)
 {
-    return (ssize_t)syscall_3(SYS_read,
+    return (ssize_t)__syscall3(SYS_read,
                               (uint32_t)fd,
                               (uint32_t)buf,
                               (uint32_t)count);
@@ -536,40 +536,40 @@ ssize_t read(int fd, void *buf, size_t count)
 
 pid_t getpid(void)
 {
-    return (pid_t)syscall_0(SYS_getpid);
+    return (pid_t)__syscall0(SYS_getpid);
 }
 
 void sched_yield(void)
 {
-    (void)syscall_0(SYS_sched_yield);
+    (void)__syscall0(SYS_sched_yield);
 }
 
 void exit(int status)
 {
-    (void)syscall_1(SYS_exit, (uint32_t)status);
+    (void)__syscall1(SYS_exit, (uint32_t)status);
 }
 
 int kill(pid_t pid, int sig)
 {
-    return (int)syscall_2(SYS_kill,
+    return (int)__syscall2(SYS_kill,
                           (uint32_t)pid,
                           (uint32_t)sig);
 }
 
 int nice(int inc)
 {
-    return (int)syscall_1(SYS_nice, (uint32_t)inc);
+    return (int)__syscall1(SYS_nice, (uint32_t)inc);
 }
 
 int setctty(int tty_id)
 {
-    return (int)syscall_1(SYS_setctty, (uint32_t)tty_id);
+    return (int)__syscall1(SYS_setctty, (uint32_t)tty_id);
 }
 
 
 pid_t waitpid(pid_t pid, int *status, int options)
 {
-    return (pid_t)syscall_3(SYS_waitpid,
+    return (pid_t)__syscall3(SYS_waitpid,
                             (uint32_t)pid,
                             (uint32_t)status,
                             (uint32_t)options);
@@ -582,12 +582,12 @@ pid_t wait(int *status)
 
 pid_t fork(void)
 {
-    return (pid_t)syscall_0(SYS_fork);
+    return (pid_t)__syscall0(SYS_fork);
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
-    return (int)syscall_3(SYS_execve,
+    return (int)__syscall3(SYS_execve,
                           (uint32_t)pathname,
                           (uint32_t)argv,
                           (uint32_t)envp);
@@ -595,7 +595,7 @@ int execve(const char *pathname, char *const argv[], char *const envp[])
 
 int open(const char *pathname, int flags, int mode)
 {
-    return (int)syscall_3(SYS_open,
+    return (int)__syscall3(SYS_open,
                           (uint32_t)pathname,
                           (uint32_t)flags,
                           (uint32_t)mode);
@@ -603,12 +603,12 @@ int open(const char *pathname, int flags, int mode)
 
 int close(int fd)
 {
-    return (int)syscall_1(SYS_close, (uint32_t)fd);
+    return (int)__syscall1(SYS_close, (uint32_t)fd);
 }
 
 int getdents(int fd, struct dirent *buf, unsigned int count)
 {
-    return (int)syscall_3(SYS_getdents,
+    return (int)__syscall3(SYS_getdents,
                           (uint32_t)fd,
                           (uint32_t)buf,
                           (uint32_t)count);
@@ -616,12 +616,12 @@ int getdents(int fd, struct dirent *buf, unsigned int count)
 
 int chdir(const char *path)
 {
-    return (int)syscall_1(SYS_chdir, (uint32_t)path);
+    return (int)__syscall1(SYS_chdir, (uint32_t)path);
 }
 
 char *getcwd(char *buf, size_t size)
 {
-    return (char *)syscall_2(SYS_getcwd,
+    return (char *)__syscall2(SYS_getcwd,
                              (uint32_t)buf,
                              (uint32_t)size);
 }
@@ -630,7 +630,7 @@ void *__curbrk = 0;
 
 int brk(void *addr)
 {
-    return (int)syscall_1(SYS_brk, (uint32_t)addr);
+    return (int)__syscall1(SYS_brk, (uint32_t)addr);
 }
 
 void *sbrk(intptr_t increment)
@@ -640,7 +640,7 @@ void *sbrk(intptr_t increment)
     if (increment != 0)
     {
         void *new_brk = (char *)old_brk + increment;
-        int rc = (int)syscall_1(SYS_brk, (uint32_t)new_brk);
+        int rc = (int)__syscall1(SYS_brk, (uint32_t)new_brk);
 
         if (rc == 0)
             __curbrk = new_brk;
@@ -653,7 +653,7 @@ void *sbrk(intptr_t increment)
 
 int clock_gettime(clockid_t clk_id, struct timespec *tp)
 {
-    return (int)syscall_2(SYS_clock_gettime,
+    return (int)__syscall2(SYS_clock_gettime,
                           (uint32_t)clk_id,
                           (uint32_t)tp);
 }

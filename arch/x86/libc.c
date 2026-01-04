@@ -14,7 +14,7 @@
  *   EAX = ret
  * ------------------------------------------------------------------ */
 
-uint32_t syscall_0(uint32_t nr)
+uint32_t __syscall0(uint32_t nr)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -31,7 +31,7 @@ uint32_t syscall_0(uint32_t nr)
     return eax;
 }
 
-uint32_t syscall_1(uint32_t nr, uint32_t a1)
+uint32_t __syscall1(uint32_t nr, uint32_t a1)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -48,7 +48,7 @@ uint32_t syscall_1(uint32_t nr, uint32_t a1)
     return eax;
 }
 
-uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
+uint32_t __syscall2(uint32_t nr, uint32_t a1, uint32_t a2)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -65,7 +65,7 @@ uint32_t syscall_2(uint32_t nr, uint32_t a1, uint32_t a2)
     return eax;
 }
 
-uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
+uint32_t __syscall3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
@@ -84,7 +84,7 @@ uint32_t syscall_3(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3)
 }
 
 
-uint32_t syscall_4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4)
+uint32_t __syscall4(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4)
 {
     sys_enter_fn_t fn = sys_enter_fn();
 
