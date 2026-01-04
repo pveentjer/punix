@@ -4,7 +4,6 @@
 
 #include <stdint.h>
 #include "errno.h"
-#include "kernel/syscall.h"
 
 /* ------------------------------------------------------------------
  * Syscall helpers (x86-32 Linux-style register ABI, up to 4 args)
@@ -18,6 +17,24 @@
  * Return:
  *   EAX = ret
  * ------------------------------------------------------------------ */
+
+typedef uint32_t (*sys_enter_fn_t)(void);
+
+typedef struct kernel_entry
+{
+    // the function to enter the kernel
+    sys_enter_fn_t sys_enter;
+
+};
+
+#define KERNEL_ENTRY_ADDR       KERNEL_VA_BASE
+
+#define KERNEL_ENTRY ((const struct kernel_entry *)KERNEL_ENTRY_ADDR)
+
+static inline sys_enter_fn_t sys_enter_fn(void)
+{
+    return KERNEL_ENTRY->sys_enter;
+}
 
 static inline long __syscall0(long nr)
 {
@@ -115,6 +132,8 @@ static inline long __syscall6(long nr, long a1, long a2, long a3, long a4, long 
 {
     return -ENOSYS;
 }
+
+
 
 #define VDSO_USEFUL
 #define VDSO_CGT32_SYM "__vdso_clock_gettime"
