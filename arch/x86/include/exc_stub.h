@@ -11,21 +11,6 @@ void idt_set_gate(uint8_t num, uint32_t handler,
 #define XSTR(x) STR(x)
 
 /* ------------------------------------------------------------
- * Exceptions WITHOUT error code
- * C handler signature: void handler(void)
- * ------------------------------------------------------------ */
-#define MAKE_EXC_STUB_NOERR(stub_name, handler_fn)                  \
-    __attribute__((naked)) void stub_name(void)                     \
-    {                                                               \
-        __asm__ volatile(                                           \
-            "pushal\n\t"                                            \
-            "call " #handler_fn "\n\t"                              \
-            "popal\n\t"                                             \
-            "iret\n\t"                                              \
-        );                                                          \
-    }
-
-/* ------------------------------------------------------------
  * Exceptions WITH error code (e.g., #PF, #GP, #SS, #NP, #TS, #DF)
  * CPU pushes: error_code, eip, cs, eflags
  * After pushal (32 bytes), error_code is at [esp+32].
