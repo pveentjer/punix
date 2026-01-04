@@ -1,9 +1,7 @@
 #ifndef SYSCALL_ARCH_H
 #define SYSCALL_ARCH_H
 
-
 #include <stdint.h>
-#include "errno.h"
 
 /* ------------------------------------------------------------------
  * Syscall helpers (x86-32 Linux-style register ABI, up to 4 args)
@@ -17,6 +15,7 @@
  * Return:
  *   EAX = ret
  * ------------------------------------------------------------------ */
+#define ENOSYS          38  /* Function not implemented */
 
 typedef uint32_t (*sys_enter_fn_t)(void);
 
