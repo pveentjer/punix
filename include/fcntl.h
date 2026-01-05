@@ -4,9 +4,9 @@
 #include <stddef.h>   // for size_t
 typedef long ssize_t;
 // POSIX-style fd numbers
-#define FD_STDIN   0
-#define FD_STDOUT  1
-#define FD_STDERR  2
+#define STDIN_FILENO   0
+#define STDOUT_FILENO  1
+#define STDERR_FILENO  2
 
 // open() flags (minimal subset)
 #define O_RDONLY   0x0

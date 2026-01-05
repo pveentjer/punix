@@ -12,7 +12,7 @@ int main(void)
      */
     const char *seq = "\033[H\033[2J\033[3J";
 
-    write(FD_STDOUT, seq, strlen(seq));
+    write(STDOUT_FILENO, seq, strlen(seq));
 
     return 0;
 }

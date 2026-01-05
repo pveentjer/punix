@@ -255,17 +255,17 @@ static void load_history_entry(char *line, size_t *len, int new_index)
 
     strcpy(line, history[new_index]);
     *len = strlen(line);
-    write(FD_STDOUT, line, *len);
+    write(STDOUT_FILENO, line, *len);
 }
 
 /* handle arrow key escape sequences */
 static int handle_escape_sequence(char *line, size_t *len)
 {
     char seq1, seq2;
-    ssize_t n1 = read(FD_STDIN, &seq1, 1);
+    ssize_t n1 = read(STDIN_FILENO, &seq1, 1);
     if (n1 <= 0)
         return 0;
-    ssize_t n2 = read(FD_STDIN, &seq2, 1);
+    ssize_t n2 = read(STDIN_FILENO, &seq2, 1);
     if (n2 <= 0)
         return 0;
 
@@ -1079,7 +1079,7 @@ int main(int argc, char **argv)
             case STATE_READ:
             {
                 char c;
-                ssize_t n = read(FD_STDIN, &c, 1);
+                ssize_t n = read(STDIN_FILENO, &c, 1);
                 if (n <= 0)
                     break;
 
@@ -1093,7 +1093,7 @@ int main(int argc, char **argv)
                 if (c == '\r' || c == '\n')
                 {
                     line[len] = '\0';
-                    write(FD_STDOUT, "\n", 1);
+                    write(STDOUT_FILENO, "\n", 1);
                     state = STATE_PARSE;
                     break;
                 }
@@ -1103,7 +1103,7 @@ int main(int argc, char **argv)
                     if (len > 0)
                     {
                         len--;
-                        write(FD_STDOUT, "\b \b", 3);
+                        write(STDOUT_FILENO, "\b \b", 3);
                     }
                     break;
                 }
@@ -1111,7 +1111,7 @@ int main(int argc, char **argv)
                 if (len < sizeof(line) - 1)
                 {
                     line[len++] = c;
-                    write(FD_STDOUT, &c, 1);
+                    write(STDOUT_FILENO, &c, 1);
                 }
                 break;
             }

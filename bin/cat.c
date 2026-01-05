@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     if (argc == 1)
     {
         // No file given — read from stdin
-        fd = FD_STDIN;
+        fd = STDIN_FILENO;
     }
     else
     {
@@ -58,10 +58,10 @@ int main(int argc, char **argv)
 
     while ((n = read(fd, buf, BUF_SIZE)) > 0)
     {
-        write(FD_STDOUT, buf, (size_t) n);
+        write(STDOUT_FILENO, buf, (size_t) n);
     }
 
-    if (fd != FD_STDIN)
+    if (fd != STDIN_FILENO)
     {
         close(fd);
     }
