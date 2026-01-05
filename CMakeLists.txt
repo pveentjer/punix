@@ -232,13 +232,31 @@ add_custom_command(
 )
 
 # ------------------------------------------------------------
+# Userland crt0 (_start) -> crt0_i386.o
+# ------------------------------------------------------------
+set(CRT0_SRC ${BIN_DIR}/crt0_i386.asm)
+set(CRT0_OBJ ${BUILD_DIR}/crt0_i386.o)
+
+add_custom_command(
+        OUTPUT ${CRT0_OBJ}
+        COMMAND ${NASM_EXECUTABLE} -f elf32 ${CRT0_SRC} -o ${CRT0_OBJ}
+        DEPENDS ${CRT0_SRC}
+        WORKING_DIRECTORY ${BUILD_DIR}
+        COMMENT "Building crt0_i386.o"
+)
+
+add_custom_target(crt0 DEPENDS ${CRT0_OBJ})
+
+# ------------------------------------------------------------
 # Helper: build & embed a binary
 # ------------------------------------------------------------
 function(add_bin name)
     add_executable(${name}.elf
+            ${CRT0_OBJ}
             ${BIN_DIR}/${name}.c
             ${LIBS_DIR}/libc.c
     )
+    add_dependencies(${name}.elf crt0)
 
     target_compile_options(${name}.elf PRIVATE
             -ffreestanding
@@ -259,8 +277,7 @@ function(add_bin name)
             -nostdlib
             -no-pie
             -Wl,-T,${CMAKE_SOURCE_DIR}/bin.ld
-            -Wl,-e,main
-            -Wl,-u,main
+            -Wl,-e,_start
             -Wl,--gc-sections
             -Wl,--build-id=none
             -Wl,--no-dynamic-linker

@@ -6,17 +6,27 @@ global ctx_switch
 global ctx_setup_trampoline
 global task_trampoline
 global ctx_setup_fork_return
+
 extern sys_return
 
 extern sched_current
 extern vfs_open
 extern sched_exit
-extern vfs
 
 %define OFF_U_ESP  0
 %define OFF_K_ESP  4
+
 %define O_RDONLY   0
 %define O_WRONLY   1
+
+; Linux i386 auxv types we provide minimally
+%define AT_NULL    0
+%define AT_PAGESZ  6
+%define AT_UID     11
+%define AT_EUID    12
+%define AT_GID     13
+%define AT_EGID    14
+%define AT_SECURE  23
 
 ; ============================================================
 ; void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx,
@@ -27,146 +37,215 @@ extern vfs
 ; ============================================================
 ctx_setup_trampoline:
     push ebp
-    mov ebp, esp
+    mov  ebp, esp
 
-    ; args (cdecl)
     ; [ebp+8]  = cpu_ctx
     ; [ebp+12] = entry_addr
     ; [ebp+16] = argc
     ; [ebp+20] = heap_argv
-    ; [ebp+24] = heap_envp (not used)
+    ; [ebp+24] = heap_envp
 
-    mov eax, [ebp+8]         ; cpu_ctx*
-    mov edi, [eax + OFF_K_ESP]  ; Load kernel stack top
+    mov esi, [ebp+8]              ; esi = cpu_ctx*
+    mov edi, [esi + OFF_K_ESP]    ; edi = kernel stack top
 
-    ; Build kernel stack frame (working downward)
-    ; Push arguments for task_trampoline (in reverse for cdecl)
+    ; Push args for task_trampoline(entry, argc, argv, envp) (cdecl, reverse)
+    sub edi, 4
+    mov edx, [ebp+24]
+    mov [edi], edx                ; envp
 
     sub edi, 4
     mov edx, [ebp+20]
-    mov [edi], edx           ; argv (3rd param)
+    mov [edi], edx                ; argv
 
     sub edi, 4
     mov edx, [ebp+16]
-    mov [edi], edx           ; argc (2nd param)
+    mov [edi], edx                ; argc
 
     sub edi, 4
     mov edx, [ebp+12]
-    mov [edi], edx           ; entry_addr (1st param)
+    mov [edi], edx                ; entry
 
-    ; Dummy return address for task_trampoline's stack frame
+    ; Dummy return address for task_trampoline's frame
     sub edi, 4
     mov dword [edi], 0
 
-    ; Return address - where ctx_switch will ret to
+    ; Return address where ctx_switch will ret to
     sub edi, 4
     mov edx, task_trampoline
     mov [edi], edx
 
-    ; CPU state that ctx_switch will restore
+    ; CPU state that ctx_switch will restore (must match ctx_switch pop order)
     sub edi, 4
-    mov dword [edi], 0x202   ; EFLAGS (IF=1)
+    mov dword [edi], 0x202        ; EFLAGS (IF=1)
 
     sub edi, 4
-    mov dword [edi], 0       ; EBP
+    mov dword [edi], 0            ; EBP
 
     sub edi, 4
-    mov dword [edi], 0       ; EDI
+    mov dword [edi], 0            ; EDI
 
     sub edi, 4
-    mov dword [edi], 0       ; ESI
+    mov dword [edi], 0            ; ESI
 
     sub edi, 4
-    mov dword [edi], 0       ; EBX
+    mov dword [edi], 0            ; EBX
 
     ; Save kernel ESP back to cpu_ctx
-    mov [eax + OFF_K_ESP], edi
+    mov [esi + OFF_K_ESP], edi
 
     pop ebp
     ret
 
 ; ============================================================
-; void task_trampoline(int (*entry)(int, char **), int argc, char **argv)
+; void task_trampoline(void *entry, int argc, char **argv, char **envp)
+;
+; Builds Linux-style _start stack on the user stack:
+;   argc, argv..., NULL, envp..., NULL, auxv..., AT_NULL
+;
+; Then jumps to entry (expected to be _start).
 ; ============================================================
 task_trampoline:
     push ebp
-    mov ebp, esp
-    sub esp, 16              ; Space for locals
+    mov  ebp, esp
+    sub  esp, 20                  ; locals
     push ebx
     push esi
     push edi
 
-    ; Save arguments
-    mov eax, [ebp + 8]       ; entry
+    ; Save args to locals
+    mov eax, [ebp + 8]            ; entry
     mov [ebp - 4], eax
-    mov eax, [ebp + 12]      ; argc
+    mov eax, [ebp + 12]           ; argc
     mov [ebp - 8], eax
-    mov eax, [ebp + 16]      ; argv
+    mov eax, [ebp + 16]           ; argv
     mov [ebp - 12], eax
+    mov eax, [ebp + 20]           ; envp
+    mov [ebp - 16], eax
 
-    ; Get current task
+    ; current task
     call sched_current
-    mov [ebp - 16], eax      ; save current
+    mov [ebp - 20], eax           ; current
 
-    ; vfs_open(current, "/dev/stdin", O_RDONLY, 0)
+    ; --- open stdin/stdout/stderr on kernel stack ---
+    mov eax, [ebp - 20]
+
     push dword 0
     push dword O_RDONLY
-    push .stdin_str
+    push stdin_str
     push eax
     call vfs_open
     add esp, 16
 
-    mov eax, [ebp - 16]
+    mov eax, [ebp - 20]
 
-    ; vfs_open(current, "/dev/stdout", O_WRONLY, 0)
     push dword 0
     push dword O_WRONLY
-    push .stdout_str
+    push stdout_str
     push eax
     call vfs_open
     add esp, 16
 
-    mov eax, [ebp - 16]
+    mov eax, [ebp - 20]
 
-    ; vfs_open(current, "/dev/stderr", O_WRONLY, 0)
     push dword 0
     push dword O_WRONLY
-    push .stderr_str
+    push stderr_str
     push eax
     call vfs_open
     add esp, 16
 
-    ; Get current and u_sp
-    mov edi, [ebp - 16]      ; current
-    mov ecx, [edi]           ; u_sp (first field in cpu_ctx)
+    ; --- switch to user stack ---
+    mov edi, [ebp - 20]           ; current
+    mov ecx, [edi + OFF_U_ESP]    ; user stack top
 
     ; Save kernel ESP
     mov ebx, esp
-    mov [edi + 4], ebx       ; save to k_esp
+    mov [edi + OFF_K_ESP], ebx
 
-    ; Switch to user stack
     mov esp, ecx
+    and esp, 0xFFFFFFF0           ; align down
 
-    ; Push arguments
-    push dword [ebp - 12]    ; argv
-    push dword [ebp - 8]     ; argc
+    ; Load saved args into regs
+    mov eax, [ebp - 4]            ; entry
+    mov ebx, [ebp - 8]            ; argc
+    mov edx, [ebp - 12]           ; argv
+    mov esi, [ebp - 16]           ; envp
 
-    ; Call entry
-    call [ebp - 4]
-    add esp, 8
+    ; ============================================================
+    ; Push auxv (reverse order so auxv[0] ends up first in memory)
+    ; ============================================================
 
-    ; Restore kernel stack
-    mov esp, ebx
+    ; AT_NULL, 0
+    push dword 0
+    push dword AT_NULL
 
-    ; Call sched_exit(exit_code)
-    push eax
-    call sched_exit
-    ; Never returns
+    ; AT_SECURE = 0
+    push dword 0
+    push dword AT_SECURE
+
+    ; AT_EGID = 0
+    push dword 0
+    push dword AT_EGID
+
+    ; AT_GID = 0
+    push dword 0
+    push dword AT_GID
+
+    ; AT_EUID = 0
+    push dword 0
+    push dword AT_EUID
+
+    ; AT_UID = 0
+    push dword 0
+    push dword AT_UID
+
+    ; AT_PAGESZ = 4096
+    push dword 4096
+    push dword AT_PAGESZ
+
+    ; ============================================================
+    ; Push envp[] pointers + NULL terminator (envp is NULL-terminated)
+    ; ============================================================
+    xor ecx, ecx
+.count_envp:
+    cmp dword [esi + ecx*4], 0
+    je  .push_envp
+    inc ecx
+    jmp .count_envp
+
+.push_envp:
+    push dword 0
+.push_envp_loop:
+    test ecx, ecx
+    jz   .envp_done
+    dec  ecx
+    push dword [esi + ecx*4]
+    jmp  .push_envp_loop
+.envp_done:
+
+    ; ============================================================
+    ; Push argv[] pointers + NULL terminator (argc known)
+    ; ============================================================
+    push dword 0
+    mov ecx, ebx
+.push_argv_loop:
+    test ecx, ecx
+    jz   .argv_done
+    dec  ecx
+    push dword [edx + ecx*4]
+    jmp  .push_argv_loop
+.argv_done:
+
+    ; Push argc
+    push ebx
+
+    ; Jump to entry (_start)
+    jmp eax
 
 section .rodata
-.stdin_str:  db '/dev/stdin', 0
-.stdout_str: db '/dev/stdout', 0
-.stderr_str: db '/dev/stderr', 0
+stdin_str:  db "/dev/stdin", 0
+stdout_str: db "/dev/stdout", 0
+stderr_str: db "/dev/stderr", 0
 
 section .text
 
@@ -177,26 +256,25 @@ section .text
 ; ============================================================
 ctx_switch:
     cli
-    mov eax, [esp + 4]      ; prev
-    mov edx, [esp + 8]      ; next
-    mov ecx, [esp + 12]     ; mm
+    mov eax, [esp + 4]            ; prev
+    mov edx, [esp + 8]            ; next
+    mov ecx, [esp + 12]           ; mm
 
-    ; PUSH registers onto prev's stack BEFORE saving ESP
+    ; Save prev regs onto its kernel stack
     push ebx
     push esi
     push edi
     push ebp
     pushfd
 
-    ; NOW save ESP (points to saved registers)
     mov [eax + OFF_K_ESP], esp
 
     ; Switch page directory
-    mov ecx, [ecx]          ; mm->impl
-    mov ecx, [ecx + 4]      ; mm_impl->pd_pa
+    mov ecx, [ecx]                ; mm->impl
+    mov ecx, [ecx + 4]            ; mm_impl->pd_pa
     mov cr3, ecx
 
-    ; Load next ESP and restore registers
+    ; Restore next regs from its kernel stack
     mov esp, [edx + OFF_K_ESP]
 
     popfd
@@ -209,44 +287,38 @@ ctx_switch:
     xor eax, eax
     ret
 
-
-
 ; ============================================================
 ; void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
 ; Sets up child's kernel stack to return to sys_return
 ; ============================================================
 ctx_setup_fork_return:
     push ebp
-    mov ebp, esp
+    mov  ebp, esp
 
-    mov eax, [ebp+8]         ; cpu_ctx*
-    mov edi, [eax + OFF_K_ESP]  ; Load kernel stack top
-
-    ; Build kernel stack for ctx_switch to restore
-    ; ctx_switch will: popfd, pop ebp, pop edi, pop esi, pop ebx, ret
+    mov eax, [ebp+8]              ; cpu_ctx*
+    mov edi, [eax + OFF_K_ESP]    ; kernel stack top
 
     ; Return address - where ctx_switch will ret to
     sub edi, 4
     mov edx, sys_return
     mov [edi], edx
 
-    ; Saved registers
+    ; Saved registers (match ctx_switch pop order)
     sub edi, 4
-    mov dword [edi], 0       ; EBX
+    mov dword [edi], 0            ; EBX
 
     sub edi, 4
-    mov dword [edi], 0       ; ESI
+    mov dword [edi], 0            ; ESI
 
     sub edi, 4
-    mov dword [edi], 0       ; EDI
+    mov dword [edi], 0            ; EDI
 
     sub edi, 4
-    mov dword [edi], 0       ; EBP
+    mov dword [edi], 0            ; EBP
 
     sub edi, 4
-    mov dword [edi], 0x202   ; EFLAGS (IF=1)
+    mov dword [edi], 0x202        ; EFLAGS (IF=1)
 
-    ; Save kernel ESP back to cpu_ctx
     mov [eax + OFF_K_ESP], edi
 
     pop ebp
