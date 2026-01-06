@@ -28,41 +28,44 @@ extern sched_exit
 %define AT_EGID    14
 %define AT_SECURE  23
 
+; struct trampoline layout (32-bit)
+%define TR_ENTRY     0    ; uint32_t main_addr
+%define TR_ARGC      4    ; int
+%define TR_ARGV      8    ; char **
+%define TR_ENVP      12   ; char **
+
 ; ============================================================
 ; void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx,
-;                           uint32_t entry_addr,
-;                           int argc,
-;                           char **heap_argv,
-;                           char **heap_envp);
+;                           const struct trampoline *tr);
 ; ============================================================
 ctx_setup_trampoline:
     push ebp
     mov  ebp, esp
 
     ; [ebp+8]  = cpu_ctx
-    ; [ebp+12] = entry_addr
-    ; [ebp+16] = argc
-    ; [ebp+20] = heap_argv
-    ; [ebp+24] = heap_envp
+    ; [ebp+12] = trampoline*
 
     mov esi, [ebp+8]              ; esi = cpu_ctx*
     mov edi, [esi + OFF_K_ESP]    ; edi = kernel stack top
 
+    mov eax, [ebp+12]             ; eax = trampoline*
+
     ; Push args for task_trampoline(entry, argc, argv, envp) (cdecl, reverse)
+
     sub edi, 4
-    mov edx, [ebp+24]
+    mov edx, [eax + TR_ENVP]
     mov [edi], edx                ; envp
 
     sub edi, 4
-    mov edx, [ebp+20]
+    mov edx, [eax + TR_ARGV]
     mov [edi], edx                ; argv
 
     sub edi, 4
-    mov edx, [ebp+16]
+    mov edx, [eax + TR_ARGC]
     mov [edi], edx                ; argc
 
     sub edi, 4
-    mov edx, [ebp+12]
+    mov edx, [eax + TR_ENTRY]
     mov [edi], edx                ; entry
 
     ; Dummy return address for task_trampoline's frame
@@ -204,7 +207,7 @@ task_trampoline:
     push dword AT_PAGESZ
 
     ; ============================================================
-    ; Push envp[] pointers + NULL terminator (envp is NULL-terminated)
+    ; Push envp[] pointers + NULL terminator
     ; ============================================================
     xor ecx, ecx
 .count_envp:
@@ -224,7 +227,7 @@ task_trampoline:
 .envp_done:
 
     ; ============================================================
-    ; Push argv[] pointers + NULL terminator (argc known)
+    ; Push argv[] pointers + NULL terminator
     ; ============================================================
     push dword 0
     mov ecx, ebx
@@ -260,7 +263,6 @@ ctx_switch:
     mov edx, [esp + 8]            ; next
     mov ecx, [esp + 12]           ; mm
 
-    ; Save prev regs onto its kernel stack
     push ebx
     push esi
     push edi
@@ -269,12 +271,10 @@ ctx_switch:
 
     mov [eax + OFF_K_ESP], esp
 
-    ; Switch page directory
-    mov ecx, [ecx]                ; mm->impl
-    mov ecx, [ecx + 4]            ; mm_impl->pd_pa
+    mov ecx, [ecx]
+    mov ecx, [ecx + 4]
     mov cr3, ecx
 
-    ; Restore next regs from its kernel stack
     mov esp, [edx + OFF_K_ESP]
 
     popfd
@@ -289,35 +289,28 @@ ctx_switch:
 
 ; ============================================================
 ; void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
-; Sets up child's kernel stack to return to sys_return
 ; ============================================================
 ctx_setup_fork_return:
     push ebp
     mov  ebp, esp
 
-    mov eax, [ebp+8]              ; cpu_ctx*
-    mov edi, [eax + OFF_K_ESP]    ; kernel stack top
+    mov eax, [ebp+8]
+    mov edi, [eax + OFF_K_ESP]
 
-    ; Return address - where ctx_switch will ret to
     sub edi, 4
     mov edx, sys_return
     mov [edi], edx
 
-    ; Saved registers (match ctx_switch pop order)
     sub edi, 4
     mov dword [edi], 0            ; EBX
-
     sub edi, 4
     mov dword [edi], 0            ; ESI
-
     sub edi, 4
     mov dword [edi], 0            ; EDI
-
     sub edi, 4
     mov dword [edi], 0            ; EBP
-
     sub edi, 4
-    mov dword [edi], 0x202        ; EFLAGS (IF=1)
+    mov dword [edi], 0x202        ; EFLAGS
 
     mov [eax + OFF_K_ESP], edi
 

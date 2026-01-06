@@ -10,15 +10,6 @@
 
 struct scheduler sched;
 
-void ctx_setup_trampoline(
-        struct cpu_ctx *cpu_ctx,
-        uint32_t main_addr,
-        int argc,
-        char **heap_argv,
-        char **heap_envp);
-
-void ctx_setup_fork_return(struct cpu_ctx *cpu_ctx);
-
 void task_init_cwd(struct task *task);
 
 /* ---------------- Run queue ---------------- */
@@ -316,7 +307,13 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         *curbrk_ptr = (char *) task->brk;
     }
 
-    ctx_setup_trampoline(&task->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
+    struct trampoline trampoline = {
+            .main_addr = main_addr,
+            .argc = argc_out,
+            .heap_argv = heap_argv,
+            .heap_envp = heap_envp,
+    };
+    ctx_setup_trampoline(&task->cpu_ctx, &trampoline);
 
     /* Switch back to kernel address space */
     mm_activate(mm_kernel());
@@ -552,7 +549,13 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     current->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
     /* Setup trampoline to jump to new program */
-    ctx_setup_trampoline(&current->cpu_ctx, main_addr, argc_out, heap_argv, heap_envp);
+    struct trampoline trampoline = {
+        .main_addr = main_addr,
+        .argc = argc_out,
+        .heap_argv = heap_argv,
+        .heap_envp = heap_envp,
+    };
+    ctx_setup_trampoline(&current->cpu_ctx, &trampoline);
 
     /* Reset signal state */
     current->signal.pending = 0;

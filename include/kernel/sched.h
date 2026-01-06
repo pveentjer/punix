@@ -29,6 +29,12 @@ struct signal{
     struct wait_queue wait_exit;
 };
 
+struct trampoline{
+    uint32_t main_addr;
+    int argc;
+    char **heap_argv;
+    char **heap_envp;
+};
 
 struct task
 {
@@ -134,19 +140,13 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[]);
 
 void sched_schedule(void);
 
-void sched_enqueue(
-        struct task *task);
+void sched_enqueue(struct task *task);
 
 pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
-void ctx_setup_trampoline(
-        struct cpu_ctx *cpu_ctx,
-        uint32_t main_addr,
-        int argc,
-        char **heap_argv,
-        char **heap_envp);
+void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx, const struct trampoline *trampoline);
 
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct mm *mm);
 
