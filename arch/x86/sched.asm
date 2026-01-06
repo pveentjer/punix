@@ -32,7 +32,8 @@ extern sched_exit
 %define TR_ENTRY     0    ; uint32_t main_addr
 %define TR_ARGC      4    ; int
 %define TR_ARGV      8    ; char **
-%define TR_ENVP      12   ; char **
+%define TR_ENVC      12   ; int
+%define TR_ENVP      16   ; char **
 
 ; ============================================================
 ; void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx,
@@ -50,7 +51,11 @@ ctx_setup_trampoline:
 
     mov eax, [ebp+12]             ; eax = trampoline*
 
-    ; Push args for task_trampoline(entry, argc, argv, envp) (cdecl, reverse)
+    ; Push args for task_trampoline(entry, argc, argv, envp, envc) (cdecl, reverse)
+
+    sub edi, 4
+    mov edx, [eax + TR_ENVC]
+    mov [edi], edx                ; envc
 
     sub edi, 4
     mov edx, [eax + TR_ENVP]
@@ -100,7 +105,7 @@ ctx_setup_trampoline:
     ret
 
 ; ============================================================
-; void task_trampoline(void *entry, int argc, char **argv, char **envp)
+; void task_trampoline(void *entry, int argc, char **argv, char **envp, int envc)
 ;
 ; Builds Linux-style _start stack on the user stack:
 ;   argc, argv..., NULL, envp..., NULL, auxv..., AT_NULL
@@ -110,7 +115,7 @@ ctx_setup_trampoline:
 task_trampoline:
     push ebp
     mov  ebp, esp
-    sub  esp, 20                  ; locals
+    sub  esp, 24                  ; locals
     push ebx
     push esi
     push edi
@@ -124,6 +129,8 @@ task_trampoline:
     mov [ebp - 12], eax
     mov eax, [ebp + 20]           ; envp
     mov [ebp - 16], eax
+    mov eax, [ebp + 24]           ; envc
+    mov [ebp - 24], eax
 
     ; current task
     call sched_current
@@ -173,6 +180,7 @@ task_trampoline:
     mov ebx, [ebp - 8]            ; argc
     mov edx, [ebp - 12]           ; argv
     mov esi, [ebp - 16]           ; envp
+    mov ecx, [ebp - 24]           ; envc
 
     ; ============================================================
     ; Push auxv (reverse order so auxv[0] ends up first in memory)
@@ -207,16 +215,8 @@ task_trampoline:
     push dword AT_PAGESZ
 
     ; ============================================================
-    ; Push envp[] pointers + NULL terminator
+    ; Push envp[] pointers + NULL terminator (envc provided)
     ; ============================================================
-    xor ecx, ecx
-.count_envp:
-    cmp dword [esi + ecx*4], 0
-    je  .push_envp
-    inc ecx
-    jmp .count_envp
-
-.push_envp:
     push dword 0
 .push_envp_loop:
     test ecx, ecx

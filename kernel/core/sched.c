@@ -162,10 +162,7 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
 
     heap_argv[argc] = NULL;
 
-    if (argc_out)
-    {
-        *argc_out = argc;
-    }
+    *argc_out = argc;
 
     return heap_argv;
 }
@@ -179,7 +176,7 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
  * ------------------------------------------------------------ */
 static char **task_init_env(struct task *task,
                             char **envp,
-                            uint32_t environ_off)
+                            uint32_t environ_off, int *envc_out)
 {
     int envc = 0;
     while (envp && envp[envc] != NULL)
@@ -188,7 +185,7 @@ static char **task_init_env(struct task *task,
     }
 
     /* Reserve space for envp pointer array */
-    char **task_heap_envp = (char **) task->brk;
+    char **heap_envp = (char **) task->brk;
     task->brk += sizeof(char *) * (envc + 1);
 
     /* Copy each string */
@@ -197,11 +194,11 @@ static char **task_init_env(struct task *task,
         size_t len = k_strlen(envp[i]) + 1; /* include '\0' */
         char *dst = (char *) task->brk;
         k_memcpy(dst, envp[i], len);
-        task_heap_envp[i] = dst;
+        heap_envp[i] = dst;
         task->brk += len;
     }
 
-    task_heap_envp[envc] = NULL;
+    heap_envp[envc] = NULL;
 
     /* Initialize program's global 'environ' if present */
     if (environ_off != 0)
@@ -209,10 +206,12 @@ static char **task_init_env(struct task *task,
         struct vma *vma = mm_find_vma_by_type(task->mm, VMA_TYPE_PROCESS);
         uintptr_t environ_va = vma->base_va + (uintptr_t) environ_off;
         char ***environ_ptr = (char ***) environ_va;
-        *environ_ptr = task_heap_envp;
+        *environ_ptr = heap_envp;
     }
 
-    return task_heap_envp;
+    *envc_out = envc;
+
+    return heap_envp;
 }
 
 void signal_init(struct signal *signal){
@@ -300,9 +299,10 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         return NULL;
     }
 
-    int argc_out = 0;
-    char **heap_argv = task_init_args(task, argv, &argc_out);
-    char **heap_envp = task_init_env(task, envp, environ_off);
+    int arc = 0;
+    char **heap_argv = task_init_args(task, argv, &arc);
+    int envc = 0;
+    char **heap_envp = task_init_env(task, envp, environ_off, &envc);
 
     if (elf_info.curbrk_off != 0)
     {
@@ -313,9 +313,10 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
 
     struct trampoline trampoline = {
             .main_addr = main_addr,
-            .argc = argc_out,
+            .argc = arc,
             .heap_argv = heap_argv,
             .heap_envp = heap_envp,
+            .envc = envc,
     };
     ctx_setup_trampoline(&task->cpu_ctx, &trampoline);
 
@@ -534,9 +535,10 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     }
 
     /* Setup args and environment */
-    int argc_out = 0;
-    char **heap_argv = task_init_args(current, (char **)argv, &argc_out);
-    char **heap_envp = task_init_env(current, (char **)envp, environ_off);
+    int argc = 0;
+    char **heap_argv = task_init_args(current, (char **)argv, &argc);
+    int envc = 0;
+    char **heap_envp = task_init_env(current, (char **)envp, environ_off, &envc);
 
     /* Initialize curbrk if present */
     if (elf_info.curbrk_off != 0)
@@ -552,9 +554,10 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     /* Setup trampoline to jump to new program */
     struct trampoline trampoline = {
         .main_addr = main_addr,
-        .argc = argc_out,
+        .argc = argc,
         .heap_argv = heap_argv,
         .heap_envp = heap_envp,
+        .envc = envc,
     };
     ctx_setup_trampoline(&current->cpu_ctx, &trampoline);
 

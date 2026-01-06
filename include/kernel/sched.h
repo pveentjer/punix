@@ -33,6 +33,7 @@ struct trampoline{
     uint32_t main_addr;
     int argc;
     char **heap_argv;
+    int envc;
     char **heap_envp;
 };
 
