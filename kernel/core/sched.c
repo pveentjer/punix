@@ -215,6 +215,12 @@ static char **task_init_env(struct task *task,
     return task_heap_envp;
 }
 
+void signal_init(struct signal *signal){
+    signal->pending = 0;
+    wait_queue_init(&signal->wait_exit);
+    wait_queue_init(&signal->wait_child);
+}
+
 /* ------------------------------------------------------------
  * task_kernel_exec
  *
@@ -255,14 +261,12 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     task->ctxt = 0;
     task->sys_call_cnt = 0;
     task->exit_status = 0;
-    task->signal.pending = 0;
     task->state = TASK_QUEUED;
     task->children = NULL;
     task->parent = task;  /* Init is its own parent */
     task->next_sibling = NULL;
 
-    wait_queue_init(&task->signal.wait_exit);
-    wait_queue_init(&task->signal.wait_child);
+    signal_init(&task->signal);
 
     task_init_tty(task, tty_id);
     task_init_cwd(task);
@@ -414,10 +418,7 @@ pid_t sched_fork(void)
 
 //    kprintf("3");
 
-    /* Initialize signals */
-    child->signal.pending = 0;
-    wait_queue_init(&child->signal.wait_exit);
-    wait_queue_init(&child->signal.wait_child);
+    signal_init(&child->signal);
 
     /* Initialize counters */
     child->ctxt = 0;
