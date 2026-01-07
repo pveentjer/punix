@@ -243,6 +243,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         return NULL;
     }
 
+    /* Initialize the stack */
     task->cpu_ctx.k_sp = (unsigned long) (task->kstack + KERNEL_STACK_SIZE);
     task->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
@@ -299,6 +300,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         *curbrk_ptr = (char *) task->brk;
     }
 
+    /* Setup the trampoline */
     struct trampoline trampoline = {.main_addr = main_addr};
     task_init_args(task, argv, &trampoline);
     task_init_env(task, envp, environ_off, &trampoline);
@@ -403,7 +405,6 @@ pid_t sched_fork(void)
     child->ctxt = 0;
     child->sys_call_cnt = 0;
 
-
     child->exit_status = 0;
 
     /* Copy user address space */
@@ -501,6 +502,7 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     /* Reset user stack pointer */
     current->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
+    /* Setup the trampoline */
     struct trampoline trampoline = {.main_addr = main_addr};
     task_init_args(current, (char **) argv, &trampoline);
     task_init_env(current, (char **) envp, environ_off, &trampoline);
