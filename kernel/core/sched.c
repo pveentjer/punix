@@ -268,11 +268,8 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
 
     /* Load ELF */
     const void *image = bin->start;
-    size_t image_size = (size_t) (bin->end - bin->start);
-
     struct elf_info elf_info;
-
-    if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
+    if (elf_load(image, &elf_info) < 0)
     {
         kprintf("task_kernel_exec: Failed to load the binary %s\n", filename);
         task_table_free(&sched.task_table, task);
@@ -473,10 +470,8 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 
     /* Load ELF */
     const void *image = bin->start;
-    size_t image_size = (size_t) (bin->end - bin->start);
-
     struct elf_info elf_info;
-    if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
+    if (elf_load(image, &elf_info) < 0)
     {
         /* Failed to load - process is now broken, must exit */
         sched_exit(-1);
