@@ -131,7 +131,7 @@ void task_init_tty(struct task *task, int tty_id)
  *
  * Copies argv[] into the process heap starting at task->brk.
  * ------------------------------------------------------------ */
-static char **task_init_args(struct task *task, char **argv, int *argc_out)
+static void task_init_args(struct task *task, char **argv, struct trampoline *trampoline)
 {
 
     int argc = 0;
@@ -162,9 +162,8 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
 
     heap_argv[argc] = NULL;
 
-    *argc_out = argc;
-
-    return heap_argv;
+    trampoline->argc = argc;
+    trampoline->heap_argv = heap_argv;
 }
 
 
@@ -174,9 +173,7 @@ static char **task_init_args(struct task *task, char **argv, int *argc_out)
  * Copies envp[] into the process heap starting at task->brk and
  * sets the ELF 'environ' symbol if present.
  * ------------------------------------------------------------ */
-static char **task_init_env(struct task *task,
-                            char **envp,
-                            uint32_t environ_off, int *envc_out)
+static void task_init_env(struct task *task,char **envp, uint32_t environ_off, struct trampoline *trampoline)
 {
     int envc = 0;
     while (envp && envp[envc] != NULL)
@@ -209,9 +206,8 @@ static char **task_init_env(struct task *task,
         *environ_ptr = heap_envp;
     }
 
-    *envc_out = envc;
-
-    return heap_envp;
+    trampoline->envc = envc;
+    trampoline->heap_envp = heap_envp;
 }
 
 void signal_init(struct signal *signal){
@@ -299,11 +295,6 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         return NULL;
     }
 
-    int arc = 0;
-    char **heap_argv = task_init_args(task, argv, &arc);
-    int envc = 0;
-    char **heap_envp = task_init_env(task, envp, environ_off, &envc);
-
     if (elf_info.curbrk_off != 0)
     {
         uintptr_t curbrk_va = base_va + (uintptr_t) elf_info.curbrk_off;
@@ -311,13 +302,9 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
         *curbrk_ptr = (char *) task->brk;
     }
 
-    struct trampoline trampoline = {
-            .main_addr = main_addr,
-            .argc = arc,
-            .heap_argv = heap_argv,
-            .heap_envp = heap_envp,
-            .envc = envc,
-    };
+    struct trampoline trampoline = {.main_addr = main_addr};
+    task_init_args(task, argv, &trampoline);
+    task_init_env(task, envp, environ_off, &trampoline);
     ctx_setup_trampoline(&task->cpu_ctx, &trampoline);
 
     /* Switch back to kernel address space */
@@ -534,11 +521,6 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
         sched_exit(-1);
     }
 
-    /* Setup args and environment */
-    int argc = 0;
-    char **heap_argv = task_init_args(current, (char **)argv, &argc);
-    int envc = 0;
-    char **heap_envp = task_init_env(current, (char **)envp, environ_off, &envc);
 
     /* Initialize curbrk if present */
     if (elf_info.curbrk_off != 0)
@@ -551,14 +533,9 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     /* Reset user stack pointer */
     current->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
-    /* Setup trampoline to jump to new program */
-    struct trampoline trampoline = {
-        .main_addr = main_addr,
-        .argc = argc,
-        .heap_argv = heap_argv,
-        .heap_envp = heap_envp,
-        .envc = envc,
-    };
+    struct trampoline trampoline = {.main_addr = main_addr};
+    task_init_args(current, (char **)argv, &trampoline);
+    task_init_env(current, (char **)envp, environ_off, &trampoline);
     ctx_setup_trampoline(&current->cpu_ctx, &trampoline);
 
     /* Reset signal state */
