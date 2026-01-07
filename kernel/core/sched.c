@@ -143,7 +143,6 @@ static void task_init_args(struct task *task, char **argv, struct trampoline *tr
     /* Reserve space for argv pointer array */
     char **heap_argv = (char **) task->brk;
 
-
     size_t len = sizeof(char *) * (argc + 1);
     task->brk += len;
 
@@ -173,7 +172,7 @@ static void task_init_args(struct task *task, char **argv, struct trampoline *tr
  * Copies envp[] into the process heap starting at task->brk and
  * sets the ELF 'environ' symbol if present.
  * ------------------------------------------------------------ */
-static void task_init_env(struct task *task,char **envp, uint32_t environ_off, struct trampoline *trampoline)
+static void task_init_env(struct task *task, char **envp, uint32_t environ_off, struct trampoline *trampoline)
 {
     int envc = 0;
     while (envp && envp[envc] != NULL)
@@ -210,7 +209,8 @@ static void task_init_env(struct task *task,char **envp, uint32_t environ_off, s
     trampoline->heap_envp = heap_envp;
 }
 
-void signal_init(struct signal *signal){
+void signal_init(struct signal *signal)
+{
     signal->pending = 0;
     wait_queue_init(&signal->wait_exit);
     wait_queue_init(&signal->wait_child);
@@ -364,8 +364,6 @@ pid_t sched_fork(void)
         return -ENOMEM;
     }
 
-//    kprintf("fork:");
-
     /* Copy basic info */
     k_strcpy(child->name, parent->name);
 
@@ -375,15 +373,13 @@ pid_t sched_fork(void)
     parent->children = child;
 
     /* Initialize child's kernel stack pointer to top of stack */
-    child->cpu_ctx.k_sp = (unsigned long)(child->kstack + KERNEL_STACK_SIZE);
+    child->cpu_ctx.k_sp = (unsigned long) (child->kstack + KERNEL_STACK_SIZE);
 
     /* Child returns to same user stack location */
     child->cpu_ctx.u_sp = parent->cpu_ctx.u_sp;
 
     /* Setup child's kernel stack to return via sys_return */
     ctx_setup_fork_return(&child->cpu_ctx);
-
-//    kprintf("2");
 
     /* Copy heap boundaries */
     child->brk = parent->brk;
@@ -404,16 +400,12 @@ pid_t sched_fork(void)
     k_strcpy(child->cwd, parent->cwd);
     child->ctty = parent->ctty;
 
-//    kprintf("3");
-
     signal_init(&child->signal);
 
     /* Initialize counters */
     child->ctxt = 0;
     child->sys_call_cnt = 0;
     child->exit_status = 0;
-
-//    kprintf("4");
 
     /* Copy user address space */
     struct vma *parent_vma = mm_find_vma_by_type(parent->mm, VMA_TYPE_PROCESS);
@@ -422,19 +414,12 @@ pid_t sched_fork(void)
         struct vma *child_vma = mm_find_vma_by_type(child->mm, VMA_TYPE_PROCESS);
         if (child_vma)
         {
-            mm_copy_vma(child->mm, child_vma,
-                        parent->mm, parent_vma,
-                        parent_vma->length);
+            mm_copy_vma(child->mm, child_vma, parent->mm, parent_vma, parent_vma->length);
         }
     }
 
-//    kprintf("5");
-
     child->state = TASK_QUEUED;
     sched_enqueue(child);
-
-//    kprintf("6");
-
     return child->pid;
 }
 
@@ -472,9 +457,6 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     }
     */
 
-//    kprintf("sched_execve 1 pathname %s\n",pathname);
-
-
     /* Get process VMA */
     struct vma *vma = mm_find_vma_by_type(current->mm, VMA_TYPE_PROCESS);
     if (!vma)
@@ -485,13 +467,6 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     /* Zero out user memory */
     uintptr_t base_va = vma->base_va;
 
-
-    // is the execve running on the kernel stack?
-    // it should be, you get here using a sys call
-
-    // bug: zo zeroing out the process memory, causes the path name to become empty string
-    // this smell like we are not in the kernel stack but in the user stack
-
     // also the user stack we don't want null btw; because it would fuck up the call stack
 //    k_memset((void *)base_va, 0, vma->length);
 
@@ -499,10 +474,10 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
 
     /* Load ELF */
     const void *image = bin->start;
-    size_t image_size = (size_t)(bin->end - bin->start);
+    size_t image_size = (size_t) (bin->end - bin->start);
 
     struct elf_info elf_info;
-    if (elf_load(image, image_size, (uint32_t)base_va, &elf_info) < 0)
+    if (elf_load(image, image_size, (uint32_t) base_va, &elf_info) < 0)
     {
         /* Failed to load - process is now broken, must exit */
         sched_exit(-1);
@@ -512,8 +487,8 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
     uint32_t environ_off = elf_info.environ_off;
 
     /* Reset heap */
-    uintptr_t program_end = (uintptr_t)elf_info.max_offset;
-    current->brk = (uintptr_t)align_up(program_end, 16);
+    uintptr_t program_end = (uintptr_t) elf_info.max_offset;
+    current->brk = (uintptr_t) align_up(program_end, 16);
     current->brk_limit = current->brk + PROCESS_HEAP_SIZE;
 
     if (current->brk > current->brk_limit)
@@ -521,27 +496,24 @@ int sched_execve(const char *pathname, char *const argv[], char *const envp[])
         sched_exit(-1);
     }
 
-
     /* Initialize curbrk if present */
     if (elf_info.curbrk_off != 0)
     {
-        uintptr_t curbrk_va = base_va + (uintptr_t)elf_info.curbrk_off;
-        char **curbrk_ptr = (char **)curbrk_va;
-        *curbrk_ptr = (char *)current->brk;
+        uintptr_t curbrk_va = base_va + (uintptr_t) elf_info.curbrk_off;
+        char **curbrk_ptr = (char **) curbrk_va;
+        *curbrk_ptr = (char *) current->brk;
     }
 
     /* Reset user stack pointer */
     current->cpu_ctx.u_sp = PROCESS_STACK_TOP;
 
     struct trampoline trampoline = {.main_addr = main_addr};
-    task_init_args(current, (char **)argv, &trampoline);
-    task_init_env(current, (char **)envp, environ_off, &trampoline);
+    task_init_args(current, (char **) argv, &trampoline);
+    task_init_env(current, (char **) envp, environ_off, &trampoline);
     ctx_setup_trampoline(&current->cpu_ctx, &trampoline);
 
     /* Reset signal state */
     current->signal.pending = 0;
-
-    // can you return from execve??
     return 0;
 }
 
@@ -583,15 +555,11 @@ void sched_schedule(void)
 {
     static uint32_t countdown = 1000;
 
-//    kprintf("sched_schedule:");
-
     if (--countdown == 0)
     {
         kprintf("sched_schedule: ctxt=%u\n", sched.ctxt);
         countdown = 1000;
     }
-
-//    kprintf("1");
 
     struct task *prev = sched.current;
     struct task *next = run_queue_poll(&sched.run_queue);
@@ -605,53 +573,30 @@ void sched_schedule(void)
     struct cpu_ctx *next_cpu_ctx = &next->cpu_ctx;
     if (prev == NULL)
     {
-//        kprintf("2");
-
         prev_cpu_ctx = &dummy_cpu_ctx;
     }
     else
     {
-//        kprintf("3");
-
         prev->ctxt++;
-
-//        kprintf("4");
-
         prev_cpu_ctx = &prev->cpu_ctx;
-
-//        kprintf("5");
-
-
         if (next == sched.swapper)
         {
-//            kprintf("6");
-
-
             if (prev->state == TASK_RUNNING)
             {
-//                kprintf("7");
-
                 return;
             }
         }
 
         if (prev->state != TASK_INTERRUPTIBLE && prev->state != TASK_UNINTERRUPTIBLE)
         {
-//            kprintf("8");
-
             prev->state = TASK_QUEUED;
 
             if (prev != sched.swapper)
             {
-//                kprintf("9");
-
-
                 run_queue_push(&sched.run_queue, prev);
             }
         }
     }
-
-//    kprintf("4");
 
     next->state = TASK_RUNNING;
     sched.current = next;
