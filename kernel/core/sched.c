@@ -405,17 +405,16 @@ pid_t sched_fork(void)
     /* Initialize counters */
     child->ctxt = 0;
     child->sys_call_cnt = 0;
+
+
     child->exit_status = 0;
 
     /* Copy user address space */
     struct vma *parent_vma = mm_find_vma_by_type(parent->mm, VMA_TYPE_PROCESS);
-    if (parent_vma)
+    struct vma *child_vma = mm_find_vma_by_type(child->mm, VMA_TYPE_PROCESS);
+    if (parent_vma && child_vma)
     {
-        struct vma *child_vma = mm_find_vma_by_type(child->mm, VMA_TYPE_PROCESS);
-        if (child_vma)
-        {
-            mm_copy_vma(child->mm, child_vma, parent->mm, parent_vma, parent_vma->length);
-        }
+        mm_copy_vma(child->mm, child_vma, parent->mm, parent_vma, parent_vma->length);
     }
 
     child->state = TASK_QUEUED;
@@ -544,13 +543,6 @@ pid_t sched_getpid(void)
     return sched.current->pid;
 }
 
-struct mm_impl
-{
-    void *pd_va;
-    uintptr_t pd_pa;
-    uint32_t kernel_pde_start;
-};
-
 void sched_schedule(void)
 {
     static uint32_t countdown = 1000;
@@ -645,11 +637,11 @@ static bool task_is_zombie(void *arg)
 
 static struct task *find_child_by_pid(struct task *parent, pid_t pid)
 {
-    for (struct task *c = parent->children; c; c = c->next_sibling)
+    for (struct task *child = parent->children; child; child = child->next_sibling)
     {
-        if (c->pid == pid)
+        if (child->pid == pid)
         {
-            return c;
+            return child;
         }
     }
     return NULL;
@@ -657,11 +649,11 @@ static struct task *find_child_by_pid(struct task *parent, pid_t pid)
 
 static struct task *find_zombie_child(struct task *parent)
 {
-    for (struct task *c = parent->children; c; c = c->next_sibling)
+    for (struct task *child = parent->children; child; child = child->next_sibling)
     {
-        if (c->state == TASK_ZOMBIE)
+        if (child->state == TASK_ZOMBIE)
         {
-            return c;
+            return child;
         }
     }
     return NULL;
@@ -757,8 +749,6 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
         *status = child->exit_status;
     }
 
-    pid_t result = child->pid;
-
     /* Remove from children list */
     struct task **prev = &current->children;
     while (*prev)
@@ -771,6 +761,7 @@ pid_t sched_waitpid(pid_t pid, int *status, int options)
         prev = &(*prev)->next_sibling;
     }
 
+    pid_t result = child->pid;
     task_table_free(&sched.task_table, child);
     return result;
 }
