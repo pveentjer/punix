@@ -84,35 +84,6 @@ int elf_fill_bin_dirents(struct dirent *buf, unsigned int max_entries)
  * /bin file operations
  * ------------------------------------------------------------------ */
 
-int bin_open(struct file *file)
-{
-    if (!file || !file->pathname)
-    {
-        return -1;
-    }
-
-    /* Opening the /bin directory itself is allowed. */
-    if ((k_strcmp(file->pathname, "/bin") == 0) ||
-        (k_strcmp(file->pathname, "/bin/") == 0))
-    {
-        file->driver_data = NULL;  // directory, not a file
-        file->pos = 0;
-        return 0;
-    }
-
-    const struct embedded_bin *bin = NULL;
-    if (bin_lookup(file->pathname, &bin) < 0)
-    {
-        /* No such program -> open() should fail. */
-        return -1;
-    }
-
-    /* Store the bin pointer so read can use it */
-    file->driver_data = (void *)bin;
-    file->pos = 0;
-    return 0;
-}
-
 static ssize_t bin_read(struct file *file, void *buf, size_t count)
 {
     if (!file || !buf)
@@ -120,14 +91,14 @@ static ssize_t bin_read(struct file *file, void *buf, size_t count)
         return -1;
     }
 
-    const struct embedded_bin *bin = (const struct embedded_bin *)file->driver_data;
+    const struct embedded_bin *bin = (const struct embedded_bin *) file->driver_data;
     if (!bin)
     {
         /* Reading from directory or invalid file */
         return -1;
     }
 
-    size_t size = (size_t)(bin->end - bin->start);
+    size_t size = (size_t) (bin->end - bin->start);
 
     /* Check if we're at or past EOF */
     if (file->pos >= size)
@@ -143,12 +114,8 @@ static ssize_t bin_read(struct file *file, void *buf, size_t count)
     k_memcpy(buf, bin->start + file->pos, to_read);
     file->pos += to_read;
 
-    return (ssize_t)to_read;
+    return (ssize_t) to_read;
 }
-
-/* ------------------------------------------------------------------
- * /bin directory listing
- * ------------------------------------------------------------------ */
 
 static int bin_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
@@ -184,14 +151,39 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
     return size;
 }
 
+int bin_open(struct file *file)
+{
+    if (!file || !file->pathname)
+    {
+        return -1;
+    }
+
+    file->file_ops.read = bin_read;
+    file->file_ops.getdents = bin_getdents;
+
+    /* Opening the /bin directory itself is allowed. */
+    if ((k_strcmp(file->pathname, "/bin") == 0) ||
+        (k_strcmp(file->pathname, "/bin/") == 0))
+    {
+        return 0;
+    }
+
+    const struct embedded_bin *bin = NULL;
+    if (bin_lookup(file->pathname, &bin) < 0)
+    {
+        /* No such program -> open() should fail. */
+        return -1;
+    }
+
+    file->driver_data = (void *) bin;
+    return 0;
+}
+
+
 /* ------------------------------------------------------------------
  * /bin filesystem operations
  * ------------------------------------------------------------------ */
 
 struct fs bin_fs = {
         .open     = bin_open,
-        .close    = NULL,
-        .read     = bin_read,
-        .write    = NULL,
-        .getdents = bin_getdents
 };

@@ -475,7 +475,11 @@ int vfs_open(struct task *task, const char *pathname, int flags, int mode)
     file->pos = 0;
     file->flags = flags;
     file->mode = mode;
-    file->fs = fs;
+    file->file_ops.getdents = NULL;
+    file->file_ops.close = NULL;
+    file->file_ops.write = NULL;
+    file->file_ops.read = NULL;
+
     k_strcpy(file->pathname, resolved_path);
 
     // Call filesystem-specific open if it exists
@@ -506,10 +510,9 @@ int vfs_close(struct task *task, const int fd)
         return -1;
     }
 
-    // Call filesystem-specific close if it exists
-    if (file->fs != NULL && file->fs->close != NULL)
+    if (file->file_ops.close != NULL)
     {
-        file->fs->close(file);
+        file->file_ops.close(file);
     }
 
     files_free_fd(&task->files, fd);
@@ -531,12 +534,12 @@ ssize_t vfs_write(int fd, const char *buf, size_t count)
     }
 
     struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->write == NULL)
+    if (file == NULL || file->file_ops.write == NULL)
     {
         return -1;
     }
 
-    return file->fs->write(file, buf, count);
+    return file->file_ops.write(file, buf, count);
 }
 
 ssize_t vfs_read(int fd, void *buf, size_t count)
@@ -555,12 +558,12 @@ ssize_t vfs_read(int fd, void *buf, size_t count)
     }
 
     struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->read == NULL)
+    if (file == NULL || file->file_ops.read == NULL)
     {
         return -1;
     }
 
-    return file->fs->read(file, buf, count);
+    return file->file_ops.read(file, buf, count);
 }
 
 int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
@@ -572,12 +575,12 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
     }
 
     struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->fs == NULL || file->fs->getdents == NULL)
+    if (file == NULL || file->file_ops.getdents == NULL)
     {
         return -1;
     }
 
-    return file->fs->getdents(file, buf, count);
+    return file->file_ops.getdents(file, buf, count);
 }
 
 int vfs_chdir(const char *path)

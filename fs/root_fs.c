@@ -5,6 +5,7 @@
 #include "kernel/vfs.h"
 #include "dirent.h"
 
+
 static int root_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
     if (!buf || count < sizeof(struct dirent))
@@ -30,10 +31,12 @@ static int root_getdents(struct file *file, struct dirent *buf, unsigned int cou
     return size;
 }
 
+int root_open(struct file *file)
+{
+    file->file_ops.getdents = root_getdents;
+    return 0;
+}
+
 struct fs root_fs = {
-        .open = NULL,
-        .close = NULL,
-        .read = NULL,
-        .write = NULL,
-        .getdents = root_getdents
+        .open = root_open,
 };

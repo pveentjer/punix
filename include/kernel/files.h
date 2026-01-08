@@ -30,6 +30,19 @@ struct files
     struct files_slot slots[RLIMIT_NOFILE];
 };
 
+struct file_ops{
+
+    int (*open)(struct file *file);
+
+    int (*close)(struct file *file);
+
+    ssize_t (*read)(struct file *file, void *buf, size_t count);
+
+    ssize_t (*write)(struct file *file, const void *buf, size_t count);
+
+    int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
+};
+
 // todo: files are currently not yet shared when doing a fork (since there is no fork)
 struct file
 {
@@ -43,20 +56,13 @@ struct file
     uint64_t pos;
     int fd;
     void *driver_data;
-    struct fs *fs;
+    struct file_ops file_ops;
 };
 
 struct fs
 {
     int (*open)(struct file *file);
 
-    int (*close)(struct file *file);
-
-    ssize_t (*read)(struct file *file, void *buf, size_t count);
-
-    ssize_t (*write)(struct file *file, const void *buf, size_t count);
-
-    int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
 };
 
 void files_init(struct files *files);

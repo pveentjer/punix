@@ -552,94 +552,6 @@ static ssize_t proc_read(struct file *file, void *buf, size_t count)
 }
 
 /* ------------------------------------------------------------
- * proc_open
- * ------------------------------------------------------------ */
-static int proc_open(struct file *file)
-{
-    const char *pathname = file->pathname;
-
-    if (proc_is_root(pathname))
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    if (k_strcmp(pathname, "/proc/stat") == 0)
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    pid_t pid = proc_path_to_pid(pathname);
-    if (pid == PID_NONE)
-    {
-        return -1;
-    }
-
-    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
-    if (!task)
-    {
-        return -1;
-    }
-
-    const char *p = pathname + 6;
-    while (*p >= '0' && *p <= '9')
-    {
-        p++;
-    }
-
-    if (*p == '\0')
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    if (*p == '/' && p[1] == '\0')
-    {
-        file->pos = 0;
-        return 0;
-    }
-
-    if (*p == '/')
-    {
-        const char *leaf = p + 1;
-
-        if (k_strcmp(leaf, "comm") == 0 ||
-            k_strcmp(leaf, "cmdline") == 0 ||
-            k_strcmp(leaf, "stat") == 0 ||
-            k_strcmp(leaf, "status") == 0 ||
-            k_strcmp(leaf, "cwd") == 0 ||
-            k_strcmp(leaf, "exe") == 0)
-        {
-            file->pos = 0;
-            return 0;
-        }
-
-        if (k_strcmp(leaf, "fd") == 0 || k_strcmp(leaf, "fd/") == 0)
-        {
-            file->pos = 0;
-            return 0;
-        }
-
-        if (k_strncmp(leaf, "fd/", 3) == 0)
-        {
-            int fd = proc_extract_fd_num(pathname);
-            if (fd >= 0 && fd < RLIMIT_NOFILE)
-            {
-                if (task->files.slots[fd].file)
-                {
-                    file->pos = 0;
-                    return 0;
-                }
-            }
-            return -1;
-        }
-    }
-
-    return -1;
-}
-
-/* ------------------------------------------------------------
  * proc_getdents
  * ------------------------------------------------------------ */
 static int proc_getdents(struct file *file, struct dirent *buf, unsigned int count)
@@ -734,12 +646,94 @@ static int proc_getdents(struct file *file, struct dirent *buf, unsigned int cou
 }
 
 /* ------------------------------------------------------------
+ * proc_open
+ * ------------------------------------------------------------ */
+static int proc_open(struct file *file)
+{
+    const char *pathname = file->pathname;
+
+    file->file_ops.read = proc_read;
+    file->file_ops.getdents = proc_getdents;
+
+    if (proc_is_root(pathname))
+    {
+        return 0;
+    }
+
+    if (k_strcmp(pathname, "/proc/stat") == 0)
+    {
+        return 0;
+    }
+
+    pid_t pid = proc_path_to_pid(pathname);
+    if (pid == PID_NONE)
+    {
+        return -1;
+    }
+
+    struct task *task = task_table_find_task_by_pid(&sched.task_table, pid);
+    if (!task)
+    {
+        return -1;
+    }
+
+    const char *p = pathname + 6;
+    while (*p >= '0' && *p <= '9')
+    {
+        p++;
+    }
+
+    if (*p == '\0')
+    {
+        return 0;
+    }
+
+    if (*p == '/' && p[1] == '\0')
+    {
+        return 0;
+    }
+
+    if (*p == '/')
+    {
+        const char *leaf = p + 1;
+
+        if (k_strcmp(leaf, "comm") == 0 ||
+            k_strcmp(leaf, "cmdline") == 0 ||
+            k_strcmp(leaf, "stat") == 0 ||
+            k_strcmp(leaf, "status") == 0 ||
+            k_strcmp(leaf, "cwd") == 0 ||
+            k_strcmp(leaf, "exe") == 0)
+        {
+            return 0;
+        }
+
+        if (k_strcmp(leaf, "fd") == 0 || k_strcmp(leaf, "fd/") == 0)
+        {
+            return 0;
+        }
+
+        if (k_strncmp(leaf, "fd/", 3) == 0)
+        {
+            int fd = proc_extract_fd_num(pathname);
+            if (fd >= 0 && fd < RLIMIT_NOFILE)
+            {
+                if (task->files.slots[fd].file)
+                {
+                    file->pos = 0;
+                    return 0;
+                }
+            }
+            return -1;
+        }
+    }
+
+    return -1;
+}
+
+
+/* ------------------------------------------------------------
  * Filesystem descriptor
  * ------------------------------------------------------------ */
 struct fs proc_fs = {
         .open     = proc_open,
-        .close    = NULL,
-        .read     = proc_read,
-        .write    = NULL,
-        .getdents = proc_getdents
 };

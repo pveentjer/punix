@@ -82,140 +82,6 @@ struct dev *dev_lookup(const char *name)
     return NULL;
 }
 
-static int dev_open(struct file *file)
-{
-    if (!file || !file->pathname)
-    {
-        return -1;
-    }
-
-    // Must start with /dev
-    if (k_strncmp(file->pathname, "/dev", 4) != 0)
-    {
-        return -1;
-    }
-
-    // Opening /dev or /dev/ itself (directory listing)
-    if (file->pathname[4] == '\0' ||
-        (file->pathname[4] == '/' && file->pathname[5] == '\0'))
-    {
-        return 0;  // Allow directory operations
-    }
-
-    // Must have /dev/ prefix for devices
-    if (file->pathname[4] != '/')
-    {
-        return -1;
-    }
-
-    // Get device name after /dev/
-    const char *dev_name = file->pathname + 5;
-
-    // Empty device name is invalid
-    if (dev_name[0] == '\0')
-    {
-        return -1;
-    }
-
-    struct dev *dev = dev_lookup(dev_name);
-    if (!dev)
-    {
-        kprintf("dev_open dev not found %s\n", dev_name);
-        return -1;
-    }
-
-    file->driver_data = dev->driver_data;
-
-    if (dev->ops->open)
-    {
-        return dev->ops->open(file);
-    }
-
-    return 0;
-}
-
-static int dev_close(struct file *file)
-{
-    if (!file || !file->pathname)
-    {
-        return -1;
-    }
-
-    const char *name = k_strrchr(file->pathname, '/');
-    if (!name)
-    {
-        name = file->pathname;
-    }
-    else
-    {
-        name++;
-    }
-
-    struct dev *dev = dev_lookup(name);
-    if (!dev)
-    {
-        return -1;
-    }
-
-    if (dev->ops->close)
-    {
-        return dev->ops->close(file);
-    }
-
-    return 0;
-}
-
-static ssize_t dev_read(struct file *file, void *buf, size_t count)
-{
-    if (!file || !file->pathname || !buf || count == 0)
-    {
-        return 0;
-    }
-
-    const char *name = k_strrchr(file->pathname, '/');
-    if (!name)
-    {
-        name = file->pathname;
-    }
-    else
-    {
-        name++;
-    }
-
-    struct dev *dev = dev_lookup(name);
-    if (!dev || !dev->ops->read)
-    {
-        return -1;
-    }
-
-    return dev->ops->read(file, buf, count);
-}
-
-static ssize_t dev_write(struct file *file, const void *buf, size_t count)
-{
-    if (!file || !file->pathname || !buf || count == 0)
-    {
-        return 0;
-    }
-
-    const char *name = k_strrchr(file->pathname, '/');
-    if (!name)
-    {
-        name = file->pathname;
-    }
-    else
-    {
-        name++;
-    }
-
-    struct dev *dev = dev_lookup(name);
-    if (!dev || !dev->ops->write)
-    {
-        return -1;
-    }
-
-    return dev->ops->write(file, buf, count);
-}
 
 static int dev_getdents(struct file *file, struct dirent *buf, unsigned int count)
 {
@@ -253,10 +119,60 @@ static int dev_getdents(struct file *file, struct dirent *buf, unsigned int coun
     return size;
 }
 
+static int dev_open(struct file *file)
+{
+    // Must start with /dev
+    if (k_strncmp(file->pathname, "/dev", 4) != 0)
+    {
+        return -1;
+    }
+
+    file->file_ops.getdents = dev_getdents;
+
+    // Opening /dev or /dev/ itself (directory listing)
+    if (file->pathname[4] == '\0' ||
+        (file->pathname[4] == '/' && file->pathname[5] == '\0'))
+    {
+        return 0;  // Allow directory operations
+    }
+
+    // Must have /dev/ prefix for devices
+    if (file->pathname[4] != '/')
+    {
+        return -1;
+    }
+
+    // Get device name after /dev/
+    const char *dev_name = file->pathname + 5;
+
+    // Empty device name is invalid
+    if (dev_name[0] == '\0')
+    {
+        return -1;
+    }
+
+    struct dev *dev = dev_lookup(dev_name);
+
+    if (!dev)
+    {
+        kprintf("dev_open dev not found %s\n", dev_name);
+        return -1;
+    }
+
+    file->driver_data = dev->driver_data;
+    file->file_ops.write = dev->ops->write;
+    file->file_ops.read = dev->ops->read;
+    file->file_ops.close = dev->ops->close;
+
+    if (dev->ops->open)
+    {
+        return dev->ops->open(file);
+    }
+
+    return 0;
+}
+
+
 struct fs dev_fs = {
         .open     = dev_open,
-        .close    = dev_close,
-        .read     = dev_read,
-        .write    = dev_write,
-        .getdents = dev_getdents
 };
