@@ -8,7 +8,7 @@
 #define MAX_DEVICES 32
 
 
-struct dev_node
+struct dev
 {
     char name[32];
     struct dev_ops *ops;
@@ -16,7 +16,7 @@ struct dev_node
     int active;
 };
 
-static struct dev_node devices[MAX_DEVICES];
+static struct dev devices[MAX_DEVICES];
 static int device_count = 0;
 
 void dev_init(void)
@@ -63,7 +63,7 @@ int dev_register(const char *name, struct dev_ops *ops, void *driver_data)
     return -1;
 }
 
-struct dev_node *dev_lookup(const char *name)
+struct dev *dev_lookup(const char *name)
 {
     if (!name)
     {
@@ -117,7 +117,7 @@ static int dev_open(struct file *file)
         return -1;
     }
 
-    struct dev_node *dev = dev_lookup(dev_name);
+    struct dev *dev = dev_lookup(dev_name);
     if (!dev)
     {
         kprintf("dev_open dev not found %s\n", dev_name);
@@ -151,7 +151,7 @@ static int dev_close(struct file *file)
         name++;
     }
 
-    struct dev_node *dev = dev_lookup(name);
+    struct dev *dev = dev_lookup(name);
     if (!dev)
     {
         return -1;
@@ -182,7 +182,7 @@ static ssize_t dev_read(struct file *file, void *buf, size_t count)
         name++;
     }
 
-    struct dev_node *dev = dev_lookup(name);
+    struct dev *dev = dev_lookup(name);
     if (!dev || !dev->ops->read)
     {
         return -1;
@@ -208,7 +208,7 @@ static ssize_t dev_write(struct file *file, const void *buf, size_t count)
         name++;
     }
 
-    struct dev_node *dev = dev_lookup(name);
+    struct dev *dev = dev_lookup(name);
     if (!dev || !dev->ops->write)
     {
         return -1;
