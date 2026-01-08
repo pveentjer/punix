@@ -5,6 +5,7 @@
 #include "kernel/irq.h"
 #include "include/irq_stub.h"
 #include "include/gdt.h"
+#include "include/io.h"
 #include "kernel/console.h"
 
 inline irq_state_t irq_disable(void)
@@ -77,14 +78,6 @@ static struct idt_ptr   idtp;
  * IRQ handler table (C handlers only)
  * ------------------------------------------------------------ */
 static void (*irq_handlers[IDT_ENTRIES])(void);
-
-/* ------------------------------------------------------------
- * Port I/O
- * ------------------------------------------------------------ */
-static inline void outb(uint16_t port, uint8_t val)
-{
-    __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
-}
 
 /* ------------------------------------------------------------
  * IDT helper

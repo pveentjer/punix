@@ -638,22 +638,22 @@ char *vfs_getcwd(char *buf, size_t size)
         return NULL;
     }
 
-    const char *src = current->cwd;
+    const char *cwd = current->cwd;
 
     /* Fallback if cwd is empty */
-    if (src[0] == '\0')
+    if (cwd[0] == '\0')
     {
-        src = "/";
+        cwd = "/";
     }
 
     size_t i = 0;
-    while (i + 1 < size && src[i] != '\0')
+    while (i + 1 < size && cwd[i] != '\0')
     {
-        buf[i] = src[i];
+        buf[i] = cwd[i];
         i++;
     }
 
-    if (src[i] != '\0')
+    if (cwd[i] != '\0')
     {
         /* buffer too small */
         buf[0] = '\0';

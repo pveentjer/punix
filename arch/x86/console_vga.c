@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "kernel/console.h"
+#include "include/io.h"
 
 #define VGA_TEXT_MODE_BUFFER    0xB8000
 #define VGA_COLS                80
@@ -39,11 +40,6 @@ struct vga_console_data
 static inline uint16_t vga_entry(char c, uint8_t attr)
 {
     return (uint16_t)c | ((uint16_t)attr << 8);
-}
-
-static inline void outb(uint16_t port, uint8_t value)
-{
-    __asm__ volatile ("outb %0, %1" :: "a"(value), "Nd"(port));
 }
 
 static uint8_t ansi_to_vga_color(int ansi, int bright)
