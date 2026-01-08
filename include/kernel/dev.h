@@ -18,8 +18,6 @@ struct dev_ops
 
 int dev_register(const char *name, struct dev_ops *ops, void *driver_data);
 
-struct dev_node *dev_lookup(const char *name);
-
 void dev_init(void);
 
 #endif // DEV_H
