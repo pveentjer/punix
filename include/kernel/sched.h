@@ -117,7 +117,7 @@ extern struct scheduler sched;
 
 
 
-struct task *task_table_find_task_by_pid(const struct task_table *task_table, const pid_t pid);
+struct task *task_table_find_task_by_pid(struct task_table *task_table, const pid_t pid);
 
 void signal_init(struct signal *signal);
 

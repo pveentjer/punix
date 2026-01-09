@@ -46,7 +46,7 @@ void task_table_init(struct task_table *task_table)
     }
 }
 
-struct task *task_table_find_task_by_pid(const struct task_table *task_table, const pid_t pid)
+struct task *task_table_find_task_by_pid(struct task_table *task_table, const pid_t pid)
 {
     if (pid < 0)
     {
