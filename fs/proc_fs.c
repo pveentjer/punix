@@ -413,7 +413,7 @@ static ssize_t read_proc_pid_fd_link(struct file *file, void *buf, size_t count,
         return -1;
     }
 
-    const char *path = target->pathname ? target->pathname : "(unknown)";
+    const char *path = target->pathname;
     size_t len = k_strlen(path);
 
     if (len + 1 > count)
