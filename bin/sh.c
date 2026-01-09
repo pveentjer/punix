@@ -1040,6 +1040,8 @@ static void process_command(char *line)
  * ------------------------------------------------------------------ */
 int main(int argc, char **argv)
 {
+    (void) argv;
+
     if (argc != 1)
     {
         printf("shell: no arguments expected\n");

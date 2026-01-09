@@ -25,9 +25,12 @@ static char type_char(const struct dirent *de)
 {
     switch (de->d_type)
     {
-        case DT_DIR:  return 'd';
-        case DT_REG:  return 'f';
-        default:      return '?';
+        case DT_DIR:
+            return 'd';
+        case DT_REG:
+            return 'f';
+        default:
+            return '?';
     }
 }
 
@@ -65,7 +68,7 @@ int main(int argc, char **argv)
             long_format = 1;
             show_all = 1;
         }
-        else if (path == NULL || path == ".")
+        else if (path == NULL || strcmp(path, ".") == 0)
         {
             path = argv[i];
         }
@@ -94,7 +97,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int n = nbytes / (int)sizeof(struct dirent);
+    int n = nbytes / (int) sizeof(struct dirent);
 
     for (int i = 0; i < n; i++)
     {

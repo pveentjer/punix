@@ -42,6 +42,9 @@ static pid_t spawn_shell(int tty_id)
 
 int main(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
+
     /* Spawn initial shells for each TTY */
     for (int tty_id = 0; tty_id < TTY_COUNT; tty_id++)
     {
