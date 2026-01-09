@@ -738,7 +738,6 @@ static int builtin_repeat(int argc, char **argv)
 
     /* shift argv to get the actual command */
     char **repeat_argv = &argv[2];
-    int repeat_argc = argc - 2;
 
     for (int i = 0; i < count; i++)
     {
