@@ -19,11 +19,10 @@
 
 typedef uint32_t (*sys_enter_fn_t)(void);
 
-typedef struct kernel_entry
+struct kernel_entry
 {
     // the function to enter the kernel
     sys_enter_fn_t sys_enter;
-
 };
 
 #define GB(x)                   ((x) * 1024UL * 1024UL * 1024UL)
