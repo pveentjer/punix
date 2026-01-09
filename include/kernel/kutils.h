@@ -39,6 +39,8 @@ void k_itoa(int value, char *str);
 
 void k_itoa_hex(uint32_t value, char *str);
 
+int k_atoi(const char *s);
+
 size_t k_strlen(const char *s);
 
 void panic(char* msg);

@@ -153,11 +153,6 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
 
 int bin_open(struct file *file)
 {
-    if (!file || !file->pathname)
-    {
-        return -1;
-    }
-
     file->file_ops.read = bin_read;
     file->file_ops.getdents = bin_getdents;
 

@@ -168,36 +168,10 @@ static bool proc_is_fd_dir(const char *pathname, pid_t *pid_out)
 /* ------------------------------------------------------------
  * Helper: extract fd number from /proc/<pid>/fd/<num>
  * ------------------------------------------------------------ */
-static int proc_extract_fd_num(const char *pathname)
+int proc_extract_fd_num(const char *pathname)
 {
-    const char *p = pathname;
-
-    const char *fd_pos = k_strstr(p, "/fd/");
-    if (!fd_pos)
-    {
-        return -1;
-    }
-
-    p = fd_pos + 4;
-
-    if (*p < '0' || *p > '9')
-    {
-        return -1;
-    }
-
-    int fd = 0;
-    while (*p >= '0' && *p <= '9')
-    {
-        fd = fd * 10 + (*p - '0');
-        p++;
-    }
-
-    if (*p != '\0')
-    {
-        return -1;
-    }
-
-    return fd;
+    const char *fd = k_strstr(pathname, "/fd/");
+    return fd ? k_atoi(fd + 4) : -1;
 }
 
 /* ------------------------------------------------------------

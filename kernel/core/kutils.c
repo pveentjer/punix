@@ -236,6 +236,23 @@ void k_itoa_hex(uint32_t value, char *str)
     str[j] = '\0';
 }
 
+int k_atoi(const char *s)
+{
+    int v = 0;
+    if (!s)
+    {
+        return 0;
+    }
+
+    while (*s >= '0' && *s <= '9')
+    {
+        v = v * 10 + (*s - '0');
+        s++;
+    }
+
+    return v;
+}
+
 size_t k_strlen(const char *s)
 {
     size_t len = 0;
@@ -245,7 +262,6 @@ size_t k_strlen(const char *s)
     }
     return len;
 }
-
 
 const char *k_strstr(const char *haystack, const char *needle)
 {
