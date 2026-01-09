@@ -15,6 +15,8 @@ __attribute__((used))
 __attribute__((noinline))
 uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4)
 {
+    (void)a4;
+
     uint32_t result;
 
     //kprintf("sys_enter_dispatch_c: %u\n", nr);
