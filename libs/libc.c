@@ -359,6 +359,23 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
                         }
                     }
                 }
+                else if (is_long)
+                {
+                    unsigned long uv = va_arg(ap, unsigned long);
+
+                    if (uv == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (uv && tmp_pos < 24)
+                        {
+                            tmp[tmp_pos++] = '0' + (uv % 10);
+                            uv /= 10;
+                        }
+                    }
+                }
                 else
                 {
                     unsigned int uv = va_arg(ap, unsigned int);
@@ -401,6 +418,23 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
                 if (is_long_long)
                 {
                     uint64_t v = va_arg(ap, uint64_t);
+
+                    if (v == 0)
+                    {
+                        tmp[tmp_pos++] = '0';
+                    }
+                    else
+                    {
+                        while (v && tmp_pos < 16)
+                        {
+                            tmp[tmp_pos++] = HEX[v & 0xF];
+                            v >>= 4;
+                        }
+                    }
+                }
+                else if (is_long)
+                {
+                    unsigned long v = va_arg(ap, unsigned long);
 
                     if (v == 0)
                     {
@@ -479,6 +513,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 #undef PUT_CHAR
     return (int)pos;
 }
+
 
 int snprintf(char *buf, size_t size, const char *fmt, ...)
 {

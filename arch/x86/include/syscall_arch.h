@@ -126,11 +126,26 @@ static inline long __syscall4(long nr, long a1, long a2, long a3, long a4)
 
 static inline long __syscall5(long nr, long a1, long a2, long a3, long a4, long a5)
 {
+    (void)nr;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+
     return -ENOSYS;
 }
 
 static inline long __syscall6(long nr, long a1, long a2, long a3, long a4, long a5, long a6)
 {
+    (void)nr;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+
     return -ENOSYS;
 }
 
