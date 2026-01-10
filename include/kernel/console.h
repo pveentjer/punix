@@ -2,7 +2,7 @@
 #define KERNEL_CONSOLE_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 
 enum console_esc_state
 {

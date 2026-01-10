@@ -1,7 +1,7 @@
 #ifndef WAIT_H
 #define WAIT_H
 
-#include <stddef.h>
+#include "sys/types.h"
 #include <stdbool.h>
 
 struct task;

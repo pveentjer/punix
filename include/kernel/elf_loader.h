@@ -2,7 +2,7 @@
 #define ELF_LOADER_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 #include <stdbool.h>
 #include "kutils.h"
 #include "dirent.h"

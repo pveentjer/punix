@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include "kernel/kutils.h"
 #include "kernel/config.h"
 #include "kernel/console.h"

@@ -1,7 +1,7 @@
 #ifndef KERNEL_TTY_H
 #define KERNEL_TTY_H
 
-#include <stddef.h>
+#include "sys/types.h"
 #include "console.h"
 #include "constants.h"
 #include "wait.h"

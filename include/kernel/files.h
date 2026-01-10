@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include "constants.h"
 #include "dirent.h"
 #include "tty.h"
+#include "sys/types.h"
 
 #define FD_STDIN   0
 #define FD_STDOUT  1
@@ -17,8 +17,6 @@
 #define O_RDWR     0x2
 #define O_CREAT    0x40
 #define O_TRUNC    0x200
-
-typedef long ssize_t;
 
 struct files_slot
 {

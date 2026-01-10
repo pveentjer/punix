@@ -1,7 +1,7 @@
 #ifndef KUTILS_H
 #define KUTILS_H
 
-#include <stddef.h>
+#include "sys/types.h"
 #include <stdarg.h>
 #include <stdint.h>
 

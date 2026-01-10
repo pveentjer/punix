@@ -1,8 +1,8 @@
 #ifndef FCNTL_H
 #define FCNTL_H
 
-#include <stddef.h>   // for size_t
-typedef long ssize_t;
+#include "sys/types.h"
+
 // POSIX-style fd numbers
 #define STDIN_FILENO   0
 #define STDOUT_FILENO  1

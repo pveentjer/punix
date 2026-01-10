@@ -2,7 +2,7 @@
 #define SCHED_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 #include "constants.h"
 #include "files.h"
 #include "cpu_ctx.h"

@@ -2,7 +2,7 @@
 #ifndef DLIST_H
 #define DLIST_H
 
-#include <stddef.h>
+#include "sys/types.h"
 
 typedef struct dlist_node {
     struct dlist_node *prev;

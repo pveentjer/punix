@@ -2,7 +2,7 @@
 #define VM_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 #include <stdbool.h>
 
 struct mm_impl;

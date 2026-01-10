@@ -1,7 +1,7 @@
 #ifndef STDIO_H
 #define STDIO_H
 
-#include <stddef.h>
+#include "sys/types.h"
 
 int printf(const char *fmt, ...);
 

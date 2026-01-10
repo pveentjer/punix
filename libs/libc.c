@@ -7,6 +7,7 @@
 #include "time.h"
 #include "unistd.h"
 #include "syscall_arch.h"
+#include "stat.h"
 
 void delay(uint32_t count)
 {
@@ -651,6 +652,27 @@ int getdents(int fd, struct dirent *buf, unsigned int count)
                           (uint32_t)buf,
                           (uint32_t)count);
 }
+
+int stat(const char *pathname, struct stat *buf)
+{
+    return (int)__syscall2(SYS_stat,
+                           (uint32_t)pathname,
+                           (uint32_t)buf);
+}
+
+int fstat(int fd, struct stat *buf)
+{
+    return (int)__syscall2(SYS_fstat,
+                           (uint32_t)fd,
+                           (uint32_t)buf);
+}
+
+int lstat(const char *pathname, struct stat *buf)
+{
+    // Since there is no support for symlinks, just forward to stat
+    return stat(pathname, buf);
+}
+
 
 int chdir(const char *path)
 {

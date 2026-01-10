@@ -2,7 +2,7 @@
 #define SYSCALL_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 #include "dirent.h"
 #include "syscall_arch.h"
 
@@ -20,6 +20,9 @@
 #define SYS_nice            34
 #define SYS_kill            37
 #define SYS_brk             45
+#define SYS_stat            106
+#define SYS_lstat           107
+#define SYS_fstat           108
 #define SYS_getdents        141
 #define SYS_sched_yield     158
 #define SYS_getcwd          183

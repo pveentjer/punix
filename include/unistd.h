@@ -2,12 +2,9 @@
 #define UNISTD_H
 
 #include <stdint.h>
-#include <stddef.h>
+#include "sys/types.h"
 
 #define WNOHANG 0x01
-
-typedef long ssize_t;
-typedef int  pid_t;
 
 extern char **environ;
 
