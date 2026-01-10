@@ -151,10 +151,33 @@ static int bin_getdents(struct file *file, struct dirent *buf, unsigned int coun
     return size;
 }
 
+int bin_fstat(struct file *file, struct stat *stat){
+    const struct embedded_bin *bin = (const struct embedded_bin *)file->driver_data;
+
+    /* Directory: /bin itself (no driver_data) */
+    if (!bin)
+    {
+        stat->st_mode  = S_IFDIR | 0555;
+        stat->st_nlink = 1;
+        stat->st_size  = 0;
+        return 0;
+    }
+
+    /* Regular embedded binary */
+    size_t size = (size_t)(bin->end - bin->start);
+
+    stat->st_mode  = S_IFREG | 0555;
+    stat->st_nlink = 1;
+    stat->st_size  = (off_t)size;
+
+    return 0;
+}
+
 int bin_open(struct file *file)
 {
     file->file_ops.read = bin_read;
     file->file_ops.getdents = bin_getdents;
+    file->file_ops.fstat = bin_fstat;
 
     /* Opening the /bin directory itself is allowed. */
     if ((k_strcmp(file->pathname, "/bin") == 0) ||

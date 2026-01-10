@@ -4,6 +4,10 @@
 #include "sys/types.h"
 #include "time.h"
 
+#define S_IFMT   0170000   /* type bit mask */
+#define S_IFREG  0100000   /* regular file   */
+#define S_IFDIR  0040000   /* directory      */
+
 struct stat {
     dev_t     st_dev;
     ino_t     st_ino;
@@ -20,6 +24,8 @@ struct stat {
     struct timespec st_mtim;
     struct timespec st_ctim;
 };
+
+
 
 int stat(const char *pathname, struct stat *buf);
 

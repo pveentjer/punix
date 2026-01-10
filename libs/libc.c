@@ -202,6 +202,7 @@ static uint64_t udiv64_10(uint64_t n, unsigned int *rem)
 }
 
 /* Core formatting function - writes to buffer */
+/* Core formatting function - writes to buffer */
 int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 {
     size_t pos = 0;
@@ -225,6 +226,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
         /* Parse flags and width */
         int zero_pad = 0;
         int width = 0;
+        int precision = -1; /* default: not specified */
 
         if (*fmt == '0')
         {
@@ -236,6 +238,17 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
         {
             width = width * 10 + (*fmt - '0');
             fmt++;
+        }
+
+        if (*fmt == '.')
+        {
+            fmt++;
+            precision = 0;
+            while (*fmt >= '0' && *fmt <= '9')
+            {
+                precision = precision * 10 + (*fmt - '0');
+                fmt++;
+            }
         }
 
         /* Parse length modifier */
@@ -287,6 +300,8 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             case 'd':
             case 'i':
             {
+                /* on your 32-bit ABI, int and long are same width,
+                   so we keep the simple implementation and ignore is_long */
                 int v = va_arg(ap, int);
                 unsigned int uv;
                 int negative = 0;
@@ -414,7 +429,9 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             {
                 char tmp[16];
                 int tmp_pos = 0;
-                static const char HEX[] = "0123456789ABCDEF";
+                static const char HEX_UPPER[] = "0123456789ABCDEF";
+                static const char HEX_LOWER[] = "0123456789abcdef";
+                const char *HEX = (*fmt == 'X') ? HEX_UPPER : HEX_LOWER;
 
                 if (is_long_long)
                 {
@@ -485,15 +502,110 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             case 'p':
             {
                 void *ptr = va_arg(ap, void *);
-                unsigned int v = (unsigned int)ptr;
+                uintptr_t v = (uintptr_t)ptr;
                 static const char HEX[] = "0123456789abcdef";
 
                 PUT_CHAR('0');
                 PUT_CHAR('x');
 
-                for (int i = 7; i >= 0; i--)
+                for (int i = (int)(sizeof(uintptr_t) * 2) - 1; i >= 0; i--)
                 {
                     PUT_CHAR(HEX[(v >> (i * 4)) & 0xF]);
+                }
+                break;
+            }
+
+            case 'f':
+            {
+                double val = va_arg(ap, double);
+                int negative = 0;
+
+                if (val < 0.0)
+                {
+                    negative = 1;
+                    val = -val;
+                }
+
+                if (precision < 0)
+                {
+                    precision = 6; /* default */
+                }
+
+                /* integer part */
+                uint64_t int_part = (uint64_t)val;
+                double frac = val - (double)int_part;
+
+                /* scale fractional part */
+                uint64_t scale = 1;
+                for (int i = 0; i < precision; i++)
+                {
+                    scale *= 10;
+                }
+
+                uint64_t frac_scaled = (uint64_t)(frac * (double)scale + 0.5);
+
+                if (frac_scaled >= scale)
+                {
+                    /* rounding overflow */
+                    frac_scaled -= scale;
+                    int_part += 1;
+                }
+
+                /* convert integer part */
+                char int_buf[32];
+                int int_pos = 0;
+                if (int_part == 0)
+                {
+                    int_buf[int_pos++] = '0';
+                }
+                else
+                {
+                    while (int_part && int_pos < (int)sizeof(int_buf))
+                    {
+                        unsigned int rem;
+                        int_part = udiv64_10(int_part, &rem);
+                        int_buf[int_pos++] = '0' + rem;
+                    }
+                }
+
+                int int_len = int_pos;
+                int frac_len = (precision > 0) ? precision : 0;
+                int total_len = int_len + (precision > 0 ? 1 + frac_len : 0) + (negative ? 1 : 0);
+
+                int pad_len = (width > total_len) ? (width - total_len) : 0;
+
+                while (pad_len > 0)
+                {
+                    PUT_CHAR(zero_pad ? '0' : ' ');
+                    pad_len--;
+                }
+
+                if (negative)
+                {
+                    PUT_CHAR('-');
+                }
+
+                while (int_pos > 0)
+                {
+                    PUT_CHAR(int_buf[--int_pos]);
+                }
+
+                if (precision > 0)
+                {
+                    PUT_CHAR('.');
+
+                    char frac_buf[32];
+                    int fpos = precision;
+                    for (int i = 0; i < precision; i++)
+                    {
+                        frac_buf[--fpos] = (char)('0' + (frac_scaled % 10));
+                        frac_scaled /= 10;
+                    }
+
+                    for (int i = 0; i < precision; i++)
+                    {
+                        PUT_CHAR(frac_buf[i]);
+                    }
                 }
                 break;
             }
@@ -514,6 +626,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
 #undef PUT_CHAR
     return (int)pos;
 }
+
 
 
 int snprintf(char *buf, size_t size, const char *fmt, ...)

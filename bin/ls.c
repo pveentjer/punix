@@ -7,19 +7,16 @@
 
 static void print_help(const char *prog)
 {
-    printf("Usage: %s [-l] [-a] [DIRECTORY]\n", prog);
+    printf("Usage: %s [-l] [-a] [-h] [DIRECTORY]\n", prog);
     printf("\n");
     printf("List the contents of a directory.\n");
     printf("\n");
     printf("Options:\n");
     printf("  -l        Use a long listing format\n");
     printf("  -a        Show all entries, including . and ..\n");
+    printf("  -h        Human readable sizes (e.g., 1.2K  3.4M)\n");
     printf("  --help    Show this help message\n");
     printf("\n");
-    printf("Examples:\n");
-    printf("  %s            # list directory\n", prog);
-    printf("  %s -a         # include hidden files\n", prog);
-    printf("  %s -la /bin   # long list, include hidden files\n", prog);
 }
 
 static char type_char(const struct dirent *de)
@@ -46,7 +43,6 @@ static void build_path(char *dst, size_t dst_size, const char *dir, const char *
 {
     if (dir[0] == '.' && dir[1] == '\0')
     {
-        // just the name
         size_t n = strlen(name);
         if (n >= dst_size)
         {
@@ -61,24 +57,12 @@ static void build_path(char *dst, size_t dst_size, const char *dir, const char *
     size_t nlen = strlen(name);
     size_t pos = 0;
 
-    if (dlen + 1 + nlen + 1 > dst_size)
-    {
-        // truncate
-        if (dst_size == 0)
-        {
-            return;
-        }
-        // best effort
-    }
-
-    // copy dir
     while (pos < dst_size - 1 && pos < dlen)
     {
         dst[pos] = dir[pos];
         pos++;
     }
 
-    // add slash if needed
     if (pos < dst_size - 1)
     {
         if (pos == 0 || dst[pos - 1] != '/')
@@ -87,7 +71,6 @@ static void build_path(char *dst, size_t dst_size, const char *dir, const char *
         }
     }
 
-    // copy name
     size_t i = 0;
     while (pos < dst_size - 1 && i < nlen)
     {
@@ -97,11 +80,27 @@ static void build_path(char *dst, size_t dst_size, const char *dir, const char *
     dst[pos] = '\0';
 }
 
+static void print_size_human(long size)
+{
+    const char *units = "BKMGT";
+    int u = 0;
+    double s = (double)size;
+
+    while (s >= 1024.0 && u < 4)
+    {
+        s /= 1024.0;
+        u++;
+    }
+
+    printf("%4.1f%c", s, units[u]);
+}
+
 int main(int argc, char **argv)
 {
     const char *path = ".";
     int long_format = 0;
     int show_all = 0;
+    int human = 0;
 
     for (int i = 1; i < argc; i++)
     {
@@ -118,10 +117,26 @@ int main(int argc, char **argv)
         {
             show_all = 1;
         }
-        else if (strcmp(argv[i], "-la") == 0 || strcmp(argv[i], "-al") == 0)
+        else if (strcmp(argv[i], "-h") == 0)
         {
-            long_format = 1;
-            show_all = 1;
+            human = 1;
+        }
+        else if (argv[i][0] == '-')
+        {
+            const char *p = argv[i] + 1;
+            while (*p)
+            {
+                if (*p == 'l') long_format = 1;
+                else if (*p == 'a') show_all = 1;
+                else if (*p == 'h') human = 1;
+                else
+                {
+                    printf("ls: unknown option '-%c'\n", *p);
+                    printf("Try '%s --help' for more information.\n", argv[0]);
+                    return 1;
+                }
+                p++;
+            }
         }
         else if (path == NULL || strcmp(path, ".") == 0)
         {
@@ -171,17 +186,21 @@ int main(int argc, char **argv)
 
             if (stat(full_path, &st) == 0)
             {
-                // type, size, name
-                printf("%c %10ld %s\n",
-                       type_char(de),
-                       (long)st.st_size,
-                       de->d_name);
+                printf("%c ", type_char(de));
+                if (human)
+                {
+                    print_size_human(st.st_size);
+                }
+                else
+                {
+                    printf("%10ld", (long)st.st_size);
+                }
+                printf(" %s\n", de->d_name);
             }
             else
             {
-                printf("%c %10s %s\n",
+                printf("%c          ? %s\n",
                        type_char(de),
-                       "?",
                        de->d_name);
             }
         }
