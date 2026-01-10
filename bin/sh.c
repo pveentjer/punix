@@ -296,13 +296,17 @@ static int handle_escape_sequence(char *line, size_t *len)
 /* ------------------------------------------------------------------
  * Resolve command name to full path
  * ------------------------------------------------------------------ */
-static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
+/* ------------------------------------------------------------------
+ * Resolve command name to full path
+ * Returns 1 on success, 0 if not found
+ * ------------------------------------------------------------------ */
+static int resolve_full_path(char *dst, size_t dst_size, const char *cmd)
 {
     if (!cmd || dst_size == 0)
     {
         if (dst_size > 0)
             dst[0] = '\0';
-        return;
+        return 0;
     }
 
     /* if cmd starts with '/', already absolute */
@@ -313,22 +317,21 @@ static void resolve_full_path(char *dst, size_t dst_size, const char *cmd)
             len = dst_size - 1;
         memcpy(dst, cmd, len);
         dst[len] = '\0';
-        return;
+        return 1;
     }
 
     /* search /bin */
     if (find_in_bin(cmd, dst, dst_size))
     {
-        return;
+        return 1;
     }
 
-    /* not found, copy as-is */
-    size_t len = strlen(cmd);
-    if (len >= dst_size)
-        len = dst_size - 1;
-    memcpy(dst, cmd, len);
-    dst[len] = '\0';
+    /* not found */
+    if (dst_size > 0)
+        dst[0] = '\0';
+    return 0;
 }
+
 
 /* ------------------------------------------------------------------
  * Expand variables ($VAR, $?, $$, $!) in a string
@@ -718,7 +721,6 @@ static int builtin_unset(int argc, char **argv)
 }
 
 /* repeat - execute command n times */
-/* repeat - execute command n times */
 static int builtin_repeat(int argc, char **argv)
 {
     if (argc < 3)
@@ -744,7 +746,12 @@ static int builtin_repeat(int argc, char **argv)
         printf("[%d/%d]\n", i + 1, count);
 
         static char fullpath[LINE_MAX];
-        resolve_full_path(fullpath, sizeof(fullpath), repeat_argv[0]);
+        if (!resolve_full_path(fullpath, sizeof(fullpath), repeat_argv[0]))
+        {
+            printf("%s: command not found\n", repeat_argv[0]);
+            last_exit_status = 127;
+            return 1;
+        }
 
         char **child_envp = build_environment();
 
@@ -784,6 +791,7 @@ static int builtin_repeat(int argc, char **argv)
 
     return 1;
 }
+
 
 /* help - show help for builtin commands */
 static int builtin_help(int argc, char **argv)
@@ -990,11 +998,17 @@ static void process_command(char *line)
         return;
     }
 
-    /* resolve command to full path */
+    /* resolve command to full path ------------- FIX HERE ----------- */
     static char fullpath[LINE_MAX];
-    resolve_full_path(fullpath, sizeof(fullpath), cmd_argv[0]);
+    if (!resolve_full_path(fullpath, sizeof(fullpath), cmd_argv[0]))
+    {
+        printf("%s: command not found\n", cmd_argv[0]);
+        last_exit_status = 127;
+        return;
+    }
 
     char **child_envp = build_environment();
+    /* --------------------------------------------------------------- */
 
     pid_t pid = fork();
     if (pid < 0)
@@ -1033,6 +1047,7 @@ static void process_command(char *line)
         last_exit_status = (status >> 8) & 0xff;
     }
 }
+
 
 /* ------------------------------------------------------------------
  * main shell
