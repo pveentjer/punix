@@ -479,6 +479,7 @@ int vfs_open(struct task *task, const char *pathname, int flags, int mode)
     file->file_ops.close = NULL;
     file->file_ops.write = NULL;
     file->file_ops.read = NULL;
+    file->file_ops.fstat = NULL;
 
     k_strcpy(file->pathname, resolved_path);
 
@@ -581,6 +582,23 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
     }
 
     return file->file_ops.getdents(file, buf, count);
+}
+
+int vfs_fstat(struct task *task, int fd, struct stat *stat)
+{
+    struct task *current = sched_current();
+    if (current == NULL)
+    {
+        return -1;
+    }
+
+    struct file *file = files_find_by_fd(&current->files, fd);
+    if (file == NULL || file->file_ops.fstat == NULL)
+    {
+        return -1;
+    }
+
+    return file->file_ops.fstat(file, stat);
 }
 
 int vfs_chdir(const char *path)

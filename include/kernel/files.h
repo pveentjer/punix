@@ -7,6 +7,7 @@
 #include "dirent.h"
 #include "tty.h"
 #include "sys/types.h"
+#include "stat.h"
 
 #define FD_STDIN   0
 #define FD_STDOUT  1
@@ -39,6 +40,8 @@ struct file_ops{
     ssize_t (*write)(struct file *file, const void *buf, size_t count);
 
     int (*getdents)(struct file *file, struct dirent *buf, unsigned int count);
+
+    int (*fstat)(struct file *file, struct stat *stat);
 };
 
 // todo: files are currently not yet shared when doing a fork (since there is no fork)

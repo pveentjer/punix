@@ -655,9 +655,16 @@ int getdents(int fd, struct dirent *buf, unsigned int count)
 
 int stat(const char *pathname, struct stat *buf)
 {
-    return (int)__syscall2(SYS_stat,
-                           (uint32_t)pathname,
-                           (uint32_t)buf);
+    // to keep things simple, we just use the fstat
+    int fd = open(pathname, O_RDONLY, 0);
+    if (fd < 0)
+    {
+        return -1;
+    }
+
+    int ret = fstat(fd, buf);
+    close(fd);
+    return ret;
 }
 
 int fstat(int fd, struct stat *buf)

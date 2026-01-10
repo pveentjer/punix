@@ -59,6 +59,11 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
             result = (uint32_t) vfs_getdents((int) a1, (struct dirent *) a2, (unsigned int) a3);
             break;
 
+        case SYS_fstat:
+            sched_schedule();
+            result = (uint32_t) vfs_fstat(current, (int)a1, (struct stat *)a2);
+            break;
+
         case SYS_fork:
             result = (uint32_t) sched_fork();
             break;

@@ -3,6 +3,7 @@
 #include "stdio.h"
 #include "fcntl.h"
 #include "dirent.h"
+#include "stat.h"
 
 static void print_help(const char *prog)
 {
@@ -41,13 +42,67 @@ static int is_dot_entry(const struct dirent *de)
             (de->d_name[0] == '.' && de->d_name[1] == '.' && de->d_name[2] == '\0');
 }
 
+static void build_path(char *dst, size_t dst_size, const char *dir, const char *name)
+{
+    if (dir[0] == '.' && dir[1] == '\0')
+    {
+        // just the name
+        size_t n = strlen(name);
+        if (n >= dst_size)
+        {
+            n = dst_size - 1;
+        }
+        memcpy(dst, name, n);
+        dst[n] = '\0';
+        return;
+    }
+
+    size_t dlen = strlen(dir);
+    size_t nlen = strlen(name);
+    size_t pos = 0;
+
+    if (dlen + 1 + nlen + 1 > dst_size)
+    {
+        // truncate
+        if (dst_size == 0)
+        {
+            return;
+        }
+        // best effort
+    }
+
+    // copy dir
+    while (pos < dst_size - 1 && pos < dlen)
+    {
+        dst[pos] = dir[pos];
+        pos++;
+    }
+
+    // add slash if needed
+    if (pos < dst_size - 1)
+    {
+        if (pos == 0 || dst[pos - 1] != '/')
+        {
+            dst[pos++] = '/';
+        }
+    }
+
+    // copy name
+    size_t i = 0;
+    while (pos < dst_size - 1 && i < nlen)
+    {
+        dst[pos++] = name[i++];
+    }
+
+    dst[pos] = '\0';
+}
+
 int main(int argc, char **argv)
 {
     const char *path = ".";
     int long_format = 0;
     int show_all = 0;
 
-    /* Parse arguments */
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "--help") == 0)
@@ -88,7 +143,6 @@ int main(int argc, char **argv)
     }
 
     struct dirent entries[256];
-
     int nbytes = getdents(fd, entries, sizeof(entries));
     if (nbytes < 0)
     {
@@ -97,7 +151,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int n = nbytes / (int) sizeof(struct dirent);
+    int n = nbytes / (int)sizeof(struct dirent);
 
     for (int i = 0; i < n; i++)
     {
@@ -110,7 +164,26 @@ int main(int argc, char **argv)
 
         if (long_format)
         {
-            printf("%c %s\n", type_char(de), de->d_name);
+            struct stat st;
+            char full_path[256];
+
+            build_path(full_path, sizeof(full_path), path, de->d_name);
+
+            if (stat(full_path, &st) == 0)
+            {
+                // type, size, name
+                printf("%c %10ld %s\n",
+                       type_char(de),
+                       (long)st.st_size,
+                       de->d_name);
+            }
+            else
+            {
+                printf("%c %10s %s\n",
+                       type_char(de),
+                       "?",
+                       de->d_name);
+            }
         }
         else
         {

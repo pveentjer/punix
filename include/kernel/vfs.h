@@ -6,6 +6,7 @@
 #include "dirent.h"
 #include "files.h"
 #include "sched.h"
+#include "stat.h"
 
 /* Opaque VFS structure - internals hidden */
 struct vfs;
@@ -57,5 +58,7 @@ void vfs_init(struct vfs *vfs);
 int vfs_open(struct task *task, const char *pathname, int flags, int mode);
 
 int vfs_close(struct task *task, int fd);
+
+int vfs_fstat(struct task *task, int fd, struct stat *stat);
 
 #endif //VFS_H
