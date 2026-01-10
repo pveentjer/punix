@@ -157,6 +157,7 @@ static struct page_table *copy_pt = NULL;
  * ------------------------------------------------------------ */
 
 __attribute__((used))
+__attribute__((used))
 void page_fault_handler(uint32_t err)
 {
     uint32_t cr2, eip;
@@ -178,7 +179,10 @@ void page_fault_handler(uint32_t err)
     uint32_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
 
-    kprintf("\033[1;37;41m\n=== PAGE FAULT ===\033[0m\n");  // Bright white on red
+    /* classify based on instruction pointer: below kernel base == "user" */
+    bool user_mode = (eip < (uintptr_t)&__kernel_va_base);
+
+    kprintf("\033[1;37;41m\n=== PAGE FAULT ===\033[0m\n");
     kprintf("Address: 0x%08x ", cr2);
     kprintf("Error:   0x%08x ", err);
     kprintf("EIP:     0x%08x ", eip);
@@ -188,7 +192,7 @@ void page_fault_handler(uint32_t err)
 
     kprintf("  Type:   %s ", (err & 0x01) ? "protection-violation" : "not-present");
     kprintf("  Access: %s ", (err & 0x02) ? "write" : "read");
-    kprintf("  Mode:   %s ", (err & 0x04) ? "user-mode" : "kernel-mode");
+    kprintf("  Mode:   %s ", user_mode ? "user-mode" : "kernel-mode");
 
     if (err & 0x08)
         kprintf("  Reserved bit set in page table entry\n");
@@ -198,6 +202,7 @@ void page_fault_handler(uint32_t err)
 
     panic("page fault");
 }
+
 
 MAKE_EXC_STUB_ERR(isr_page_fault, page_fault_handler)
 
