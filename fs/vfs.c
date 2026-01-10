@@ -586,16 +586,22 @@ int vfs_getdents(int fd, struct dirent *buf, unsigned int count)
 
 int vfs_fstat(struct task *task, int fd, struct stat *stat)
 {
-    struct task *current = sched_current();
-    if (current == NULL)
+    if (task == NULL || stat == NULL)
     {
         return -1;
     }
 
-    struct file *file = files_find_by_fd(&current->files, fd);
-    if (file == NULL || file->file_ops.fstat == NULL)
+    struct file *file = files_find_by_fd(&task->files, fd);
+    if (file == NULL)
     {
         return -1;
+    }
+
+    k_memset(stat, 0, sizeof(*stat));
+
+    if (file->file_ops.fstat == NULL)
+    {
+        return 0;
     }
 
     return file->file_ops.fstat(file, stat);
