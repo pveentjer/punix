@@ -624,6 +624,11 @@ pid_t fork(void)
     return (pid_t)__syscall0(SYS_fork);
 }
 
+pid_t vfork(void)
+{
+    return fork();
+}
+
 int execve(const char *pathname, char *const argv[], char *const envp[])
 {
     return (int)__syscall3(SYS_execve,

@@ -16,6 +16,8 @@ pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp)
 
 pid_t fork(void);
 
+pid_t vfork(void);
+
 int execve(const char *pathname, char *const argv[], char *const envp[]);
 
 void sched_yield(void);
