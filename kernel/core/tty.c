@@ -73,21 +73,25 @@ static int tty_open(struct file *file)
 
     uintptr_t marker = (uintptr_t) file->driver_data;
 
-    /* Check if it's a special marker */
-    if (marker <= TTY_MARKER_STDERR)
+    switch (marker)
     {
-        struct task *curr = sched_current();
-
-        if (marker >= 1 && marker <= TTY_MARKER_STDERR)
-        {
-            file->driver_data = (curr && curr->ctty) ? curr->ctty : tty_active();
-        }
-        else  /* TTY_MARKER_ACTIVE - /dev/tty */
-        {
+        case (uintptr_t) TTY_MARKER_ACTIVE:
             file->driver_data = tty_active();
+            break;
+
+        case (uintptr_t) TTY_MARKER_STDIN:
+        case (uintptr_t) TTY_MARKER_STDOUT:
+        case (uintptr_t) TTY_MARKER_STDERR:
+        {
+            struct task *curr = sched_current();
+            file->driver_data = (curr && curr->ctty) ? curr->ctty : tty_active();
+            break;
         }
+
+        default:
+            /* Already points to a specific tty (from /dev/ttyN registration) */
+            break;
     }
-    /* else: already points to a specific tty (from /dev/ttyN registration) */
 
     if (file->driver_data == NULL)
     {
