@@ -5,6 +5,7 @@
 #include "kernel/panic.h"
 #include "kernel/irq.h"
 #include "kernel/kutils.h"
+#include "kernel/sched.h"
 #include "include/gdt.h"
 #include "include/exc_stub.h"
 #include <stdint.h>
@@ -181,6 +182,16 @@ void page_fault_handler(uint32_t err)
 
     /* classify based on instruction pointer: below kernel base == "user" */
     bool user_mode = (eip < (uintptr_t)&__kernel_va_base);
+
+    if(user_mode)
+    {
+        struct task *current = sched_current();
+        if(current)
+        {
+            //todo: should be SIGSEGV and it should not be a direct exit call
+            sched_exit(1);
+        }
+    }
 
     kprintf("\033[1;37;41m\n=== PAGE FAULT ===\033[0m\n");
     kprintf("Address: 0x%08x ", cr2);
