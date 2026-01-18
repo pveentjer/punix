@@ -181,12 +181,12 @@ void page_fault_handler(uint32_t err)
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
 
     /* classify based on instruction pointer: below kernel base == "user" */
-    bool user_mode = (eip < (uintptr_t)&__kernel_va_base);
+    bool user_mode = (eip < (uintptr_t) &__kernel_va_base);
 
-    if(user_mode)
+    if (user_mode)
     {
         struct task *current = sched_current();
-        if(current)
+        if (current)
         {
             struct fault_info *fault_info = &current->fault_info;
             fault_info->addr = cr2;
@@ -194,8 +194,19 @@ void page_fault_handler(uint32_t err)
             fault_info->err = err;
             current->signal.pending |= (1u << SIGSEGV);
 
-            // todo: call the appropriate handler
-            sched_exit(128 + SIGSEGV);
+            struct sigaction *sa = &current->signal.sigactions[SIGSEGV];
+            if (sa == NULL || sa->sa_handler == SIG_DFL)
+            {
+                sched_exit(128 + SIGSEGV);
+            }
+            else if (sa->sa_handler == SIG_IGN)
+            {
+                return;
+            }
+            else
+            {
+                panic("sigaction.sa_handler logic is missing");
+            }
         }
     }
 
@@ -680,12 +691,12 @@ void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
         uint32_t src_pa, dst_pa;
 
         /* Translate to PA (source PD is assumed active, but this works regardless) */
-        if (!mm_va_to_pa(src_mm, (uint32_t)src_page_va, &src_pa))
+        if (!mm_va_to_pa(src_mm, (uint32_t) src_page_va, &src_pa))
         {
             panic("mm_copy_vma: source VA not mapped");
         }
 
-        if (!mm_va_to_pa(dest_mm, (uint32_t)dst_page_va, &dst_pa))
+        if (!mm_va_to_pa(dest_mm, (uint32_t) dst_page_va, &dst_pa))
         {
             panic("mm_copy_vma: dest VA not mapped");
         }
@@ -694,14 +705,14 @@ void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
         struct pte *dst_pte = &copy_pt->e[PTE_INDEX(COPY_DST_VA)];
 
         /* Arm mappings (PTEs normally non-present) */
-        pte_set(src_pte, (uintptr_t)(src_pa & PAGE_MASK), PTE_P);
-        pte_set(dst_pte, (uintptr_t)(dst_pa & PAGE_MASK), PTE_P | PTE_W);
+        pte_set(src_pte, (uintptr_t) (src_pa & PAGE_MASK), PTE_P);
+        pte_set(dst_pte, (uintptr_t) (dst_pa & PAGE_MASK), PTE_P | PTE_W);
 
         invlpg(COPY_SRC_VA);
         invlpg(COPY_DST_VA);
 
-        size_t src_off = (size_t)(src_va - src_page_va);
-        size_t dst_off = (size_t)(dst_va - dst_page_va);
+        size_t src_off = (size_t) (src_va - src_page_va);
+        size_t dst_off = (size_t) (dst_va - dst_page_va);
 
         size_t chunk = PAGE_SIZE - src_off;
         size_t tmp = PAGE_SIZE - dst_off;
@@ -710,8 +721,8 @@ void mm_copy_vma(struct mm *dest_mm, struct vma *dest_vma,
         size_t remain = length - offset;
         if (remain < chunk) chunk = remain;
 
-        k_memcpy((void *)(COPY_DST_VA + dst_off),
-                 (void *)(COPY_SRC_VA + src_off),
+        k_memcpy((void *) (COPY_DST_VA + dst_off),
+                 (void *) (COPY_SRC_VA + src_off),
                  chunk);
 
         /* Disarm immediately */
