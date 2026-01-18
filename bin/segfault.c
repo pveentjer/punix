@@ -9,7 +9,8 @@
 static void sigsegv_handler(int sig)
 {
     printf("Caught signal %d (SIGSEGV)\n", sig);
-    _exit(99);
+    // todo: should be _exit
+    exit(99);
 }
 
 static void show_help(const char *prog)
