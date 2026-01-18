@@ -8,6 +8,7 @@
 #include "kernel/sched.h"
 #include "include/gdt.h"
 #include "include/exc_stub.h"
+#include "signal.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -158,7 +159,6 @@ static struct page_table *copy_pt = NULL;
  * ------------------------------------------------------------ */
 
 __attribute__((used))
-__attribute__((used))
 void page_fault_handler(uint32_t err)
 {
     uint32_t cr2, eip;
@@ -188,8 +188,8 @@ void page_fault_handler(uint32_t err)
         struct task *current = sched_current();
         if(current)
         {
-            //todo: should be SIGSEGV and it should not be a direct exit call
-            sched_exit(1);
+            // todo: call the appropriate handler
+            sched_exit(128 + SIGSEGV);
         }
     }
 
