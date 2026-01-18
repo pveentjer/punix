@@ -27,12 +27,7 @@ static inline uint8_t bcd(uint8_t v)
 static inline uint64_t rdtsc(void)
 {
     uint32_t lo, hi;
-    __asm__ volatile(
-            "rdtsc"
-            : "=a"(lo), "=d"(hi)
-            :
-            : "memory"
-            );
+    __asm__ volatile("rdtsc": "=a"(lo), "=d"(hi));
     return ((uint64_t) hi << 32) | lo;
 }
 
