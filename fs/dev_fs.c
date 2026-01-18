@@ -31,7 +31,6 @@ void dev_init(void)
     device_count = 0;
 }
 
-
 int dev_register(const char *name, struct dev_ops *ops, void *driver_data)
 {
     if (!name || !ops || device_count >= MAX_DEVICES)
@@ -121,12 +120,6 @@ static int dev_getdents(struct file *file, struct dirent *buf, unsigned int coun
 
 static int dev_open(struct file *file)
 {
-    // Must start with /dev
-    if (k_strncmp(file->pathname, "/dev", 4) != 0)
-    {
-        return -1;
-    }
-
     file->file_ops.getdents = dev_getdents;
 
     // Opening /dev or /dev/ itself (directory listing)

@@ -33,12 +33,6 @@ static int sys_getdents(struct file *file, struct dirent *buf, unsigned int coun
 
 static int sys_open(struct file *file)
 {
-    // Must start with /sys
-    if (k_strncmp(file->pathname, "/sys", 4) != 0)
-    {
-        return -1;
-    }
-
     // Opening /sys or /sys/ itself (directory listing)
     if (file->pathname[4] == '\0' ||
         (file->pathname[4] == '/' && file->pathname[5] == '\0'))
