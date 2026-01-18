@@ -781,7 +781,7 @@ static int builtin_repeat(int argc, char **argv)
             return 1;
         }
 
-        last_exit_status = (status >> 8) & 0xff;
+        last_exit_status = status;
 
         if (last_exit_status != 0)
         {
@@ -1044,7 +1044,7 @@ static void process_command(char *line)
     }
     else
     {
-        last_exit_status = (status >> 8) & 0xff;
+        last_exit_status = status;
     }
 }
 
