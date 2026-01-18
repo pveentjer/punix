@@ -12,8 +12,6 @@ char *getenv(const char *name);
 
 pid_t getpid(void);
 
-pid_t sched_add_task(const char *filename, int tty_id, char **argv, char **envp);
-
 pid_t fork(void);
 
 pid_t vfork(void);
