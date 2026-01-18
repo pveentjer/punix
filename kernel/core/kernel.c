@@ -31,12 +31,6 @@ static void bss_zero(void)
 __attribute__((noreturn, section(".start")))
 void kmain(void)
 {
-    // *(volatile uint16_t*)0xB8000 = 0x1F4B;  // 'K'
-
-//    struct cpu_ctx *k_cpu_ctx = &KERNEL_ENTRY->k_cpu_ctx;
-//
-//    k_cpu_ctx->esp = KERNEL_STACK_TOP_VA;
-
     bss_zero();
 
     console_init(&kconsole);
@@ -69,11 +63,6 @@ void kmain(void)
 
     kprintf("Enabling interrupts.\n");
     interrupts_enable();
-
-//    kprintf("Triggering page fault...\n");
-//    /* 1GB = 0x40000000 */
-//    volatile uint32_t *p = (uint32_t *)0x40000000;
-//    uint32_t x = *p;   // <- should page fault
 
 //    console_clear(&kconsole);
     char *argv[] = {"/sbin/init", NULL};
