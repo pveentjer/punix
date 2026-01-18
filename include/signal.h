@@ -3,4 +3,6 @@
 
 #define SIGSEGV 11
 
+int kill(pid_t pid, int sig);
+
 #endif /* _SIGNAL_H */
