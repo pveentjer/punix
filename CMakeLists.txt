@@ -195,7 +195,6 @@ set(ARCH_SOURCES
         ${ARCH_SRC_DIR}/clock.c
         ${ARCH_SRC_DIR}/mm.c
         ${ARCH_SRC_DIR}/console_vga.c
-        ${ARCH_SRC_DIR}/console_vesa.c
 )
 
 add_library(kernel_objs OBJECT

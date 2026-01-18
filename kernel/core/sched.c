@@ -285,7 +285,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     task->brk = (uintptr_t) align_up(program_end, 16);
     task->brk_limit = task->brk + PROCESS_HEAP_SIZE;
 
-    if ((uintptr_t) task->brk > task->brk_limit)
+    if (task->brk > task->brk_limit)
     {
         kprintf("task_kernel_exec: not enough space %s\n", filename);
         task_table_free(&sched.task_table, task);
