@@ -82,17 +82,28 @@ static void build_path(char *dst, size_t dst_size, const char *dir, const char *
 
 static void print_size_human(long size)
 {
-    const char *units = "BKMGT";
+    static const char units[] = "BKMGTPE";
+    double s = size;
     int u = 0;
-    double s = (double)size;
 
-    while (s >= 1024.0 && u < 4)
+    while (s >= 1024.0 && units[u + 1])
     {
         s /= 1024.0;
         u++;
     }
 
-    printf("%4.1f%c", s, units[u]);
+    if (u == 0)
+    {
+        printf("%5ld", size);
+    }
+    else if (s >= 10.0)
+    {
+        printf("%4.0f%c", s, units[u]);
+    }
+    else
+    {
+        printf("%4.1f%c", s, units[u]);
+    }
 }
 
 int main(int argc, char **argv)
@@ -166,7 +177,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int n = nbytes / (int)sizeof(struct dirent);
+    int n = nbytes / (int) sizeof(struct dirent);
 
     for (int i = 0; i < n; i++)
     {
@@ -193,7 +204,7 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    printf("%10ld", (long)st.st_size);
+                    printf("%10ld", (long) st.st_size);
                 }
                 printf(" %s\n", de->d_name);
             }
