@@ -8,6 +8,7 @@
 #include "unistd.h"
 #include "syscall_arch.h"
 #include "stat.h"
+#include "signal.h"
 
 void delay(uint32_t count)
 {
@@ -706,6 +707,14 @@ int kill(pid_t pid, int sig)
     return (int)__syscall2(SYS_kill,
                           (uint32_t)pid,
                           (uint32_t)sig);
+}
+
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
+{
+    return (int) __syscall3(SYS_sigaction,
+                            (uint32_t) signum,
+                            (uint32_t) act,
+                            (uint32_t) oldact);
 }
 
 int nice(int inc)

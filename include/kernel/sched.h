@@ -7,9 +7,9 @@
 #include "files.h"
 #include "cpu_ctx.h"
 #include "mm.h"
+#include "signal.h"
 
 typedef int pid_t;
-typedef uint32_t sigset_t;
 
 struct tty;
 
