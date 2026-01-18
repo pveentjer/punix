@@ -188,6 +188,12 @@ void page_fault_handler(uint32_t err)
         struct task *current = sched_current();
         if(current)
         {
+            struct fault_info *fault_info = &current->fault_info;
+            fault_info->addr = cr2;
+            fault_info->ip = eip;
+            fault_info->err = err;
+            current->signal.pending |= (1u << SIGSEGV);
+
             // todo: call the appropriate handler
             sched_exit(128 + SIGSEGV);
         }
