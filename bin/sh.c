@@ -5,6 +5,7 @@
 #include "stdio.h"
 #include "unistd.h"
 #include "stdlib.h"
+#include "signal.h"
 
 extern char **environ;
 
@@ -781,6 +782,10 @@ static int builtin_repeat(int argc, char **argv)
             return 1;
         }
 
+        if (status == 128 + SIGSEGV)
+        {
+            printf("Segmentation fault\n");
+        }
         last_exit_status = status;
 
         if (last_exit_status != 0)
@@ -1044,6 +1049,11 @@ static void process_command(char *line)
     }
     else
     {
+        if (status == 128 + SIGSEGV)
+        {
+            printf("Segmentation fault\n");
+        }
+
         last_exit_status = status;
     }
 }
