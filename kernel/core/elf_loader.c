@@ -60,15 +60,12 @@ int elf_load(const void *image, struct elf_info *elf_info)
         size += phdr->p_filesz;
     }
 
-    if (elf_info)
-    {
-        elf_info->base_va = 0;
-        elf_info->entry_va = ehdr->e_entry;
-        elf_info->max_offset = max_end;
-        elf_info->size = size;
-        elf_info->environ_off = 0;
-        elf_info->curbrk_off = 0;
-    }
+    elf_info->base_va = 0;
+    elf_info->entry_va = ehdr->e_entry;
+    elf_info->max_offset = max_end;
+    elf_info->size = size;
+    elf_info->environ_off = 0;
+    elf_info->curbrk_off = 0;
 
     return 0;
 }
