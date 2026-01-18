@@ -86,7 +86,7 @@ add_custom_command(
 # ------------------------------------------------------------
 set(ALL_BINS
         swapper init sh loop ps spawn_chain kill ls cat echo
-        printenv tty pwd date uptime clear time
+        printenv pwd date uptime clear time segfault_test
 )
 
 set(BIN_PATHS
@@ -101,12 +101,12 @@ set(BIN_PATHS
         "/bin/cat"
         "/bin/echo"
         "/bin/printenv"
-        "/bin/tty"
         "/bin/pwd"
         "/bin/date"
         "/bin/uptime"
         "/bin/clear"
         "/bin/time"
+        "/bin/segfault_test"
 )
 
 # ------------------------------------------------------------
