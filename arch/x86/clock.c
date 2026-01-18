@@ -209,7 +209,6 @@ int kclock_gettime(int clk_id, struct timespec *tp)
             uint64_t now = rdtsc();
             uint64_t delta = now - boot_tsc;
             tp->tv_sec = (uint32_t) (delta / tsc_hz);
-
             tp->tv_nsec = (uint32_t) (((delta % tsc_hz) * 1000000000ULL) / tsc_hz);
             return 0;
         }
@@ -221,7 +220,6 @@ int kclock_gettime(int clk_id, struct timespec *tp)
             uint64_t sec = delta / tsc_hz;
             uint64_t rem = delta % tsc_hz;
             uint64_t nsec = (rem * 1000000000ULL) / tsc_hz;
-
             tp->tv_sec = boot_epoch_sec + (uint32_t) sec;
             tp->tv_nsec = (uint32_t) nsec;
             return 0;
