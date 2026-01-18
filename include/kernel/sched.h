@@ -12,7 +12,7 @@
 typedef int pid_t;
 
 struct tty;
-
+#define MAX_SIGNALS 32
 enum sched_state
 {
     TASK_POOLED = 1,            /* task exists but is inactive; not runnable and not queued */
@@ -27,6 +27,8 @@ struct signal{
     sigset_t pending;
     struct wait_queue wait_child;
     struct wait_queue wait_exit;
+
+    struct sigaction sigactions[MAX_SIGNALS];
 };
 
 struct trampoline{
@@ -35,6 +37,13 @@ struct trampoline{
     char **heap_argv;
     int envc;
     char **heap_envp;
+};
+
+struct fault_info
+{
+    uint32_t addr;   /* The address the fault happened */
+    uint32_t ip;     /* The IP where the fault happened */
+    uint32_t err;    /* page-fault error code */
 };
 
 struct task
@@ -62,6 +71,8 @@ struct task
     struct tty *ctty;
 
     enum sched_state state;
+
+    struct fault_info fault_info;
 
     // The number of context switches.
     uint64_t ctxt;
@@ -140,6 +151,8 @@ pid_t sched_kernel_exec(const char *filename, int tty_id, char **argv, char **en
 pid_t sched_fork(void);
 
 int sched_kill(pid_t pid, int sig);
+
+int sched_sigaction(int signum,const struct sigaction *act, struct sigaction *oldact);
 
 int sched_execve(const char *pathname, char *const argv[], char *const envp[]);
 

@@ -89,6 +89,12 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
             result = (uint32_t) sched_kill((pid_t) a1, (int) a2);
             break;
 
+        case SYS_sigaction:
+            result = (uint32_t)sched_sigaction((int)a1,
+                                               (const struct sigaction *)a2,
+                                               (struct sigaction *)a3);
+            break;
+
         case SYS_waitpid:
             result = (uint32_t) sched_waitpid((pid_t) a1, (int *) a2, (int) a3);
             break;

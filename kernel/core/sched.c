@@ -214,6 +214,18 @@ void signal_init(struct signal *signal)
     signal->pending = 0;
     wait_queue_init(&signal->wait_exit);
     wait_queue_init(&signal->wait_child);
+
+    for (int i = 0; i < MAX_SIGNALS; i++)
+    {
+        signal->sigactions[i].sa_handler = 0;
+    }
+}
+
+void fault_info_init(struct fault_info *fault_info)
+{
+    fault_info->ip = 0;
+    fault_info->addr = 0;
+    fault_info->err = 0;
 }
 
 /* ------------------------------------------------------------
@@ -262,6 +274,7 @@ struct task *task_kernel_exec(const char *filename, int tty_id, char **argv, cha
     task->parent = task;  /* Init is its own parent */
     task->next_sibling = NULL;
 
+    fault_info_init(&task->fault_info);
     signal_init(&task->signal);
 
     task_init_tty(task, tty_id);
@@ -399,6 +412,7 @@ pid_t sched_fork(void)
     k_strcpy(child->cwd, parent->cwd);
     child->ctty = parent->ctty;
 
+    fault_info_init(&child->fault_info);
     signal_init(&child->signal);
 
     /* Initialize counters */
@@ -530,6 +544,34 @@ int sched_kill(pid_t pid, int sig)
     if (task->state == TASK_INTERRUPTIBLE || task->state == TASK_INTERRUPTIBLE)
     {
         sched_enqueue(task);
+    }
+
+    return 0;
+}
+
+int sched_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
+{
+    struct task *current = sched_current();
+    if (!current)
+    {
+        return -1;
+    }
+
+    if (signum < 0 || signum >= MAX_SIGNALS)
+    {
+        return -1;
+    }
+
+    /* return old handler if requested */
+    if (oldact)
+    {
+        *oldact = current->signal.sigactions[signum];
+    }
+
+    /* install new handler if provided */
+    if (act)
+    {
+        current->signal.sigactions[signum] = *act;
     }
 
     return 0;
