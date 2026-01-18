@@ -442,21 +442,28 @@ int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             case 'd':
             case 'i':
             {
-                int v = va_arg(ap, int);
-                unsigned int uv;
+                int64_t v;
+                uint64_t uv;
                 int negative = 0;
+
+                if (is_long_long)
+                    v = va_arg(ap, long long);
+                else if (is_long)
+                    v = va_arg(ap, long);
+                else
+                    v = va_arg(ap, int);
 
                 if (v < 0)
                 {
                     negative = 1;
-                    uv = (unsigned int)(-v);
+                    uv = (uint64_t)(-v);
                 }
                 else
                 {
-                    uv = (unsigned int)v;
+                    uv = (uint64_t)v;
                 }
 
-                char tmp[16];
+                char tmp[24];
                 int tmp_pos = 0;
                 if (uv == 0)
                 {
@@ -464,10 +471,11 @@ int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
                 }
                 else
                 {
-                    while (uv && tmp_pos < 16)
+                    while (uv && tmp_pos < 24)
                     {
-                        tmp[tmp_pos++] = '0' + (uv % 10);
-                        uv /= 10;
+                        unsigned int rem;
+                        uv = udiv64_10(uv, &rem);
+                        tmp[tmp_pos++] = '0' + rem;
                     }
                 }
 
@@ -496,40 +504,26 @@ int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             {
                 char tmp[24];
                 int tmp_pos = 0;
+                uint64_t uv;
 
                 if (is_long_long)
-                {
-                    uint64_t uv = va_arg(ap, uint64_t);
+                    uv = va_arg(ap, unsigned long long);
+                else if (is_long)
+                    uv = va_arg(ap, unsigned long);
+                else
+                    uv = va_arg(ap, unsigned int);
 
-                    if (uv == 0)
-                    {
-                        tmp[tmp_pos++] = '0';
-                    }
-                    else
-                    {
-                        while (uv && tmp_pos < 24)
-                        {
-                            unsigned int rem;
-                            uv = udiv64_10(uv, &rem);
-                            tmp[tmp_pos++] = '0' + rem;
-                        }
-                    }
+                if (uv == 0)
+                {
+                    tmp[tmp_pos++] = '0';
                 }
                 else
                 {
-                    unsigned int uv = va_arg(ap, unsigned int);
-
-                    if (uv == 0)
+                    while (uv && tmp_pos < 24)
                     {
-                        tmp[tmp_pos++] = '0';
-                    }
-                    else
-                    {
-                        while (uv && tmp_pos < 24)
-                        {
-                            tmp[tmp_pos++] = '0' + (uv % 10);
-                            uv /= 10;
-                        }
+                        unsigned int rem;
+                        uv = udiv64_10(uv, &rem);
+                        tmp[tmp_pos++] = '0' + rem;
                     }
                 }
 
@@ -552,40 +546,26 @@ int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             {
                 char tmp[16];
                 int tmp_pos = 0;
-                static const char HEX[] = "0123456789ABCDEF";
+                const char *hex = (*fmt == 'X') ? "0123456789ABCDEF" : "0123456789abcdef";
+                uint64_t v;
 
                 if (is_long_long)
-                {
-                    uint64_t v = va_arg(ap, uint64_t);
+                    v = va_arg(ap, unsigned long long);
+                else if (is_long)
+                    v = va_arg(ap, unsigned long);
+                else
+                    v = va_arg(ap, unsigned int);
 
-                    if (v == 0)
-                    {
-                        tmp[tmp_pos++] = '0';
-                    }
-                    else
-                    {
-                        while (v && tmp_pos < 16)
-                        {
-                            tmp[tmp_pos++] = HEX[v & 0xF];
-                            v >>= 4;
-                        }
-                    }
+                if (v == 0)
+                {
+                    tmp[tmp_pos++] = '0';
                 }
                 else
                 {
-                    unsigned int v = va_arg(ap, unsigned int);
-
-                    if (v == 0)
+                    while (v && tmp_pos < 16)
                     {
-                        tmp[tmp_pos++] = '0';
-                    }
-                    else
-                    {
-                        while (v && tmp_pos < 16)
-                        {
-                            tmp[tmp_pos++] = HEX[v & 0xF];
-                            v >>= 4;
-                        }
+                        tmp[tmp_pos++] = hex[v & 0xF];
+                        v >>= 4;
                     }
                 }
 
@@ -606,15 +586,15 @@ int k_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)
             case 'p':
             {
                 void *ptr = va_arg(ap, void *);
-                unsigned int v = (unsigned int)ptr;
-                static const char HEX[] = "0123456789abcdef";
+                uintptr_t v = (uintptr_t)ptr;
+                static const char hex[] = "0123456789abcdef";
 
                 PUT_CHAR('0');
                 PUT_CHAR('x');
 
-                for (int i = 7; i >= 0; i--)
+                for (int i = (sizeof(void*) * 2) - 1; i >= 0; i--)
                 {
-                    PUT_CHAR(HEX[(v >> (i * 4)) & 0xF]);
+                    PUT_CHAR(hex[(v >> (i * 4)) & 0xF]);
                 }
                 break;
             }
