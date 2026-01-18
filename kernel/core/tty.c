@@ -56,7 +56,7 @@ static int tty_is_active(const struct tty *tty)
 
 static bool tty_input_available(void *obj)
 {
-    struct tty *tty = (struct tty *)obj;
+    struct tty *tty = (struct tty *) obj;
     return (tty->in_head - tty->in_tail) != 0;
 }
 
@@ -71,14 +71,14 @@ static int tty_open(struct file *file)
         return -1;
     }
 
-    uintptr_t marker = (uintptr_t)file->driver_data;
+    uintptr_t marker = (uintptr_t) file->driver_data;
 
     /* Check if it's a special marker */
-    if (marker <= 3)
+    if (marker <= TTY_MARKER_STDERR)
     {
         struct task *curr = sched_current();
 
-        if (marker >= 1 && marker <= 3)  /* stdin/stdout/stderr */
+        if (marker >= 1 && marker <= TTY_MARKER_STDERR)
         {
             file->driver_data = (curr && curr->ctty) ? curr->ctty : tty_active();
         }
@@ -99,7 +99,7 @@ static int tty_open(struct file *file)
 
 static int tty_close(struct file *file)
 {
-    (void)file;
+    (void) file;
     return 0;
 }
 
@@ -110,7 +110,7 @@ static ssize_t tty_read(struct file *file, void *buf, size_t count)
         return -1;
     }
 
-    struct tty *tty = (struct tty *)file->driver_data;
+    struct tty *tty = (struct tty *) file->driver_data;
     if (tty == NULL)
     {
         return -1;
@@ -124,7 +124,7 @@ static ssize_t tty_read(struct file *file, void *buf, size_t count)
         available = count;
     }
 
-    char *cbuf = (char *)buf;
+    char *cbuf = (char *) buf;
     for (size_t i = 0; i < available; i++)
     {
         size_t idx = (tty->in_tail + i) & TTY_INPUT_BUF_MASK;
@@ -133,7 +133,7 @@ static ssize_t tty_read(struct file *file, void *buf, size_t count)
 
     tty->in_tail += available;
 
-    return (ssize_t)available;
+    return (ssize_t) available;
 }
 
 static ssize_t tty_write(struct file *file, const void *buf, size_t count)
@@ -143,13 +143,13 @@ static ssize_t tty_write(struct file *file, const void *buf, size_t count)
         return -1;
     }
 
-    struct tty *tty = (struct tty *)file->driver_data;
+    struct tty *tty = (struct tty *) file->driver_data;
     if (tty == NULL)
     {
         return -1;
     }
 
-    const char *cbuf = (const char *)buf;
+    const char *cbuf = (const char *) buf;
     size_t written = 0;
 
     while (written < count)
@@ -181,7 +181,7 @@ static ssize_t tty_write(struct file *file, const void *buf, size_t count)
         }
     }
 
-    return (ssize_t)written;
+    return (ssize_t) written;
 }
 
 struct dev_ops tty_dev_ops = {
@@ -222,8 +222,8 @@ void tty_input_put(struct tty *tty, char c)
 
 static void tty_keyboard_handler(char value, enum keyboard_code code, bool ctrl, bool alt, bool shift)
 {
-    (void)ctrl;
-    (void)shift;
+    (void) ctrl;
+    (void) shift;
 
     struct tty *active = tty_active();
 
@@ -237,7 +237,7 @@ static void tty_keyboard_handler(char value, enum keyboard_code code, bool ctrl,
     {
         if (code >= KEY_F1 && code <= KEY_F12)
         {
-            size_t tty_idx = (size_t)(code - KEY_F1);
+            size_t tty_idx = (size_t) (code - KEY_F1);
 
             if (tty_idx < TTY_COUNT)
             {
