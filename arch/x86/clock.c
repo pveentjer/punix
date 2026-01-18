@@ -24,15 +24,10 @@ static inline uint8_t bcd(uint8_t v)
     return (v & 0x0F) + ((v >> 4) * 10);
 }
 
-/* ------------------------------------------------------------
- * Serialized RDTSC
- * ------------------------------------------------------------ */
-
 static inline uint64_t rdtsc(void)
 {
     uint32_t lo, hi;
     __asm__ volatile(
-            "lfence\n\t"
             "rdtsc"
             : "=a"(lo), "=d"(hi)
             :
@@ -45,9 +40,7 @@ static inline uint64_t rdtsc(void)
  * CPUID helpers
  * ------------------------------------------------------------ */
 
-static inline void cpuid(uint32_t leaf,
-                         uint32_t *a, uint32_t *b,
-                         uint32_t *c, uint32_t *d)
+static inline void cpuid(uint32_t leaf, uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d)
 {
     __asm__ volatile(
             "cpuid"
@@ -155,7 +148,8 @@ static uint64_t calibrate_tsc_pit(void)
     outb(PIT_SPKR, (spkr & 0xFC) | 0x01);
 
     /* Small delay for PIT to start */
-    for (volatile int i = 0; i < 1000; i++);
+    for (volatile int i = 0; i < 1000; i++)
+    {}
 
     uint64_t t0 = rdtsc();
 
@@ -210,8 +204,8 @@ int kclock_gettime(int clk_id, struct timespec *tp)
         case CLOCK_MONOTONIC:
         {
             uint64_t tsc = rdtsc();
-            tp->tv_sec = (uint32_t)(tsc / tsc_hz);
-            tp->tv_nsec = (uint32_t)(((tsc % tsc_hz) * 1000000000ULL) / tsc_hz);
+            tp->tv_sec = (uint32_t) (tsc / tsc_hz);
+            tp->tv_nsec = (uint32_t) (((tsc % tsc_hz) * 1000000000ULL) / tsc_hz);
             return 0;
         }
 
@@ -219,9 +213,9 @@ int kclock_gettime(int clk_id, struct timespec *tp)
         {
             uint64_t now = rdtsc();
             uint64_t delta = now - boot_tsc;
-            tp->tv_sec = (uint32_t)(delta / tsc_hz);
+            tp->tv_sec = (uint32_t) (delta / tsc_hz);
 
-            tp->tv_nsec = (uint32_t)(((delta % tsc_hz) * 1000000000ULL) / tsc_hz);
+            tp->tv_nsec = (uint32_t) (((delta % tsc_hz) * 1000000000ULL) / tsc_hz);
             return 0;
         }
 
@@ -233,8 +227,8 @@ int kclock_gettime(int clk_id, struct timespec *tp)
             uint64_t rem = delta % tsc_hz;
             uint64_t nsec = (rem * 1000000000ULL) / tsc_hz;
 
-            tp->tv_sec = boot_epoch_sec + (uint32_t)sec;
-            tp->tv_nsec = (uint32_t)nsec;
+            tp->tv_sec = boot_epoch_sec + (uint32_t) sec;
+            tp->tv_nsec = (uint32_t) nsec;
             return 0;
         }
 
