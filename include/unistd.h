@@ -22,6 +22,8 @@ void sched_yield(void);
 
 void exit(int status);
 
+void _exit(int status);
+
 int nice(int inc);
 
 pid_t waitpid(pid_t pid, int *status, int options);

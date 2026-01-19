@@ -20,6 +20,7 @@
 #define SYS_nice            34
 #define SYS_kill            37
 #define SYS_brk             45
+#define SYS__exit           60
 #define SYS_sigaction       67
 #define SYS_stat            106
 #define SYS_lstat           107

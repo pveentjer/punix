@@ -164,6 +164,8 @@ pid_t sched_getpid(void);
 
 void sched_exit(int status);
 
+void sched__exit(int status);
+
 void ctx_setup_trampoline(struct cpu_ctx *cpu_ctx, const struct trampoline *trampoline);
 
 int ctx_switch(struct cpu_ctx *current, struct cpu_ctx *next, struct mm *mm);

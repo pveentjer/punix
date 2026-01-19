@@ -197,7 +197,7 @@ void page_fault_handler(uint32_t err)
             struct sigaction *sa = &current->signal.sigactions[SIGSEGV];
             if (sa == NULL || sa->sa_handler == SIG_DFL)
             {
-                sched_exit(128 + SIGSEGV);
+                sched__exit(128 + SIGSEGV);
             }
             else if (sa->sa_handler == SIG_IGN)
             {

@@ -85,6 +85,10 @@ uint32_t sys_enter_dispatch_c(uint32_t nr, uint32_t a1, uint32_t a2, uint32_t a3
             sched_exit((int) a1);
             __builtin_unreachable();
 
+        case SYS__exit:
+            sched__exit((int) a1);
+            __builtin_unreachable();
+
         case SYS_kill:
             result = (uint32_t) sched_kill((pid_t) a1, (int) a2);
             break;

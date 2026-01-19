@@ -74,6 +74,12 @@ void sched_enqueue(struct task *task)
 
 void sched_exit(int status)
 {
+    // for the time being just forward to the _exit
+    sched__exit(status);
+}
+
+void sched__exit(int status)
+{
     struct task *current = sched.current;
     if (current == NULL)
     {

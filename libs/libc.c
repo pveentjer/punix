@@ -702,6 +702,11 @@ void exit(int status)
     (void)__syscall1(SYS_exit, (uint32_t)status);
 }
 
+void _exit(int status)
+{
+    (void)__syscall1(SYS__exit, (uint32_t)status);
+}
+
 int kill(pid_t pid, int sig)
 {
     return (int)__syscall2(SYS_kill,
