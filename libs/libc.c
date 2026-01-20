@@ -732,6 +732,20 @@ int setctty(int tty_id)
     return (int)__syscall1(SYS_setctty, (uint32_t)tty_id);
 }
 
+int ioctl(int fd, unsigned long request, ...)
+{
+    va_list ap;
+    uintptr_t arg = 0;
+
+    va_start(ap, request);
+    arg = (uintptr_t)va_arg(ap, void *);
+    va_end(ap);
+
+    return (int)__syscall3(SYS_ioctl,
+                           (uint32_t)fd,
+                           (uint32_t)request,
+                           (uint32_t)arg);
+}
 
 pid_t waitpid(pid_t pid, int *status, int options)
 {
